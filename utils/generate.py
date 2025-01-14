@@ -1,5 +1,5 @@
 import json
-def generate(messages, client, model, json_format=False, temperature=0.7):
+def generate(messages, client, model, json_format=False, temperature=0):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
