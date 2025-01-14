@@ -3,7 +3,7 @@ def evaluate_with_rubric(response, task, rubric, generate):
     full_prompt =  (
                   "###Task Description:\n"
                   "An instruction (might include an Input inside it), a response to evaluate, and a score rubric representing an evaluation criteria are given.\n"
-                  "1. Write a score that is an integer between 1 and 10. You should refer directly and accurately to the score rubric. 간주X\n"
+                  "1. Write a score that is an integer between 1 and 10. You should refer directly and accurately to the score rubric. \n"
                   "2. The single output format should be json as follows: "
                   '"{\"Score\": (an integer number between 1 and 10)}"\n'
                   "###Response:\n"
