@@ -22,6 +22,7 @@ parser.add_argument("--test-case", type=str, help="Path to the test case JSON fi
 parser.add_argument("--jailbreak-tactic", type=str, help="The jailbreak tactic to use", default="crescendomation")
 args = parser.parse_args()
 
+
 target_client = openai.OpenAI(base_url=args.target_base_url)
 target_model = args.target_model
 target_generate = lambda messages, **kwargs: generate(messages, client=target_client, model=target_model, **kwargs)
