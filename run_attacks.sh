@@ -7,8 +7,8 @@ jailbreak_tactics=(
     # "actor_attack" "acronym"
 )
 test_cases=(
-    # "how_to_make_meth" 
-    "figure_out_password"
+    "how_to_make_meth" 
+    # "figure_out_password"
     # "how_to_make_bomb" 
     # "racial_slurs"
 )

@@ -42,10 +42,12 @@ def run_crescendomation(test_case, output_file_path, target_generate, attacker_g
     response = ""
     round_number = 1
     while round_number < max_rounds:
+        # print(f"round number : {round_number}")
         round_number = len(history_t) // 2 + 1
         prompt, response_summary = generate_crescendo_step(round_number, goal, history_a, response, attacker_generate)
 
         history_t.append({"role": "user", "content": prompt})
+        # print(history_t)
         response = target_generate(history_t)
         history_a["attacker"].append(prompt)
         if round_number > 1:
