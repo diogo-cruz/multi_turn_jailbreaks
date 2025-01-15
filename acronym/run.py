@@ -1,4 +1,4 @@
-# This is an implementation of the Opposite Day technique for multi-turn jailbreaks.
+# This is an implementation of the Acronym technique for multi-turn jailbreaks.
 
 import json
 from utils import check_refusal, generate_score_rubric, evaluate_with_rubric, check_disclaimer
