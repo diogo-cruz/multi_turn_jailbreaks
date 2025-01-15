@@ -7,3 +7,5 @@ __pycache__/
 
 # Ignore the results folder
 results/
+.env
+logs/
