@@ -33,11 +33,11 @@ def run_crescendomation(test_case, output_file_path, target_generate, attacker_g
 
     history_a = {
         "round_number": [],
-        "attacker": [],
-        "target": [],
+        "attacker": [],  # save the attacker's prompts 
+        "target": [],  # save the summarized target's responses
         "score": []
     }
-    history_t = [{"role": "system", "content": target_system}]
+    history_t = [{"role": "system", "content": target_system}] # history of the chat with the target system
     C_refused = 0
     response = ""
     round_number = 1

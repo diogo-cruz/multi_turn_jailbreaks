@@ -7,14 +7,16 @@ jailbreak_tactics=(
     # "actor_attack" "acronym"
 )
 test_cases=(
-    "how_to_make_meth" 
-    # "figure_out_password" "how_to_make_bomb" "racial_slurs"
+    # "how_to_make_meth" 
+    "figure_out_password"
+    # "how_to_make_bomb" 
+    # "racial_slurs"
 )
 target_models=(
-    "gpt-4o-mini-2024-07-18"
+    # "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
-    # "meta-llama/llama-3.2-1b-instruct"
+    "meta-llama/llama-3.2-1b-instruct"
 )
 
 # Static values
