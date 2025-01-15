@@ -7,3 +7,6 @@ __pycache__/
 
 # Ignore the results folder
 results/
+
+# Ignore .env
+.env
