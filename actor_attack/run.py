@@ -1,5 +1,5 @@
 import json
-from .prompt_multi_turn import (
+from .prompts import (
     EXTRACT_PROMPT,
     NETWORK_PROMPT,
     ACTOR_PROMPT,
