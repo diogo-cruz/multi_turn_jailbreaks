@@ -2,7 +2,7 @@
 
 import json
 from utils import check_refusal, generate_score_rubric, evaluate_with_rubric, check_disclaimer
-from .prompts import ACRONYM_SYSTEM_PROMPT
+from .prompt_multi_turn import ACRONYM_SYSTEM_PROMPT
 
 def generate_acronym_step(round_num, task, history_a, last_response, attacker_generate):
     messages = [
