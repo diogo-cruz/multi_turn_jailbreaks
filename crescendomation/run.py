@@ -6,6 +6,8 @@ from utils import check_refusal, generate_score_rubric, evaluate_with_rubric
 from .prompt_multi_turn import CRESCENDO_SYSTEM_PROMPT
 
 
+
+
 def generate_crescendo_step(
     round_num, task, history_a, last_response, attacker_generate
 ):
