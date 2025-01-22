@@ -3,15 +3,17 @@ import datetime
 import argparse
 import openai
 import json
+import importlib
 from dotenv import load_dotenv
 from utils import generate
-from jailbreaks.crescendomation.run import run_crescendomation
-from jailbreaks.opposite_day.run import run_opposite_day
-from jailbreaks.actor_attack.run import run_actor_attack
-from jailbreaks.acronym.run import run_acronym
 
 # Load the API keys from the .env file
 load_dotenv()
+
+# Get available jailbreak tactics
+JAILBREAK_TACTICS = [d for d in os.listdir('jailbreaks') 
+                    if os.path.isdir(os.path.join('jailbreaks', d)) and 
+                    os.path.exists(os.path.join('jailbreaks', d, 'run.py'))]
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -35,6 +37,7 @@ parser.add_argument(
     "--jailbreak-tactic",
     type=str,
     help="The jailbreak tactic to use",
+    choices=JAILBREAK_TACTICS,
     default="crescendomation",
 )
 args = parser.parse_args()
@@ -71,13 +74,10 @@ print("Generated Output file path:", output_file_path)
 with open(output_file_path, "w") as f:
     f.write(json.dumps(args.__dict__ | test_case) + "\n")
 
-if args.jailbreak_tactic == "opposite_day":
-    run_opposite_day(test_case, output_file_path, target_generate, attacker_generate)
-elif args.jailbreak_tactic == "crescendomation":
-    run_crescendomation(test_case, output_file_path, target_generate, attacker_generate)
-elif args.jailbreak_tactic == "actor_attack":
-    run_actor_attack(test_case, output_file_path, target_generate, attacker_generate)
-elif args.jailbreak_tactic == "acronym":
-    run_acronym(test_case, output_file_path, target_generate, attacker_generate)
-else:
-    raise ValueError(f"Invalid jailbreak tactic: {args.jailbreak_tactic}")
+# Dynamically import and run the selected jailbreak tactic
+try:
+    jailbreak_module = importlib.import_module(f"jailbreaks.{args.jailbreak_tactic}.run")
+    run_function = getattr(jailbreak_module, f"run_{args.jailbreak_tactic}")
+    run_function(test_case, output_file_path, target_generate, attacker_generate)
+except (ImportError, AttributeError) as e:
+    raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}': {str(e)}")
