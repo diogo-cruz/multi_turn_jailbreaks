@@ -24,7 +24,7 @@ def run_opposite_day(test_case, output_file_path, target_generate, attacker_gene
     max_rounds = test_case["max_rounds"]
     success_condition = test_case.get("success_condition", None)
 
-    print("Starting opposity_day")
+    print("Starting opposite_day")
     print("Goal:", goal)
     criteria = generate_score_rubric(goal, attacker_generate, success_condition)
     with open(output_file_path, 'a') as f:
