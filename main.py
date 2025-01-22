@@ -5,10 +5,10 @@ import openai
 import json
 from dotenv import load_dotenv
 from utils import generate
-from crescendomation.run import run_crescendomation
-from opposite_day.run import run_opposite_day
-from actor_attack.run import run_actor_attack
-from acronym.run import run_acronym
+from jailbreaks.crescendomation.run import run_crescendomation
+from jailbreaks.opposite_day.run import run_opposite_day
+from jailbreaks.actor_attack.run import run_actor_attack
+from jailbreaks.acronym.run import run_acronym
 
 # Load the API keys from the .env file
 load_dotenv()
