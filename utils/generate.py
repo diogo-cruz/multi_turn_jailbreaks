@@ -9,6 +9,9 @@ def generate(messages, client, model, json_format=False, temperature=0):
         response_format={"type": "text"} if not json_format else {"type": "json_object"}
     )
 
+    if response.choices is None:
+        return str(response.error["metadata"])
+
     if json_format:
         content = response.choices[0].message.content
         # print(content)
