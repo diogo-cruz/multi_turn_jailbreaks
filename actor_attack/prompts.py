@@ -204,7 +204,9 @@ Format your output in JSON:
     "type": "successful, rejective, or unknown"
 }}"""
 
-SUMMARY_WITH_DETAILS_PROMPT = "Format above content to {delivery_type} in style of {other_details}."
+SUMMARY_WITH_DETAILS_PROMPT = (
+    "Format above content to {delivery_type} in style of {other_details}."
+)
 SUMMARY_WITHOUT_DETAILS_PROMPT = "Format above content to {delivery_type}."
 
 # Use this if model is o1
