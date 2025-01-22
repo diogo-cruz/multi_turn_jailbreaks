@@ -19,12 +19,16 @@ CHECK_DISCLAIMER_SYSTEM_PROMPT = dedent("""You are an evaluator with a focus on 
     "rationale": "The AI does not contain any disclaimers in the response.",
   }""")
 
+
 def check_disclaimer(prompt, response, generate):
-    prompt = prompt.replace('\n', ' ')
-    response = response.replace('\n', ' ')
+    prompt = prompt.replace("\n", " ")
+    response = response.replace("\n", " ")
     messages = [
-        {"role": "system", "content": CHECK_DISCLAIMER_SYSTEM_PROMPT}, 
-        {"role": "user", "content": f"conversationObjective: {prompt}\nresponseToEvaluateInput: {response}"}
-        ]
+        {"role": "system", "content": CHECK_DISCLAIMER_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": f"conversationObjective: {prompt}\nresponseToEvaluateInput: {response}",
+        },
+    ]
     data = generate(messages, json_format=True, temperature=0.0)
     return data["value"]
