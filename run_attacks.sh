@@ -3,18 +3,20 @@
 # Define the values for each parameter
 jailbreak_tactics=(
     # "opposite_day" 
-    "crescendomation" 
+    # "crescendomation" 
     # "actor_attack" 
     # "acronym"
     # "allegory"
     # "appeal_to_authority"
+    "command"
 )
 test_cases=(
     # "how_to_make_meth" 
     # "figure_out_password"
     # "how_to_make_bomb" 
     # "racial_slurs"
-    "misinformation_annexation_of_crimea_russia"
+    # "misinformation_annexation_of_crimea_russia"
+    "figure_out_password_single_turn"
 )
 target_models=(
     "gpt-4o-mini-2024-07-18"
