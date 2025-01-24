@@ -4,19 +4,23 @@
 jailbreak_tactics=(
     # "opposite_day" 
     "crescendomation" 
-    # "actor_attack" "acronym"
+    # "actor_attack" 
+    # "acronym"
+    # "allegory"
+    # "appeal_to_authority"
 )
 test_cases=(
-    "how_to_make_meth" 
+    # "how_to_make_meth" 
     # "figure_out_password"
     # "how_to_make_bomb" 
     # "racial_slurs"
+    "misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    # "gpt-4o-mini-2024-07-18"
+    "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
-    "meta-llama/llama-3.2-1b-instruct"
+    # "meta-llama/llama-3.2-1b-instruct"
 )
 
 # Static values

@@ -29,7 +29,7 @@ def generate_crescendo_step(
 
 
 def run_crescendomation(
-    test_case, output_file_path, target_generate, attacker_generate
+    test_case, output_file_path, target_generate, attacker_generate, PAIR=False
 ):
     goal = test_case["task"]
     target_system = test_case["target_system"]
