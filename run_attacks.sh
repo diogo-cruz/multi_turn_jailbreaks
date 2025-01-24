@@ -24,7 +24,7 @@ target_models=(
 )
 
 # Static values
-# attacker_model="gpt-4o"
+attacker_model="gpt-4o-mini-2024-07-18"
 target_base_url="https://openrouter.ai/api/v1"
 attacker_base_url="https://openrouter.ai/api/v1"
 
@@ -38,7 +38,7 @@ for tactic in "${jailbreak_tactics[@]}"; do
                 "--jailbreak-tactic \"$tactic\""
                 "--test-case \"$test_case\""
                 "--target-model \"$target_model\""
-                "--attacker-model \"$target_model\""
+                "--attacker-model \"$attacker_model\""
                 "--target-base-url \"$target_base_url\""
                 "--attacker-base-url \"$attacker_base_url\""
             )
