@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import SYNONYM_SYSTEM_PROMPT
+from .prompt_multi_turn import SYNONYM_SYSTEM_PROMPT
 
 
 def generate_synonym_step(round_num, task, history_a, last_response, attacker_generate):

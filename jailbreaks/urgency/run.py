@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import URGENCY_SYSTEM_PROMPT
+from .prompt_multi_turn import URGENCY_SYSTEM_PROMPT
 
 
 def generate_urgency_step(round_num, task, history_a, last_response, attacker_generate):

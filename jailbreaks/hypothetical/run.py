@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import HYPOTHETICAL_SYSTEM_PROMPT
+from .prompt_multi_turn import HYPOTHETICAL_SYSTEM_PROMPT
 
 
 def generate_hypothetical_step(

@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import FALSE_PREMISE_SYSTEM_PROMPT
+from .prompt_multi_turn import FALSE_PREMISE_SYSTEM_PROMPT
 
 
 def generate_false_premise_step(

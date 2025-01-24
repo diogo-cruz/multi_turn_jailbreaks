@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import NARRATION_SYSTEM_PROMPT
+from .prompt_multi_turn import NARRATION_SYSTEM_PROMPT
 
 
 def generate_narration_step(

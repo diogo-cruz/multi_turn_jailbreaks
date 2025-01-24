@@ -7,7 +7,8 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import CROWDING_SYSTEM_PROMPT
+from .prompt_multi_turn import CROWDING_SYSTEM_PROMPT as CROUWDING_SYSTEM_PROMPT_MULTI_TURN
+from .prompt_single_turn import CROWDING_SYSTEM_PROMPT as CROWDING_SYSTEM_PROMPT_SINGLE_TURN
 
 
 def generate_crowding_step(

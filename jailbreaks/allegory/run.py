@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import ALLEGORY_SYSTEM_PROMPT
+from .prompt_multi_turn import ALLEGORY_SYSTEM_PROMPT
 
 
 def generate_allegory_step(

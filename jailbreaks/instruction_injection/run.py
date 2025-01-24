@@ -2,7 +2,7 @@
 
 import json
 from utils import check_refusal, generate_score_rubric, evaluate_with_rubric
-from .prompts import OPPOSITE_DAY_SYSTEM_PROMPT
+from .prompt_multi_turn import OPPOSITE_DAY_SYSTEM_PROMPT
 
 
 def generate_opposite_day_step(

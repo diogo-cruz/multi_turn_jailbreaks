@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import HIDDEN_INTENTION_STREAMLINE_SYSTEM_PROMPT
+from .prompt_multi_turn import HIDDEN_INTENTION_STREAMLINE_SYSTEM_PROMPT
 
 
 def generate_hidden_intention_streamline_step(

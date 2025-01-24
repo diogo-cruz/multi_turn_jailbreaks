@@ -7,7 +7,7 @@ from utils import (
     evaluate_with_rubric,
     check_disclaimer,
 )
-from .prompts import ROLEPLAY_SYSTEM_PROMPT
+from .prompt_multi_turn import ROLEPLAY_SYSTEM_PROMPT
 
 
 def generate_roleplay_step(
