@@ -15,6 +15,10 @@ JAILBREAK_TACTICS = [d for d in os.listdir('jailbreaks')
                     if os.path.isdir(os.path.join('jailbreaks', d)) and 
                     os.path.exists(os.path.join('jailbreaks', d, 'run.py'))]
 
+# Get available test cases
+TEST_CASES = [d for d in os.listdir('test_cases') 
+              if os.path.isdir(os.path.join('test_cases', d))]
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--target-base-url", type=str, help="The target model's base URL for the OpenAI API"
@@ -31,7 +35,16 @@ parser.add_argument(
     "--attacker-model", type=str, help="The attacker model name", default="gpt-4o"
 )
 parser.add_argument(
-    "--test-case", type=str, help="Path to the test case JSON file", required=True
+    "--test-case", 
+    type=str, 
+    help="Name of the test case to run", 
+    choices=TEST_CASES,
+    required=True
+)
+parser.add_argument(
+    "--single-turn",
+    action="store_true",
+    help="Run single-turn version of the test case instead of multi-turn"
 )
 parser.add_argument(
     "--jailbreak-tactic",
@@ -59,13 +72,18 @@ def attacker_generate(messages, **kwargs):
     return generate(messages, client=attacker_client, model=attacker_model, **kwargs)
 
 
-with open(f"./test_cases/{args.test_case}.json", "r") as f:
+# Load the appropriate test case file based on whether it's single or multi turn
+test_case_file = "single_turn.json" if args.single_turn else "multi_turn.json"
+test_case_path = os.path.join("test_cases", args.test_case, test_case_file)
+
+with open(test_case_path, "r") as f:
     test_case = json.load(f)
 
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+turn_type = "single_turn" if args.single_turn else "multi_turn"
 
 output_file_path = (
-    f"./results/{args.jailbreak_tactic}_{args.test_case}_{current_time}.jsonl"
+    f"./results/{args.jailbreak_tactic}_{args.test_case}_{turn_type}_{current_time}.jsonl"
 )
 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 print("Generated Output file path:", output_file_path)
