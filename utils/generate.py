@@ -2,7 +2,7 @@ import json
 import re
 
 
-def generate(messages, client, model, json_format=False, temperature=0):
+def generate(messages, client, model, temperature=0, top_p=1, json_format=False):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -10,6 +10,7 @@ def generate(messages, client, model, json_format=False, temperature=0):
         response_format={"type": "text"}
         if not json_format
         else {"type": "json_object"},
+        top_p=top_p,
     )
 
     if response.choices is None:

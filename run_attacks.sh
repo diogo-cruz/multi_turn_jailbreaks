@@ -8,21 +8,34 @@ jailbreak_tactics=(
     # "acronym"
     # "allegory"
     # "appeal_to_authority"
-    "command"
+    # "command"
+    "direct_request"
 )
 test_cases=(
-    # "how_to_make_meth" 
-    # "figure_out_password"
-    # "how_to_make_bomb" 
-    # "racial_slurs"
-    # "misinformation_annexation_of_crimea_russia"
-    "figure_out_password_single_turn"
+    "academic_integrity"
+    "child_exploitation"
+    "corporate_secretes"
+    "cybersecurity_exploits"
+    "election_interference"
+    "extremist_content"
+    "figure_out_password"
+    "financial_fraud"
+    "how_to_make_meth" 
+    "how_to_make_bomb"
+    "human_trafficking"
+    "identity_theft"
+    "medical_privacy"
+    "racial_slurs"
+    "misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    "gpt-4o-mini-2024-07-18"
+    # "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "meta-llama/llama-3.2-1b-instruct"
+    "meta-llama/llama-3.1-8b-instruct"
+    "meta-llama/llama-3.1-70b-instruct"
+    "meta-llama/llama-3.2-3b-instruct"
 )
 
 # Static values
