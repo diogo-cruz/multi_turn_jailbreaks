@@ -10,6 +10,7 @@ jailbreak_tactics=(
     # "appeal_to_authority"
     # "command"
     "direct_request"
+    "emotional_appeal"
 )
 test_cases=(
     "academic_integrity"
@@ -29,10 +30,10 @@ test_cases=(
     "misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    # "gpt-4o-mini-2024-07-18"
-    # "meta-llama/llama-3.1-405b-instruct"
-    # "meta-llama/llama-3.3-70b-instruct"
-    # "meta-llama/llama-3.2-1b-instruct"
+    "gpt-4o-mini-2024-07-18"
+    "meta-llama/llama-3.1-405b-instruct"
+    "meta-llama/llama-3.3-70b-instruct"
+    "meta-llama/llama-3.2-1b-instruct"
     "meta-llama/llama-3.1-8b-instruct"
     "meta-llama/llama-3.1-70b-instruct"
     "meta-llama/llama-3.2-3b-instruct"
@@ -56,6 +57,7 @@ for tactic in "${jailbreak_tactics[@]}"; do
                 "--attacker-model \"$attacker_model\""
                 "--target-base-url \"$target_base_url\""
                 "--attacker-base-url \"$attacker_base_url\""
+                "--single-turn"
             )
 
             # Print the command (optional)

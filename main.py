@@ -87,7 +87,7 @@ output_file_path = (
 )
 # target_model_name = args.target_model.split("/")[-1]
 # output_file_path = (
-#     f"./results/jaeha/{args.jailbreak_tactic}_{args.test_case}_{turn_type}_{target_model_name}_deterministic.jsonl"
+#     f"./results/jaeha/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{turn_type}_{target_model_name}_deterministic.jsonl"
 # )
 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 print("Generated Output file path:", output_file_path)
