@@ -27,12 +27,18 @@ parser.add_argument(
     "--target-model", type=str, help="The target model name", default="gpt-4o"
 )
 parser.add_argument(
+    "--target-temp", type=float, help="The temperature to use for the target model", default=0.0
+)
+parser.add_argument(
     "--attacker-base-url",
     type=str,
     help="The attacker model's base URL for the OpenAI API",
 )
 parser.add_argument(
     "--attacker-model", type=str, help="The attacker model name", default="gpt-4o"
+)
+parser.add_argument(
+    "--attacker-temp", type=float, help="The temperature to use for the attacker model", default=0.0
 )
 parser.add_argument(
     "--test-case", 
@@ -58,18 +64,21 @@ args = parser.parse_args()
 
 target_client = openai.OpenAI(base_url=args.target_base_url)
 target_model = args.target_model
+target_temp = args.target_temp
 
 
 def target_generate(messages, **kwargs):
-    return generate(messages, client=target_client, model=target_model, **kwargs)
+    return generate(messages, client=target_client, model=target_model, temperature=target_temp, **kwargs)
 
 
 attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
 attacker_model = args.attacker_model
+attacker_temp = args.attacker_temp
 
 
-def attacker_generate(messages, **kwargs):
-    return generate(messages, client=attacker_client, model=attacker_model, **kwargs)
+def attacker_generate(messages, temperature=attacker_temp, **kwargs):
+    return generate(messages, client=attacker_client, model=attacker_model, 
+    temperature=temperature, **kwargs)
 
 
 # Load the appropriate test case file based on whether it's single or multi turn

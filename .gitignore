@@ -13,3 +13,6 @@ results/
 
 # Ignore logs
 logs/
+
+# VS Code
+.vscode/
