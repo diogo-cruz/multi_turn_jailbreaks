@@ -40,7 +40,11 @@ target_models=(
 )
 temperatures=(
     "0.0"
-    "1.0"
+    # "1.0"
+)
+turn_types=(
+    "single_turn"
+    "multi_turn"
 )
 
 # Static values
@@ -53,25 +57,27 @@ for tactic in "${jailbreak_tactics[@]}"; do
     for test_case in "${test_cases[@]}"; do
         for target_model in "${target_models[@]}"; do
             for temp in "${temperatures[@]}"; do
-            # Construct the command
-                command=(
-                    "python main.py"
-                    "--jailbreak-tactic \"$tactic\""
-                    "--test-case \"$test_case\""
-                    "--target-model \"$target_model\""
-                    "--attacker-model \"$attacker_model\""
-                    "--target-base-url \"$target_base_url\""
-                    "--attacker-base-url \"$attacker_base_url\""
-                    "--target-temp $temp"
-                    "--attacker-temp $temp"
-                    "--single-turn"
-                )
+                for turn_type in "${turn_types[@]}"; do
+                    # Construct the command
+                    command=(
+                        "python main.py"
+                        "--jailbreak-tactic \"$tactic\""
+                        "--test-case \"$test_case\""
+                        "--target-model \"$target_model\""
+                        "--attacker-model \"$attacker_model\""
+                        "--target-base-url \"$target_base_url\""
+                        "--attacker-base-url \"$attacker_base_url\""
+                        "--target-temp $temp"
+                        "--attacker-temp $temp"
+                        "--turn-type \"$turn_type\""
+                    )
 
-                # Print the command (optional)
-                echo "Running: ${command[*]}"
+                    # Print the command (optional)
+                    echo "Running: ${command[*]}"
 
-                # Execute the command
-                eval "${command[*]}"
+                    # Execute the command
+                    eval "${command[*]}"
+                done
             done
         done
     done
