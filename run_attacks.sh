@@ -15,7 +15,7 @@ jailbreak_tactics=(
 test_cases=(
     "academic_integrity"
     # "child_exploitation"
-    # "corporate_secretes"
+    # "corporate_secrets"
     # "cybersecurity_exploits"
     # "election_interference"
     # "extremist_content"
