@@ -158,3 +158,86 @@ python main.py --jailbreak-tactic "acronym" --test-case "jewish_racial_slurs" --
 ## Contribution
 Please let us know if the implementation is wrong or if you have improvement ideas.
 Feel frue to add new attack methods.
+
+
+## Plotting Results
+
+The `plot_results.py` script provides visualization capabilities for analyzing model evaluation results stored in JSONL files. The script offers flexible options for creating both interactive and static plots to compare model performance across different configurations.
+
+### Basic Usage
+
+To generate plots from your results, run the script with the following basic syntax:
+
+```bash
+python plot_results.py [options]
+```
+
+### Command Line Options
+
+The script accepts several command-line arguments to customize the visualization:
+
+* `--results-dir PATH`: Specify the directory containing JSONL result files (default: ./results)
+* `--key STRING`: Filter result files by a specific key in their filename
+* `--turn-type {single,multi}`: Select the type of conversation turns to analyze (default: multi)
+* `--temp {0.0,1.0}`: Choose the temperature setting used in model evaluation (default: 0.0)
+* `--plot-type {model,run}`: Select the type of visualization:
+  * `model`: Compare performance across different models (default)
+  * `run`: Compare multiple runs of the same configuration
+* `--no-interactive-plot`: Generate static plots instead of interactive visualizations
+* `--goal-achieved-only`: Include only results where the evaluation goal was achieved
+* `--refused-only`: Include only results where the model refused at least once
+
+### Plot Types
+
+#### Model Comparison Plots
+
+The model comparison plot (`--plot-type model`) creates a grid of visualizations showing how different models perform across various test cases and jailbreak tactics (for results with the same jailbreak tactic, test case, turn type, target model and target temperature, only the most recent result based on the timestamp is selected for the plot). 
+
+When using interactive plots (default):
+- Each subplot shows the score progression over conversation rounds
+- A checkbox panel allows toggling individual model lines
+- The grid is organized by test case (columns) and jailbreak tactic (rows)
+
+For static plots (`--no-interactive-plot`):
+- Each subplot displays box plots showing score distributions for each model
+- Provides a statistical overview of model performance
+
+#### Run Comparison Plots
+
+The run comparison plot (`--plot-type run`) visualizes the consistency of results across multiple runs of the same configuration.
+
+Interactive version:
+- Creates separate subplots for each model
+- Shows score progression for each run
+- Includes checkboxes to toggle individual runs
+
+Static version:
+- Displays box plots comparing score distributions across different runs
+- Each subplot represents a different model
+
+### Examples
+
+Compare model performance with interactive visualization:
+```bash
+python plot_results.py --turn-type multi --temp 0.0 --plot-type model
+```
+
+Generate static box plots for multiple runs:
+```bash
+python plot_results.py --turn-type single --temp 1.0 --plot-type run --no-interactive-plot
+```
+
+Filter results by a specific keyword:
+```bash
+python plot_results.py --key crescendomation --plot-type model
+```
+
+Show only successful attempts:
+```bash
+python plot_results.py --goal-achieved-only --plot-type model
+```
+
+Show only attempts with refused rounds:
+```bash
+python plot_results.py --refused-only --plot-type model
+```
