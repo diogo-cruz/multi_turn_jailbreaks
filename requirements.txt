@@ -1,2 +1,4 @@
 openai==1.59.7
 python-dotenv==1.0.1
+matplotlib==3.10.0
+pandas==2.2.3

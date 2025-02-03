@@ -27,12 +27,18 @@ parser.add_argument(
     "--target-model", type=str, help="The target model name", default="gpt-4o"
 )
 parser.add_argument(
+    "--target-temp", type=float, help="The temperature to use for the target model", default=0.0
+)
+parser.add_argument(
     "--attacker-base-url",
     type=str,
     help="The attacker model's base URL for the OpenAI API",
 )
 parser.add_argument(
     "--attacker-model", type=str, help="The attacker model name", default="gpt-4o"
+)
+parser.add_argument(
+    "--attacker-temp", type=float, help="The temperature to use for the attacker model", default=0.0
 )
 parser.add_argument(
     "--test-case", 
@@ -42,9 +48,11 @@ parser.add_argument(
     required=True
 )
 parser.add_argument(
-    "--single-turn",
-    action="store_true",
-    help="Run single-turn version of the test case instead of multi-turn"
+    "--turn-type",
+    type=str,
+    help="Specify to run the single-turn version of the test case or the multi-turn",
+    choices=['single_turn', 'multi_turn'],
+    default='multi_turn'    
 )
 parser.add_argument(
     "--jailbreak-tactic",
@@ -58,32 +66,34 @@ args = parser.parse_args()
 
 target_client = openai.OpenAI(base_url=args.target_base_url)
 target_model = args.target_model
+target_temp = args.target_temp
 
 
 def target_generate(messages, **kwargs):
-    return generate(messages, client=target_client, model=target_model, **kwargs)
+    return generate(messages, client=target_client, model=target_model, temperature=target_temp, **kwargs)
 
 
 attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
 attacker_model = args.attacker_model
+attacker_temp = args.attacker_temp
 
 
-def attacker_generate(messages, **kwargs):
-    return generate(messages, client=attacker_client, model=attacker_model, **kwargs)
+def attacker_generate(messages, temperature=attacker_temp, **kwargs):
+    return generate(messages, client=attacker_client, model=attacker_model, 
+    temperature=temperature, **kwargs)
 
 
 # Load the appropriate test case file based on whether it's single or multi turn
-test_case_file = "single_turn.json" if args.single_turn else "multi_turn.json"
+test_case_file = f"{args.turn_type}.json"
 test_case_path = os.path.join("test_cases", args.test_case, test_case_file)
 
 with open(test_case_path, "r") as f:
     test_case = json.load(f)
 
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-turn_type = "single_turn" if args.single_turn else "multi_turn"
 
 output_file_path = (
-    f"./results/{args.jailbreak_tactic}_{args.test_case}_{turn_type}_{current_time}.jsonl"
+    f"./results/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
 )
 # target_model_name = args.target_model.split("/")[-1]
 # output_file_path = (

@@ -13,3 +13,12 @@ results/
 
 # Ignore logs
 logs/
+
+# VS Code
+.vscode/
+
+# DS_Store
+.DS_Store
+
+# jupyter notebook checkpoints
+.ipynb_checkpoints/
