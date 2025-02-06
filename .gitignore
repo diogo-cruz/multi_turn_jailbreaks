@@ -1,6 +1,7 @@
 # Ignore .pyc and .pyo files
 *.pyc
 *.pyo
+venv/
 
 # Ignore all __pycache__ directories
 __pycache__/
