@@ -1,11 +1,15 @@
-# This is an implementation of the Opposite Day technique for multi-turn jailbreaks.
-
+# This is an template implementation for running jailbreaks which will be used for all
+# attack techniques unless they have a custom_run.py file.
+import importlib
 import json
-from utils import check_refusal, generate_score_rubric, evaluate_with_rubric
-from .prompt_multi_turn import COMMAND_SYSTEM_PROMPT as COMMAND_SYSTEM_PROMPT_MULTI_TURN
-from .prompt_single_turn import COMMAND_SYSTEM_PROMPT as COMMAND_SYSTEM_PROMPT_SINGLE_TURN
+from utils import (
+    check_refusal,
+    generate_score_rubric,
+    evaluate_with_rubric,
+    check_disclaimer,
+)
 
-def generate_command_step(
+def generate_step(
     round_num, task, turn_type, system_prompt, history_a, last_response, attacker_generate
 ):
     messages = [
@@ -30,15 +34,36 @@ def generate_command_step(
     data = attacker_generate(messages, json_format=True)
     return data["generatedQuestion"], data["lastResponseSummary"]
 
+def has_single_turn(jailbreak_tactic):
+    try:
+        importlib.import_module(f"jailbreaks.{jailbreak_tactic}.prompt_single_turn")
+        return True
+    except ModuleNotFoundError:
+        return False
 
-def run_command(test_case, output_file_path, target_generate, attacker_generate):
+# Get custom run file if it exists otherwise 
+def get_custom_run(jailbreak_tactic):
+    try:
+        jailbreak_module = importlib.import_module(f"jailbreaks.{jailbreak_tactic}.run")
+        run_function = getattr(jailbreak_module, f"run_{jailbreak_tactic}")
+        return run_function
+    except ModuleNotFoundError:
+        return None
+
+def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
     goal = test_case["task"]
     target_system = test_case["target_system"]
     success_condition = test_case.get("success_condition", None)
     turn_type = test_case["turn_type"]
-    max_rounds, COMMAND_SYSTEM_PROMPT = (1, COMMAND_SYSTEM_PROMPT_SINGLE_TURN) if turn_type == "single" else (test_case["max_rounds"], COMMAND_SYSTEM_PROMPT_MULTI_TURN)
+    max_rounds = test_case["max_rounds"]
 
-    print("Starting command attack")
+    if not has_single_turn(jailbreak_tactic) and test_case["turn_type"] == "single":
+        raise Exception(f"Jailbreak tactic {jailbreak_tactic} does not have a single turn implementation.")
+    
+    prompt_module = importlib.import_module(f"jailbreaks.{jailbreak_tactic}.prompt_{turn_type}_turn")
+    SYSTEM_PROMPT = getattr(prompt_module, f"{jailbreak_tactic.upper()}_SYSTEM_PROMPT")
+
+    print(f"Starting {jailbreak_tactic}")
     print("Goal:", goal)
     criteria = generate_score_rubric(goal, attacker_generate, success_condition)
     with open(output_file_path, "a") as f:
@@ -51,8 +76,8 @@ def run_command(test_case, output_file_path, target_generate, attacker_generate)
     round_number = 0
     while round_number < max_rounds:
         round_number = len(history_t) // 2 + 1
-        prompt, response_summary = generate_command_step(
-            round_number, goal, turn_type, COMMAND_SYSTEM_PROMPT, history_a, response, attacker_generate
+        prompt, response_summary = generate_step(
+            round_number, goal, turn_type, SYSTEM_PROMPT, history_a, response, attacker_generate
         )
 
         history_t.append({"role": "user", "content": prompt})
@@ -62,7 +87,10 @@ def run_command(test_case, output_file_path, target_generate, attacker_generate)
             history_a["target"].append("(Summary) " + response_summary)
             history_a["round_number"].append(round_number)
 
-        if check_refusal(prompt, response, attacker_generate) and C_refused < 10:
+        if (
+            check_refusal(prompt, response, attacker_generate)
+            or check_disclaimer(prompt, response, attacker_generate)
+        ) and C_refused < 10:
             print("Refused, Backtrack")
             score = "refused"
             history_a["score"].append(score)

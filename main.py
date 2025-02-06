@@ -5,15 +5,14 @@ import openai
 import json
 import importlib
 from dotenv import load_dotenv
-from utils import generate
+from utils import generate, run
 
 # Load the API keys from the .env file
 load_dotenv()
 
 # Get available jailbreak tactics
 JAILBREAK_TACTICS = [d for d in os.listdir('jailbreaks') 
-                    if os.path.isdir(os.path.join('jailbreaks', d)) and 
-                    os.path.exists(os.path.join('jailbreaks', d, 'run.py'))]
+                    if os.path.isdir(os.path.join('jailbreaks', d))]
 
 # Get available test cases
 TEST_CASES = [d for d in os.listdir('test_cases') 
@@ -63,6 +62,10 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+if not run.has_single_turn(args.jailbreak_tactic) and args.turn_type == 'single_turn':
+    print(f"Skipping single turn for '{args.jailbreak_tactic}', as it does not have a single-turn implementation.")
+    # Exit the program
+    exit(0)
 
 target_client = openai.OpenAI(base_url=args.target_base_url)
 target_model = args.target_model
@@ -108,8 +111,12 @@ with open(output_file_path, "w") as f:
 
 # Dynamically import and run the selected jailbreak tactic
 try:
-    jailbreak_module = importlib.import_module(f"jailbreaks.{args.jailbreak_tactic}.run")
-    run_function = getattr(jailbreak_module, f"run_{args.jailbreak_tactic}")
-    run_function(test_case, output_file_path, target_generate, attacker_generate)
+    run_function = run.get_custom_run(args.jailbreak_tactic)
+    if run_function is None:
+        print("No custom run file found, using default.")
+        run.run_attack(test_case, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
+    else:
+        print("Custom run file found, using it.")
+        run_function(test_case, output_file_path, target_generate, attacker_generate)
 except (ImportError, AttributeError) as e:
     raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}': {str(e)}")
