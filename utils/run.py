@@ -1,5 +1,5 @@
 # This is an template implementation for running jailbreaks which will be used for all
-# attack techniques unless they have a custom_run.py file.
+# attack techniques unless they have a custom run.py file.
 import importlib
 import json
 from utils import (
@@ -41,7 +41,7 @@ def has_single_turn(jailbreak_tactic):
     except ModuleNotFoundError:
         return False
 
-# Get custom run file if it exists otherwise 
+# Get custom run file if it exists
 def get_custom_run(jailbreak_tactic):
     try:
         jailbreak_module = importlib.import_module(f"jailbreaks.{jailbreak_tactic}.run")
