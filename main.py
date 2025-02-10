@@ -92,13 +92,13 @@ with open(test_case_path, "r") as f:
 
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
-output_file_path = (
-    f"./results/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
-)
-# target_model_name = args.target_model.split("/")[-1]
 # output_file_path = (
-#     f"./results/jaeha/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{turn_type}_{target_model_name}_deterministic.jsonl"
+#     f"./results/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
 # )
+target_model_name = args.target_model.split("/")[-1]
+output_file_path = (
+    f"./results/jaeha/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{target_model_name}_deterministic.jsonl"
+)
 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 print("Generated Output file path:", output_file_path)
 

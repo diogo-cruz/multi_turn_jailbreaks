@@ -20,9 +20,10 @@ MODELS = [
 
 def get_results(filepath: Path) -> tuple:
     # Get the timestamp from the filename
-    timestamp_str = "_".join(filepath.stem.split("_")[-2:])
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
-
+    # timestamp_str = "_".join(filepath.stem.split("_")[-2:])
+    # timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
+    timestamp = datetime.strptime('2025-01-22_06:20:52', "%Y-%m-%d_%H:%M:%S")
+    
     with open(filepath, "r") as file:
         data = file.read()
 
@@ -34,7 +35,8 @@ def get_results(filepath: Path) -> tuple:
     test_case = data[0].get("test_case")
     turn_type = data[0].get("turn_type")
     target_model = data[0].get("target_model")
-    target_temp = data[0].get("target_temp")
+    # target_temp = data[0].get("target_temp")
+    target_temp = 0.0
     max_round = max(
         (entry.get("round", 0) for entry in data if "round" in entry), default=0
     )
@@ -71,9 +73,12 @@ def get_jsonl_filenames(results_dir: Path) -> list:
     return [f for f in results_dir.iterdir() if f.suffix == ".jsonl"]
 
 
-def get_filenames_for_key(results_dir: Path, key: str) -> list:
+def get_filenames_for_key(results_dir: Path, keys: list[str]) -> list:
     filenames = get_jsonl_filenames(results_dir)
-    return [f for f in filenames if key in f.name]
+    result = []
+    for key in keys[2:]:
+        result += [f for f in filenames if key in f.name and keys[0] in f.name and keys[1] in f.name]
+    return result
 
 
 def get_results_for_key(results_dir: Path, key: str) -> pd.DataFrame:
@@ -181,8 +186,11 @@ def create_interactive_grid_plot_with_label_model(df: pd.DataFrame) -> None:
     # Create plots for each combination
     for i, tactic in enumerate(tactics):
         for j, test in enumerate(test_cases):
-            ax = axes[i, j] if len(tactics) > 1 else axes[j]
-
+            if len(tactics) == 1 and len(test_cases) == 1:
+                ax = axes
+            else:
+                ax = axes[i, j] if len(tactics) > 1 else axes[j]
+            
             # Set title for each subplot
             ax.set_title(f"Using {tactic} on {test}", fontsize="small", pad=10)
 
@@ -207,7 +215,7 @@ def create_interactive_grid_plot_with_label_model(df: pd.DataFrame) -> None:
             ax.grid(True)
 
             # Add legend to lower right of each subplot
-            ax.legend(loc="lower right", fontsize="small")
+            # ax.legend(loc="lower right", fontsize="small")
 
     # Create checkbuttons
     rax = plt.axes([0.87, 0.4, 0.08, 0.2])
@@ -350,7 +358,7 @@ def create_interactive_grid_plot_with_label_run(df: pd.DataFrame) -> None:
         ax.set_title(target_model)
         ax.set_xlabel("Round")
         ax.set_ylabel("Score")
-        ax.legend(loc="lower right")
+        # ax.legend(loc="lower right")
         ax.yaxis.grid(True, linestyle="--", alpha=0.7)
 
     # Add checkbuttons for each subplot
@@ -459,7 +467,8 @@ def main():
     parser.add_argument(
         "--key",
         type=str,
-        default="",
+        nargs='*',  # zero or more arguments
+        default=[],  # default to empty list
         help="Filter results files by this key in their filename (default: no filter)",
     )
 
@@ -509,6 +518,7 @@ def main():
     args = parser.parse_args()
 
     df = get_results_for_key(args.results_dir, args.key)
+    print(f"{len(df)} data collected.")
 
     if df.empty:
         print("No data found matching the specified criteria")
@@ -519,12 +529,15 @@ def main():
     if args.refused_only:
         df = df[df["refused"] > 0]
 
-    mask = (df["turn_type"] == args.turn_type) & (df["target_temp"] == args.temp)
+    # mask = (df["turn_type"] == args.turn_type) & (df["target_temp"] == args.temp)
+    mask = (df["turn_type"] == args.turn_type)
     df = df[mask]
+    print(f"{len(df)} data remained.")
 
     try:
         if args.plot_type == "model":
-            df = get_most_recent_results(df)
+            # df = get_most_recent_results(df)
+            print(f"{len(df)} data remained.")
             if df.empty:
                 print("No data found after getting most recent results")
                 return
