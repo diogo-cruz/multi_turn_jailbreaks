@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import re
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import CheckButtons
@@ -19,15 +20,21 @@ MODELS = [
 
 
 def get_results(filepath: Path) -> tuple:
-    # Get the timestamp from the filename
-    timestamp_str = "_".join(filepath.stem.split("_")[-2:])
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
-
     with open(filepath, "r") as file:
         data = file.read()
 
     lines = data.strip().split("\n")
     data = [json.loads(line) for line in lines]
+
+    # Get the timestamp from data or from filename
+    if "timestamp" in data[0]:
+        timestamp_str = data[0]["timestamp"]
+    else:
+        timestamp_str = "_".join(filepath.stem.split("_")[-2:])
+        pattern = r"\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}"
+        if not re.match(pattern, timestamp_str):
+            raise ValueError(f"Invalid timestamp format: {timestamp_str}")
+    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
 
     # Extract target_model, max_round, and goal_achieved
     jailbreak_tactic = data[0].get("jailbreak_tactic")
