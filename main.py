@@ -94,6 +94,7 @@ with open(test_case_path, "r") as f:
     test_case = json.load(f)
 
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+timestamp = {"timestamp": current_time}
 
 output_file_path = (
     f"./results/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
@@ -107,7 +108,7 @@ print("Generated Output file path:", output_file_path)
 
 # save all parameters to the output file
 with open(output_file_path, "w") as f:
-    f.write(json.dumps(args.__dict__ | test_case) + "\n")
+    f.write(json.dumps(args.__dict__ | test_case | timestamp) + "\n")
 
 # Dynamically import and run the selected jailbreak tactic
 try:
