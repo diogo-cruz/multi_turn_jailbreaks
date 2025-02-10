@@ -1,12 +1,14 @@
 # Ignore .pyc and .pyo files
 *.pyc
 *.pyo
+venv/
 
 # Ignore all __pycache__ directories
 __pycache__/
 
 # Ignore the results folder
 results/
+results_direct/
 
 # Ignore .env
 .env

@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import re
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import CheckButtons
@@ -20,15 +21,28 @@ MODELS = [
 
 def get_results(filepath: Path) -> tuple:
     # Get the timestamp from the filename
-    # timestamp_str = "_".join(filepath.stem.split("_")[-2:])
-    # timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
-    timestamp = datetime.strptime('2025-01-22_06:20:52', "%Y-%m-%d_%H:%M:%S")
+    timestamp_str = "_".join(filepath.stem.split("_")[-2:])
+    try:
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
+    except ValueError:
+        # If the format is wrong, use the fallback timestamp
+        timestamp = datetime.strptime('2025-01-22_06:20:52', "%Y-%m-%d_%H:%M:%S")
     
     with open(filepath, "r") as file:
         data = file.read()
 
     lines = data.strip().split("\n")
     data = [json.loads(line) for line in lines]
+
+    # Get the timestamp from data or from filename
+    if "timestamp" in data[0]:
+        timestamp_str = data[0]["timestamp"]
+    else:
+        timestamp_str = "_".join(filepath.stem.split("_")[-2:])
+        pattern = r"\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}"
+        if not re.match(pattern, timestamp_str):
+            raise ValueError(f"Invalid timestamp format: {timestamp_str}")
+    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
 
     # Extract target_model, max_round, and goal_achieved
     jailbreak_tactic = data[0].get("jailbreak_tactic")
@@ -76,9 +90,14 @@ def get_jsonl_filenames(results_dir: Path) -> list:
 def get_filenames_for_key(results_dir: Path, keys: list[str]) -> list:
     filenames = get_jsonl_filenames(results_dir)
     result = []
-    for key in keys[2:]:
-        result += [f for f in filenames if key in f.name and keys[0] in f.name and keys[1] in f.name]
-    return result
+    if len(keys) == 1:
+        return [f for f in filenames if key in f.name]
+    else :
+        # if multiple keys were submitted, use first one as a required key 
+        # A file should have at least one of the remaining key to be included in the filtered list 
+        for key in keys[1:]:
+            result += [f for f in filenames if key in f.name and keys[0] in f.name]
+        return result
 
 
 def get_results_for_key(results_dir: Path, key: str) -> pd.DataFrame:
@@ -215,7 +234,7 @@ def create_interactive_grid_plot_with_label_model(df: pd.DataFrame) -> None:
             ax.grid(True)
 
             # Add legend to lower right of each subplot
-            # ax.legend(loc="lower right", fontsize="small")
+            ax.legend(loc="lower right", fontsize="small")
 
     # Create checkbuttons
     rax = plt.axes([0.87, 0.4, 0.08, 0.2])
@@ -358,7 +377,7 @@ def create_interactive_grid_plot_with_label_run(df: pd.DataFrame) -> None:
         ax.set_title(target_model)
         ax.set_xlabel("Round")
         ax.set_ylabel("Score")
-        # ax.legend(loc="lower right")
+        ax.legend(loc="lower right")
         ax.yaxis.grid(True, linestyle="--", alpha=0.7)
 
     # Add checkbuttons for each subplot
@@ -529,8 +548,8 @@ def main():
     if args.refused_only:
         df = df[df["refused"] > 0]
 
-    # mask = (df["turn_type"] == args.turn_type) & (df["target_temp"] == args.temp)
-    mask = (df["turn_type"] == args.turn_type)
+    mask = (df["turn_type"] == args.turn_type) & (df["target_temp"] == args.temp)
+    # mask = (df["turn_type"] == args.turn_type)
     df = df[mask]
     print(f"{len(df)} data remained.")
 
