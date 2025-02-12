@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import re
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import CheckButtons
@@ -21,20 +22,35 @@ MODELS = [
 def get_results(filepath: Path) -> tuple:
     # Get the timestamp from the filename
     timestamp_str = "_".join(filepath.stem.split("_")[-2:])
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
-
+    try:
+        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
+    except ValueError:
+        # If the format is wrong, use the fallback timestamp
+        timestamp = datetime.strptime('2025-01-22_06:20:52', "%Y-%m-%d_%H:%M:%S")
+    
     with open(filepath, "r") as file:
         data = file.read()
 
     lines = data.strip().split("\n")
     data = [json.loads(line) for line in lines]
 
+    # Get the timestamp from data or from filename
+    if "timestamp" in data[0]:
+        timestamp_str = data[0]["timestamp"]
+    else:
+        timestamp_str = "_".join(filepath.stem.split("_")[-2:])
+        pattern = r"\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}"
+        if not re.match(pattern, timestamp_str):
+            raise ValueError(f"Invalid timestamp format: {timestamp_str}")
+    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
+
     # Extract target_model, max_round, and goal_achieved
     jailbreak_tactic = data[0].get("jailbreak_tactic")
     test_case = data[0].get("test_case")
     turn_type = data[0].get("turn_type")
     target_model = data[0].get("target_model")
-    target_temp = data[0].get("target_temp")
+    # target_temp = data[0].get("target_temp")
+    target_temp = 0.0
     max_round = max(
         (entry.get("round", 0) for entry in data if "round" in entry), default=0
     )
@@ -71,9 +87,17 @@ def get_jsonl_filenames(results_dir: Path) -> list:
     return [f for f in results_dir.iterdir() if f.suffix == ".jsonl"]
 
 
-def get_filenames_for_key(results_dir: Path, key: str) -> list:
+def get_filenames_for_key(results_dir: Path, keys: list[str]) -> list:
     filenames = get_jsonl_filenames(results_dir)
-    return [f for f in filenames if key in f.name]
+    result = []
+    if len(keys) == 1:
+        return [f for f in filenames if key in f.name]
+    else :
+        # if multiple keys were submitted, use first one as a required key 
+        # A file should have at least one of the remaining key to be included in the filtered list 
+        for key in keys[1:]:
+            result += [f for f in filenames if key in f.name and keys[0] in f.name]
+        return result
 
 
 def get_results_for_key(results_dir: Path, key: str) -> pd.DataFrame:
@@ -181,8 +205,11 @@ def create_interactive_grid_plot_with_label_model(df: pd.DataFrame) -> None:
     # Create plots for each combination
     for i, tactic in enumerate(tactics):
         for j, test in enumerate(test_cases):
-            ax = axes[i, j] if len(tactics) > 1 else axes[j]
-
+            if len(tactics) == 1 and len(test_cases) == 1:
+                ax = axes
+            else:
+                ax = axes[i, j] if len(tactics) > 1 else axes[j]
+            
             # Set title for each subplot
             ax.set_title(f"Using {tactic} on {test}", fontsize="small", pad=10)
 
@@ -459,7 +486,8 @@ def main():
     parser.add_argument(
         "--key",
         type=str,
-        default="",
+        nargs='*',  # zero or more arguments
+        default=[],  # default to empty list
         help="Filter results files by this key in their filename (default: no filter)",
     )
 
@@ -509,6 +537,7 @@ def main():
     args = parser.parse_args()
 
     df = get_results_for_key(args.results_dir, args.key)
+    print(f"{len(df)} data collected.")
 
     if df.empty:
         print("No data found matching the specified criteria")
@@ -520,11 +549,14 @@ def main():
         df = df[df["refused"] > 0]
 
     mask = (df["turn_type"] == args.turn_type) & (df["target_temp"] == args.temp)
+    # mask = (df["turn_type"] == args.turn_type)
     df = df[mask]
+    print(f"{len(df)} data remained.")
 
     try:
         if args.plot_type == "model":
-            df = get_most_recent_results(df)
+            # df = get_most_recent_results(df)
+            print(f"{len(df)} data remained.")
             if df.empty:
                 print("No data found after getting most recent results")
                 return
