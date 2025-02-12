@@ -148,8 +148,8 @@ Max rounds for successful attempts: 0
 - Number of tests: 10
 
 ## Issue Analysis
-- Scoring Metric Issues: 57 cases (21.8%)
-- Model Response Issues: 33 cases (12.6%)
-- Attacker Model Issues: 100 cases (38.3%)
-- Test Case Definition Issues: 13 cases (5.0%)
-- Technical Implementation Issues: 42 cases (16.1%)
+- Scoring Metric Issues: 119 cases (45.6%)
+- Model Response Issues: 29 cases (11.1%)
+- Attacker Model Issues: 13 cases (5.0%)
+- Test Case Definition Issues: 3 cases (1.1%)
+- Technical Implementation Issues: 2 cases (0.8%)

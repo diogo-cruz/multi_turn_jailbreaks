@@ -95,28 +95,128 @@ def extract_primary_issues(content: str) -> List[str]:
     return [issue.strip() for issue in issues if issue.strip()]
 
 def categorize_issues(issues: List[str]) -> Dict[str, bool]:
-    """Categorize issues based on predefined problem categories"""
+    """Categorize issues based on predefined problem categories and sub-categories"""
     categories = {
+        # Scoring Metric Issues
         'scoring_metric_issues': False,
+        'scoring_rubric_inconsistency': False,  # Dynamic rubric generation issues
+        'scoring_false_positives': False,       # False positive detection problems
+        'scoring_length_bias': False,           # Length-based scoring bias
+        
+        # Model Response Issues
         'model_response_issues': False,
+        'response_hallucination': False,        # Heavy hallucination
+        'response_nonsensical': False,          # Nonsensical outputs
+        'response_incoherent': False,           # Incoherent responses
+        
+        # Attacker Model Issues
         'attacker_model_issues': False,
+        'attacker_refusal': False,              # GPT-4 refusing to generate prompts
+        'attacker_inefficient': False,          # Inefficient attack strategies
+        'attacker_random': False,               # Random/unfocused attempts
+        
+        # Test Case Definition Issues
         'test_case_definition_issues': False,
-        'technical_implementation_issues': False
+        'definition_vague': False,              # Vague success criteria
+        'definition_ambiguous': False,          # Ambiguous objectives
+        'definition_unclear': False,            # Unclear system prompts
+        
+        # Technical Implementation Issues
+        'technical_implementation_issues': False,
+        'implementation_refusal': False,        # Handling model refusals
+        'implementation_conversation': False,    # Conversation tracking issues
+        'implementation_rounds': False          # Round management problems
     }
     
     keywords = {
-        'scoring_metric_issues': ['rubric', 'score', 'metric', 'criteria', 'evaluation'],
-        'model_response_issues': ['hallucination', 'nonsensical', 'incoherent', 'response quality'],
-        'attacker_model_issues': ['attacker', 'gpt-4', 'attack', 'prompt'],
-        'test_case_definition_issues': ['ambig', 'vague', 'unclear', 'definition'],
-        'technical_implementation_issues': ['implementation', 'tracking', 'handling', 'technical']
+        # Scoring Metric Issues
+        'scoring_rubric_inconsistency': [
+            'rubric', 'scoring criteria', 'evaluation criteria', 'inconsistent', 
+            'scoring system', 'scoring shows', 'criteria appears', 'variation in strictness'
+        ],
+        'scoring_false_positives': [
+            'false positive', 'misclassified', 'misidentified', 'wrong classification',
+            'vulnerability to false', 'potentially misclassified'
+        ],
+        'scoring_length_bias': [
+            'length bias', 'response length', 'lengthy response', 'long output',
+            'focus on content rather than length'
+        ],
+        
+        # Model Response Issues
+        'response_hallucination': [
+            'hallucination', 'fabricated', 'made up', 'invented', 'speculative',
+            'unverified information'
+        ],
+        'response_nonsensical': [
+            'nonsensical', 'gibberish', 'meaningless', 'illogical', 'incoherent output'
+        ],
+        'response_incoherent': [
+            'incoherent', 'inconsistent response', 'unclear response', 'confused',
+            'poorly structured'
+        ],
+        
+        # Attacker Model Issues
+        'attacker_refusal': [
+            'refuses to generate', 'attacker refusal', 'gpt-4 refuses', 'won\'t generate',
+            'limited success', 'ineffective against'
+        ],
+        'attacker_inefficient': [
+            'inefficient attack', 'ineffective strategy', 'poor attack', 'limited sophistication',
+            'straightforward attempts', 'basic approach'
+        ],
+        'attacker_random': [
+            'random attempts', 'unfocused', 'scattered approach', 'lacks sophistication',
+            'without sophisticated'
+        ],
+        
+        # Test Case Definition Issues
+        'definition_vague': [
+            'vague criteria', 'unclear criteria', 'undefined success', 'unclear standards',
+            'needs clearer definition'
+        ],
+        'definition_ambiguous': [
+            'ambiguous', 'unclear objective', 'unclear goal', 'multiple interpretations'
+        ],
+        'definition_unclear': [
+            'unclear prompt', 'unclear system', 'unclear instruction', 'needs better specification'
+        ],
+        
+        # Technical Implementation Issues
+        'implementation_refusal': [
+            'handling refusal', 'model refusal', 'rejection handling', 'error handling',
+            'handling of model refusals'
+        ],
+        'implementation_conversation': [
+            'conversation tracking', 'dialogue management', 'turn tracking',
+            'tracking of interactions'
+        ],
+        'implementation_rounds': [
+            'round management', 'turn counting', 'conversation rounds',
+            'tracking rounds'
+        ]
     }
     
+    # Process each issue
     for issue in issues:
         issue_lower = issue.lower()
+        
+        # Check each keyword set
         for category, terms in keywords.items():
-            if any(term in issue_lower for term in terms):
+            if any(term.lower() in issue_lower for term in terms):
                 categories[category] = True
+                
+                # Set parent category
+                if category.startswith('scoring_'):
+                    categories['scoring_metric_issues'] = True
+                elif category.startswith('response_'):
+                    categories['model_response_issues'] = True
+                elif category.startswith('attacker_'):
+                    categories['attacker_model_issues'] = True
+                elif category.startswith('definition_'):
+                    categories['test_case_definition_issues'] = True
+                elif category.startswith('implementation_'):
+                    categories['technical_implementation_issues'] = True
     
     return categories
 
@@ -325,6 +425,49 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.savefig(f'{output_dir}/issue_by_test_case.png')
+    plt.close()
+    
+    # Add new plot for detailed issue breakdown
+    plt.figure(figsize=(15, 10))
+    
+    # Get all issue columns
+    issue_cols = [col for col in df.columns if any(x in col for x in [
+        'scoring_', 'response_', 'attacker_', 'definition_', 'implementation_'
+    ])]
+    
+    # Separate main issues and sub-issues
+    main_issues = [col for col in issue_cols if col.endswith('_issues')]
+    sub_issues = [col for col in issue_cols if not col.endswith('_issues')]
+    
+    # Create subplot for main issues
+    plt.subplot(2, 1, 1)
+    main_issue_data = df[main_issues].mean() * 100
+    main_issue_data.plot(kind='bar')
+    plt.title('Main Issue Categories')
+    plt.ylabel('Percentage of Cases')
+    plt.xticks(rotation=45, ha='right')
+    
+    # Create subplot for sub-issues
+    plt.subplot(2, 1, 2)
+    sub_issue_data = df[sub_issues].mean() * 100
+    sub_issue_data.plot(kind='bar')
+    plt.title('Detailed Issue Breakdown')
+    plt.ylabel('Percentage of Cases')
+    plt.xticks(rotation=45, ha='right')
+    
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/detailed_issue_breakdown.png')
+    plt.close()
+    
+    # Add heatmap showing correlation between issues
+    plt.figure(figsize=(15, 12))
+    issue_corr = df[issue_cols].corr()
+    sns.heatmap(issue_corr, annot=True, fmt='.2f', cmap='coolwarm', center=0)
+    plt.title('Issue Correlation Matrix')
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/issue_correlations.png')
     plt.close()
     
     # 7. Performance by model size
