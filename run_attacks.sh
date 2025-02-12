@@ -11,7 +11,8 @@ jailbreak_tactics=(
     # "command"
     # "direct_request"
     # "emotional_appeal"
-    "code_input"
+    # "code_input"
+    "crowding"
 )
 test_cases=(
     "academic_integrity"
@@ -40,8 +41,8 @@ target_models=(
     "meta-llama/llama-3.2-3b-instruct"
 )
 temperatures=(
-    "0.0"
-    # "1.0"
+    # "0.0"
+    "1.0"
 )
 turn_types=(
     # "single_turn"
