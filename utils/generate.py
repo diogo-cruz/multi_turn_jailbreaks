@@ -14,7 +14,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False)
     )
 
     if response.choices is None:
-        return str(response.error["metadata"])
+        return str(response.error)
 
     if json_format:
         content = response.choices[0].message.content
