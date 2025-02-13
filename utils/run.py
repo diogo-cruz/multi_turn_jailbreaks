@@ -4,7 +4,6 @@ import importlib
 import json
 from utils import (
     check_refusal,
-    generate_score_rubric,
     evaluate_with_rubric,
     check_disclaimer,
 )
@@ -61,7 +60,7 @@ def get_custom_run(jailbreak_tactic):
     except ModuleNotFoundError:
         return None
 
-def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
+def run_attack(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
     goal = test_case["task"]
     target_system = test_case["target_system"]
     success_condition = test_case.get("success_condition", None)
@@ -76,7 +75,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
 
     print(f"Starting {jailbreak_tactic} attack")
     print("Goal:", goal)
-    criteria = generate_score_rubric(goal, attacker_generate, success_condition)
+    criteria = test_case_score_rubric["score_rubric"]
     with open(output_file_path, "a") as f:
         f.write(json.dumps({"criteria": criteria}) + "\n")
 

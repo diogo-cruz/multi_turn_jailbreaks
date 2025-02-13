@@ -5,7 +5,8 @@ import openai
 import json
 import importlib
 from dotenv import load_dotenv
-from utils import generate, run
+from utils import generate, run, generate_score_rubric
+
 
 # Load the API keys from the .env file
 load_dotenv()
@@ -20,18 +21,28 @@ TEST_CASES = [d for d in os.listdir('test_cases')
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--target-base-url", type=str, help="The target model's base URL for the OpenAI API"
+    "--target-base-url", 
+    type=str, 
+    help="The target model's base URL for the OpenAI API", 
+    default="https://openrouter.ai/api/v1",
 )
 parser.add_argument(
-    "--target-model", type=str, help="The target model name", default="gpt-4o"
+    "--target-model", 
+    type=str, 
+    help="The target model name", 
+    default="gpt-4o",
 )
 parser.add_argument(
-    "--target-temp", type=float, help="The temperature to use for the target model", default=0.0
+    "--target-temp", 
+    type=float, 
+    help="The temperature to use for the target model", 
+    default=0.0,
 )
 parser.add_argument(
     "--attacker-base-url",
     type=str,
     help="The attacker model's base URL for the OpenAI API",
+    default="https://openrouter.ai/api/v1",
 )
 parser.add_argument(
     "--attacker-model", type=str, help="The attacker model name", default="gpt-4o"
@@ -44,7 +55,7 @@ parser.add_argument(
     type=str, 
     help="Name of the test case to run", 
     choices=TEST_CASES,
-    required=True
+    default="how_to_make_bomb",
 )
 parser.add_argument(
     "--turn-type",
@@ -59,6 +70,17 @@ parser.add_argument(
     help="The jailbreak tactic to use",
     choices=JAILBREAK_TACTICS,
     default="crescendomation",
+)
+parser.add_argument(
+    "--gen-score-rubric",
+    action="store_true",
+    help="If set, generate the score rubric",
+)
+parser.add_argument(
+    "--gen-score-rubric-test-cases",
+    nargs="*",
+    default=None,
+    help="List of test cases to generate rubric for (space-separated), or None for all",
 )
 args = parser.parse_args()
 
@@ -86,12 +108,35 @@ def attacker_generate(messages, temperature=attacker_temp, **kwargs):
     temperature=temperature, **kwargs)
 
 
+if args.gen_score_rubric:
+    test_cases_dir = "test_cases"
+    test_cases = [d for d in os.listdir(test_cases_dir) if os.path.isdir(os.path.join(test_cases_dir, d))] if args.gen_score_rubric_test_cases is None else args.gen_score_rubric_test_cases
+
+    for t in test_cases:
+        print(f"Generating score rubric for {t}")
+        test_case_path = os.path.join(test_cases_dir, t, "multi_turn.json")
+        with open(test_case_path, "r") as f:
+            test_case = json.load(f)
+        
+        goal = test_case["task"]
+        success_condition = test_case.get("success_condition", None)
+        criteria = generate_score_rubric.generate_rubric(goal, attacker_generate, success_condition)
+
+        score_rubric_path = os.path.join(test_cases_dir, t, "score_rubric.json")
+        with open(score_rubric_path, "w") as file:
+            json.dump({"score_rubric": criteria}, file, indent=2)
+        
 # Load the appropriate test case file based on whether it's single or multi turn
 test_case_file = f"{args.turn_type}.json"
 test_case_path = os.path.join("test_cases", args.test_case, test_case_file)
 
 with open(test_case_path, "r") as f:
     test_case = json.load(f)
+
+test_case_score_rubric_path = os.path.join("test_cases", args.test_case, "score_rubric.json")
+
+with open(test_case_score_rubric_path, "r") as f:
+    test_case_score_rubric = json.load(f)
 
 current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
@@ -114,9 +159,9 @@ try:
     run_function = run.get_custom_run(args.jailbreak_tactic)
     if run_function is None:
         print("No custom run file found, using default.")
-        run.run_attack(test_case, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
+        run.run_attack(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
     else:
         print("Custom run file found, using it.")
-        run_function(test_case, output_file_path, target_generate, attacker_generate)
+        run_function(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate)
 except (ImportError, AttributeError) as e:
     raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}': {str(e)}")
