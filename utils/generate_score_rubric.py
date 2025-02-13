@@ -30,7 +30,7 @@ Based on the example, generate a new scoring criteria for the topic given by the
 Please do not generate any other opening, closing, and explanations.""")
 
 
-def generate_score_rubric(topic, generate, success_condition=None):
+def generate_rubric(topic, generate, success_condition=None):
     messages = [
         {"role": "system", "content": GENERATE_SCORE_RUBRIC_SYSTEM_PROMPT},
         {
