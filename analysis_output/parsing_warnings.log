@@ -1,0 +1,43 @@
+Parsing Warnings Log
+===================
+
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_28_39_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_28_39_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_42_54_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_42_54_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_25_39_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_25_39_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_21_20_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_21_20_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_38_03_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_38_03_analysis.md
+
+Failed to extract primary issues:
+Total occurrences: 1
+Affected files:
+  - Failed to extract primary issues in results/direct_request_medical_privacy_multi_turn_llama_3.1_405b_instruct_2024_02_05_01_00_00_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_30_13_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_30_13_analysis.md
+
+Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_22_47_analysis.md:
+Total occurrences: 1
+Affected files:
+  - Empty file: results/foreign_language_racial_slurs_single_turn_2025_02_03_12_22_47_analysis.md
