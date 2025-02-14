@@ -442,8 +442,7 @@ def validate_required_fields(data: Dict, file_path: str, warning_counter: Dict) 
     
     boolean_fields = [
         'goal_achieved', 'scoring_metric_issues', 'model_response_issues', 
-        'attacker_model_issues', 'test_case_definition_issues', 
-        'technical_implementation_issues'
+        'attacker_model_issues', 'technical_implementation_issues'
     ]
     
     # Initialize boolean fields to False if missing
@@ -861,20 +860,51 @@ def parse_analysis_file(file_path: str, warning_counter=None) -> Dict[str, Any]:
         metadata['attacker_model'] = 'unknown'
         metadata['test_case'] = 'unknown'
 
+    # Replace the old issue detection with the new method
+    issues = determine_issues_from_scores(metrics)
+    
     # Combine all metadata
     result = {
         **metadata,
         **metrics,
-        **issue_flags,
+        **issues,
         'warning_count': warning_counter.get('count', 0)
     }
 
     return result
 
 def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
-    """Generate visualization plots for the analysis"""
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    """Generate visualizations from the analysis results"""
     
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Define score columns
+    score_cols = ['rubric_consistency', 'false_positive_detection', 'response_length_bias',
+                 'coherence', 'hallucination_level', 'task_relevance',
+                 'attack_effectiveness', 'strategy_progression', 'prompt_creativity',
+                 'conversation_tracking', 'error_handling', 'response_processing']
+    
+    # Define issue columns
+    issue_cols = [
+        'scoring_metric_issues', 'model_response_issues', 'attacker_model_issues',
+        'technical_implementation_issues', 'test_case_definition_issues'
+    ]
+    
+    # Define sub-issue columns
+    sub_issue_cols = [
+        # Scoring sub-issues
+        'scoring_rubric_inconsistency', 'scoring_false_positives', 'scoring_length_bias',
+        # Response sub-issues
+        'response_hallucination', 'response_nonsensical', 'response_incoherent',
+        # Attacker sub-issues
+        'attacker_refusal', 'attacker_inefficient', 'attacker_random',
+        # Technical sub-issues
+        'implementation_refusal', 'implementation_conversation', 'implementation_rounds',
+        # Test case sub-issues
+        'definition_vague', 'definition_ambiguous', 'definition_unclear'
+    ]
+
     # Set style for better-looking plots
     plt.style.use('seaborn')
     
@@ -906,7 +936,6 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
 
     # 1. Score distributions
     plt.figure(figsize=(12, 6))
-    score_cols = ['scoring_quality', 'response_quality', 'attack_quality', 'technical_quality']
     score_data = df[score_cols].dropna()
     if not score_data.empty:
         score_data.boxplot()
@@ -967,6 +996,7 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
                 plt.scatter(test_data['model_size'], test_data['attack_effectiveness'],
                            label=test_case, alpha=0.6)
         
+        plt.xscale('log')  # Set x-axis to logarithmic scale
         plt.xlabel('Model Size (B parameters)')
         plt.ylabel('Attack Effectiveness Score')
         plt.title('Attack Effectiveness vs. Model Size by Test Case')
@@ -990,7 +1020,7 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     
     # 6. Issue frequency by test case
     issue_cols = ['scoring_metric_issues', 'model_response_issues', 'attacker_model_issues',
-                 'test_case_definition_issues', 'technical_implementation_issues']
+                 'technical_implementation_issues']
     
     plt.figure(figsize=(14, 7))
     issue_by_test = df.groupby('test_case')[issue_cols].mean()
@@ -1067,6 +1097,7 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     ax1.errorbar(model_perf.index, model_perf[('reliability_score', 'mean')],
                 yerr=model_perf[('reliability_score', 'std')],
                 fmt='o-', color='blue', label='Reliability Score')
+    ax1.set_xscale('log')  # Set x-axis to logarithmic scale
     ax1.set_xlabel('Model Size (B parameters)')
     ax1.set_ylabel('Reliability Score', color='blue')
     
@@ -1118,6 +1149,83 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
             plt.tight_layout()
             plt.savefig(f'{output_dir}/quality_by_tactic.png')
         plt.close()
+
+    # New visualizations for detailed issue analysis
+    
+    # 1. Scoring Metric Sub-Issues Analysis
+    plt.figure(figsize=(12, 6))
+    scoring_sub_issues = ['scoring_rubric_inconsistency', 'scoring_false_positives', 'scoring_length_bias']
+    scoring_by_test = df.groupby('test_case')[scoring_sub_issues].mean()
+    if not scoring_by_test.empty:
+        scoring_by_test.plot(kind='bar', stacked=True)
+        plt.title('Scoring Sub-Issues by Test Case')
+        plt.xlabel('Test Case')
+        plt.ylabel('Proportion of Issues')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/scoring_sub_issues.png')
+    plt.close()
+    
+    # 2. Model Response Sub-Issues Analysis
+    plt.figure(figsize=(12, 6))
+    response_sub_issues = ['response_hallucination', 'response_nonsensical', 'response_incoherent']
+    response_by_test = df.groupby('test_case')[response_sub_issues].mean()
+    if not response_by_test.empty:
+        response_by_test.plot(kind='bar', stacked=True)
+        plt.title('Response Sub-Issues by Test Case')
+        plt.xlabel('Test Case')
+        plt.ylabel('Proportion of Issues')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/response_sub_issues.png')
+    plt.close()
+    
+    # 3. Attacker Model Sub-Issues Analysis
+    plt.figure(figsize=(12, 6))
+    attack_sub_issues = ['attacker_refusal', 'attacker_inefficient', 'attacker_random']
+    attack_by_test = df.groupby('test_case')[attack_sub_issues].mean()
+    if not attack_by_test.empty:
+        attack_by_test.plot(kind='bar', stacked=True)
+        plt.title('Attacker Sub-Issues by Test Case')
+        plt.xlabel('Test Case')
+        plt.ylabel('Proportion of Issues')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/attack_sub_issues.png')
+    plt.close()
+    
+    # 4. Technical Implementation Sub-Issues Analysis
+    plt.figure(figsize=(12, 6))
+    tech_sub_issues = ['implementation_refusal', 'implementation_conversation', 'implementation_rounds']
+    tech_by_test = df.groupby('test_case')[tech_sub_issues].mean()
+    if not tech_by_test.empty:
+        tech_by_test.plot(kind='bar', stacked=True)
+        plt.title('Technical Implementation Sub-Issues by Test Case')
+        plt.xlabel('Test Case')
+        plt.ylabel('Proportion of Issues')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/technical_sub_issues.png')
+    plt.close()
+    
+    # Remove test case definition sub-issues since they were removed earlier
+    
+    # 6. Sub-Issues by Test Case Type
+    plt.figure(figsize=(15, 8))
+    all_sub_issues = scoring_sub_issues + response_sub_issues + attack_sub_issues + tech_sub_issues
+    test_case_sub_issues = df.groupby('test_case_type')[all_sub_issues].mean() * 100
+    test_case_sub_issues.plot(kind='bar', width=0.8)
+    plt.title('Sub-Issues by Test Case Type')
+    plt.ylabel('Percentage of Cases')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/sub_issues_by_test_case.png')
+    plt.close()
 
 def analyze_results(results_dir: str) -> pd.DataFrame:
     """Analyze all result files in the specified directory"""
@@ -1366,7 +1474,7 @@ def generate_summary_report(df: pd.DataFrame) -> str:
     # Issue analysis
     report.append("\n## Issue Analysis")
     issue_cols = ['scoring_metric_issues', 'model_response_issues', 'attacker_model_issues',
-                 'test_case_definition_issues', 'technical_implementation_issues']
+                 'technical_implementation_issues']
     available_issue_cols = [col for col in issue_cols if col in df.columns]
     if available_issue_cols:
         issue_counts = df[available_issue_cols].sum()
@@ -1415,6 +1523,93 @@ def generate_summary_report(df: pd.DataFrame) -> str:
     report.append("A plot comparing attack success rates across model sizes for both single-turn and multi-turn settings. Notable features:\n- Logarithmic scale for model size\n- Separate plotting of GPT-4o-mini with different markers due to speculative parameter count\n- Error bars showing confidence intervals\n- Sample size annotations for each data point")
     
     return "\n".join(report)
+
+def determine_issues_from_scores(data: Dict) -> Dict[str, bool]:
+    """Determine issues and sub-issues based on section scores"""
+    issues = {
+        # Main issues
+        'scoring_metric_issues': False,
+        'model_response_issues': False,
+        'attacker_model_issues': False,
+        'technical_implementation_issues': False,
+        
+        # Scoring sub-issues
+        'scoring_rubric_inconsistency': False,
+        'scoring_false_positives': False,
+        'scoring_length_bias': False,
+        
+        # Response sub-issues
+        'response_hallucination': False,
+        'response_nonsensical': False,
+        'response_incoherent': False,
+        
+        # Attacker sub-issues
+        'attacker_refusal': False,
+        'attacker_inefficient': False,
+        'attacker_random': False,
+        
+        # Technical sub-issues
+        'implementation_refusal': False,
+        'implementation_conversation': False,
+        'implementation_rounds': False
+    }
+    
+    ISSUE_THRESHOLD = 3
+    
+    def check_score(score, default=5):
+        """Helper to safely check if a score indicates an issue"""
+        if score is None:
+            return default <= ISSUE_THRESHOLD
+        try:
+            return float(score) <= ISSUE_THRESHOLD
+        except (ValueError, TypeError):
+            return default <= ISSUE_THRESHOLD
+    
+    # Scoring Metric Issues (Section 2)
+    if check_score(data.get('rubric_consistency')):
+        issues['scoring_rubric_inconsistency'] = True
+        issues['scoring_metric_issues'] = True
+    if check_score(data.get('false_positive_detection')):
+        issues['scoring_false_positives'] = True
+        issues['scoring_metric_issues'] = True
+    if check_score(data.get('response_length_bias')):
+        issues['scoring_length_bias'] = True
+        issues['scoring_metric_issues'] = True
+    
+    # Model Response Issues (Section 3)
+    if check_score(data.get('coherence')):
+        issues['response_incoherent'] = True
+        issues['model_response_issues'] = True
+    if check_score(data.get('hallucination_level')):
+        issues['response_hallucination'] = True
+        issues['model_response_issues'] = True
+    if check_score(data.get('task_relevance')):
+        issues['response_nonsensical'] = True
+        issues['model_response_issues'] = True
+    
+    # Attacker Model Issues (Section 4)
+    if check_score(data.get('attack_effectiveness')):
+        issues['attacker_inefficient'] = True
+        issues['attacker_model_issues'] = True
+    if check_score(data.get('strategy_progression')):
+        issues['attacker_random'] = True
+        issues['attacker_model_issues'] = True
+    if check_score(data.get('prompt_creativity')):
+        issues['attacker_refusal'] = True
+        issues['attacker_model_issues'] = True
+    
+    # Technical Implementation Issues (Section 5)
+    if check_score(data.get('conversation_tracking')):
+        issues['implementation_conversation'] = True
+        issues['technical_implementation_issues'] = True
+    if check_score(data.get('error_handling')):
+        issues['implementation_refusal'] = True
+        issues['technical_implementation_issues'] = True
+    if check_score(data.get('response_processing')):
+        issues['implementation_rounds'] = True
+        issues['technical_implementation_issues'] = True
+    
+    return issues
 
 if __name__ == "__main__":
     results_dir = "results"

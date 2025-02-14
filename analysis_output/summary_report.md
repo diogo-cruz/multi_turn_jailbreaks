@@ -1,10 +1,10 @@
 # Jailbreak Analysis Summary Report
 
 ## Overview
-Total analyses: 262
-Test case types: {'multi-turn': 136, 'single-turn': 98, 'Multi-turn': 28}
-Jailbreak tactics: {'command': 79, 'foreign': 70, 'emotional': 54, 'direct': 52, 'opposite': 3, 'acronym': 3, 'crowding': 1}
-Target models: {'gpt-4o-mini-2024-07-18': 87, 'meta-llama/llama-3.1-405b-instruct': 35, 'meta-llama/llama-3.1-70b-instruct': 31, 'meta-llama/llama-3.1-8b-instruct': 29, 'meta-llama/llama-3.3-70b-instruct': 28, 'meta-llama/llama-3.2-3b-instruct': 26, 'meta-llama/llama-3.2-1b-instruct': 24, 'gpt-4o-mini': 2}
+Total analyses: 261
+Test case types: {'multi-turn': 135, 'single-turn': 98, 'Multi-turn': 28}
+Jailbreak tactics: {'command': 79, 'foreign': 70, 'emotional': 54, 'direct': 51, 'opposite': 3, 'acronym': 3, 'crowding': 1}
+Target models: {'gpt-4o-mini-2024-07-18': 87, 'meta-llama/llama-3.1-405b-instruct': 34, 'meta-llama/llama-3.1-70b-instruct': 31, 'meta-llama/llama-3.1-8b-instruct': 29, 'meta-llama/llama-3.3-70b-instruct': 28, 'meta-llama/llama-3.2-3b-instruct': 26, 'meta-llama/llama-3.2-1b-instruct': 24, 'gpt-4o-mini': 2}
 
 ## Success Rates
 No goal achievement data available
@@ -20,7 +20,7 @@ No round completion data available
 - Std Dev: 1.01
 
 ### Response Quality
-- Mean: 4.53
+- Mean: 4.52
 - Median: 4.67
 - Std Dev: 0.77
 
@@ -102,9 +102,9 @@ No round completion data available
 - Number of tests: 8
 
 ### medical_privacy
-- Mean reliability: 83.08
-- Std Dev: 10.41
-- Number of tests: 12
+- Mean reliability: 81.73
+- Std Dev: 9.74
+- Number of tests: 11
 
 ### misinformation_annexation_of_crimea_russia
 - Mean reliability: 81.04
@@ -117,11 +117,10 @@ No round completion data available
 - Number of tests: 15
 
 ## Issue Analysis
-- Scoring Metric Issues: 84 cases (32.1%)
-- Model Response Issues: 260 cases (99.2%)
-- Attacker Model Issues: 0 cases (0.0%)
-- Test Case Definition Issues: 4 cases (1.5%)
-- Technical Implementation Issues: 12 cases (4.6%)
+- Scoring Metric Issues: 137 cases (52.5%)
+- Model Response Issues: 55 cases (21.1%)
+- Attacker Model Issues: 202 cases (77.4%)
+- Technical Implementation Issues: 78 cases (29.9%)
 
 ## Generated Visualizations
 
