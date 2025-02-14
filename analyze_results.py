@@ -1118,16 +1118,51 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     # 8. Success rate by jailbreak tactic and test case (if goal_achieved exists)
     if 'goal_achieved' in df.columns and 'jailbreak_tactic' in df.columns:
         plt.figure(figsize=(14, 7))
-        success_by_tactic_test = df.pivot_table(
+        
+        # Calculate mean success rates
+        success_means = df.pivot_table(
             values='goal_achieved',
             index='test_case',
             columns='jailbreak_tactic',
             aggfunc='mean'
         ) * 100
         
-        if not success_by_tactic_test.empty:
-            sns.heatmap(success_by_tactic_test, annot=True, fmt='.1f', cmap='YlOrRd')
-            plt.title('Success Rate (%) by Tactic and Test Case')
+        # Calculate standard deviations
+        success_stds = df.pivot_table(
+            values='goal_achieved',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: x.std(ddof=0) if len(x) > 1 else 0
+        ) * 100
+        
+        # Calculate sample sizes
+        sample_sizes = df.pivot_table(
+            values='goal_achieved',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc='count'
+        )
+        
+        if not success_means.empty:
+            # Create heatmap with mean values
+            sns.heatmap(success_means, annot=False, fmt='.1f', cmap='YlOrRd')
+            
+            # Add text annotations with mean ± std (n=sample_size)
+            for i in range(len(success_means.index)):
+                for j in range(len(success_means.columns)):
+                    mean = success_means.iloc[i, j]
+                    std = success_stds.iloc[i, j]
+                    n = sample_sizes.iloc[i, j]
+                    if not pd.isna(mean):
+                        # Format text with standard deviation if available
+                        if pd.isna(std) or std == 0:
+                            text = f'{mean:.1f}\n(n={int(n)})'
+                        else:
+                            text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+                        plt.text(j + 0.5, i + 0.5, text,
+                                ha='center', va='center')
+            
+            plt.title('Success Rate (%) by Tactic and Test Case\n(mean ± std)')
             plt.xlabel('Jailbreak Tactic')
             plt.ylabel('Test Case')
             plt.xticks(rotation=45, ha='right')
@@ -1211,8 +1246,6 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
         plt.tight_layout()
         plt.savefig(f'{output_dir}/technical_sub_issues.png')
     plt.close()
-    
-    # Remove test case definition sub-issues since they were removed earlier
     
     # 6. Sub-Issues by Test Case Type
     plt.figure(figsize=(15, 8))
@@ -1311,7 +1344,7 @@ def analyze_results(results_dir: str) -> pd.DataFrame:
         # Convert boolean columns explicitly
         bool_cols = [
             'goal_achieved', 'scoring_metric_issues', 'model_response_issues', 'attacker_model_issues',
-            'test_case_definition_issues', 'technical_implementation_issues'
+            'technical_implementation_issues'
         ]
         for col in bool_cols:
             if col in df.columns:
@@ -1342,13 +1375,12 @@ def analyze_results(results_dir: str) -> pd.DataFrame:
             
             # Issue Categories
             'scoring_metric_issues', 'model_response_issues', 'attacker_model_issues',
-            'test_case_definition_issues', 'technical_implementation_issues',
+            'technical_implementation_issues',
             
             # Issue Subcategories
             'scoring_rubric_inconsistency', 'scoring_false_positives', 'scoring_length_bias',
             'response_hallucination', 'response_nonsensical', 'response_incoherent',
             'attacker_refusal', 'attacker_inefficient', 'attacker_random',
-            'definition_vague', 'definition_ambiguous', 'definition_unclear',
             'implementation_refusal', 'implementation_conversation', 'implementation_rounds',
             
             # Metadata
