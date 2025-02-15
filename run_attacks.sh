@@ -9,10 +9,10 @@ jailbreak_tactics=(
     # "allegory"
     # "appeal_to_authority"
     # "command"
-    # "direct_request"
+    "direct_request"
     # "emotional_appeal"
     # "code_input"
-    "crowding"
+    # "crowding"
 )
 test_cases=(
     "academic_integrity"
