@@ -10,9 +10,9 @@ with open('./results/summary.jsonl', 'r', encoding='utf-8') as f:
         data.append(json.loads(line))
 df = pd.DataFrame(data)
 
-# Ensure proper data types
+# Ensure proper data types for fields we expect to be numeric where possible.
 df['min_score'] = pd.to_numeric(df['min_score'], errors='coerce')
-df['min_round'] = pd.to_numeric(df['min_round'], errors='coerce')
+# Note: 'min_round' can be numeric or the string "No Improvement" so we leave it as-is.
 df['goal_achieved'] = df['goal_achieved'].fillna(False)
 
 # Create the Dash app
@@ -154,8 +154,8 @@ def update_tab1(selected_models, selected_tactics):
         x="turn_type",
         y="min_score",
         color="turn_type",
-        points="all",  # Show all individual points
-        box=True,      # Overlay a box plot to show quartiles
+        points="all",  # Show individual points
+        box=True,      # Overlay a box plot
         title="Distribution of min_score by Turn Type",
         hover_data=["target_model", "jailbreak_tactic"]
     )
@@ -217,27 +217,56 @@ def update_tab3(selected_tactics):
     )
     return fig
 
-# Tab 4: Histogram of min_round (Multi-Turn Attacks)
+# Tab 4: Histogram of min_round for Multi-Turn Attacks with custom ordering
 @app.callback(
     Output('tab4-graph', 'figure'),
     [Input('tab4-model-dropdown', 'value'),
      Input('tab4-tactic-dropdown', 'value')]
 )
 def update_tab4(selected_models, selected_tactics):
-    # Filter to only multi-turn attacks and ensure min_round exists
+    # Filter to only multi-turn attacks where min_round is not null
     filtered_df = df[(df['turn_type'] == 'multi') & (df['min_round'].notna())].copy()
     if selected_models:
         filtered_df = filtered_df[filtered_df['target_model'].isin(selected_models)]
     if selected_tactics:
         filtered_df = filtered_df[filtered_df['jailbreak_tactic'].isin(selected_tactics)]
     
+    # Convert min_round to string so that "No Improvement" is preserved as a category.
+    filtered_df['min_round_str'] = filtered_df['min_round'].astype(str)
+    
+    # Build a custom order for the x-axis:
+    # Extract all unique category values.
+    categories = filtered_df['min_round_str'].unique()
+    
+    # Separate numeric values and non-numeric (e.g. "No Improvement")
+    numeric_cats = []
+    non_numeric = []
+    for cat in categories:
+        try:
+            # If it can be converted to int, it's numeric.
+            numeric_cats.append(int(cat))
+        except ValueError:
+            non_numeric.append(cat)
+    
+    # Sort numeric categories in ascending order.
+    numeric_cats = sorted(numeric_cats)
+    # Convert numeric cats back to string.
+    ordered_categories = [str(n) for n in numeric_cats]
+    
+    # Append non-numeric categories at the end (or could choose to place them at the start)
+    # Here, we place "No Improvement" at the end.
+    for cat in non_numeric:
+        if cat not in ordered_categories:
+            ordered_categories.append(cat)
+    
     fig = px.histogram(
         filtered_df,
-        x="min_round",
+        x="min_round_str",
         nbins=10,
         color="target_model",
         title="Histogram of Rounds at which min_score was Achieved (Multi-Turn)",
-        labels={'min_round': 'Round at min_score'}
+        labels={'min_round_str': 'Round at min_score'},
+        category_orders={"min_round_str": ordered_categories}
     )
     return fig
 
