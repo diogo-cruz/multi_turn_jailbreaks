@@ -138,15 +138,12 @@ test_case_score_rubric_path = os.path.join("test_cases", args.test_case, "score_
 with open(test_case_score_rubric_path, "r") as f:
     test_case_score_rubric = json.load(f)
 
-current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 timestamp = {"timestamp": current_time}
 
-# output_file_path = (
-#     f"./results/jaeha_copy/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
-# )
 target_model_name = args.target_model.split("/")[-1]
 output_file_path = (
-    f"./results/jaeha/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{target_model_name}_deterministic.jsonl"
+    f"./results/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{args.turn_type}_{current_time}.jsonl"
 )
 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 print("Generated Output file path:", output_file_path)
