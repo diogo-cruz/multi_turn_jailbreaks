@@ -6,9 +6,9 @@ This document describes the process to generate and analyze the jailbreak evalua
 
 Run `preprocess_results.py` which performs two main tasks:
 1. Downloads the raw results from Drive to the `results_direct` folder
-2. Processes these files to create cleaned filenames in the `results` folder
+2. Processes these files to create cleaned filenames in the `analyzed_results` folder
 
-**Note**: Recent setup changes may affect backwards compatibility of generated filenames.
+**Note**: Recent setup changes may affect backwards compatibility of generated filenames. Some scripts may still reference the old folder name `results` instead of `analyzed_results`.
 
 ## Step 2: Manual Analysis with Claude
 
