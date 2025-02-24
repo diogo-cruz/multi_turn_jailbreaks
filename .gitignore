@@ -7,7 +7,7 @@ venv/
 __pycache__/
 
 # Ignore the results folder
-#results/
+results/
 results_direct/
 
 # Ignore .env
