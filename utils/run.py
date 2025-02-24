@@ -40,8 +40,6 @@ def generate_step(
         messages.append({"role": "user", "content": user_prompt})
 
     data = attacker_generate(messages, json_format=True)
-    if not isinstance(data, dict):
-        return None, data
     return data["generatedQuestion"], data["lastResponseSummary"]
 
 def has_single_turn(jailbreak_tactic):
