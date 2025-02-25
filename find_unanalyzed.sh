@@ -30,7 +30,14 @@ sort -t'|' -k1,1 processed_jsonl.txt > sorted_jsonl.txt
 
 echo "Files that need analysis:"
 # Create a temporary file with unique unanalyzed entries
-awk -F'|' 'NR==FNR{analyzed[$1]=1; next} !analyzed[$1] && !seen[$1]++{print $2}' analyzed_bases.txt sorted_jsonl.txt > unanalyzed_unique.txt
+if [ ! -s analyzed_bases.txt ]; then
+    # If analyzed_bases.txt is empty, then all entries are unanalyzed.
+    # Print the second field from sorted_jsonl.txt for each unique base.
+    awk -F'|' '!seen[$1]++ { print $2 }' sorted_jsonl.txt > unanalyzed_unique.txt
+else
+    # Otherwise, use the AWK command to filter out those that are analyzed.
+    awk -F'|' 'NR==FNR { analyzed[$1] = 1; next } !analyzed[$1] && !seen[$1]++ { print $2 }' analyzed_bases.txt sorted_jsonl.txt > unanalyzed_unique.txt
+fi
 
 # Randomly select 4 lines using shuf
 shuf -n 4 unanalyzed_unique.txt

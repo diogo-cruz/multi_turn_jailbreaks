@@ -906,7 +906,9 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     ]
 
     # Set style for better-looking plots
-    plt.style.use('seaborn')
+    # plt.style.use('seaborn')
+    # Use seaborn style for better aesthetics
+    sns.set_theme()
     
     # Handle round scores safely
     max_rounds = 0
@@ -1644,7 +1646,7 @@ def determine_issues_from_scores(data: Dict) -> Dict[str, bool]:
     return issues
 
 if __name__ == "__main__":
-    results_dir = "results"
+    results_dir = "analyzed_results"
     output_dir = "analysis_output"
     
     # Perform analysis

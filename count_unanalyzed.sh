@@ -29,13 +29,18 @@ sort processed_analysis.txt | uniq > analyzed_bases.txt
 sort -t'|' -k1,1 processed_jsonl.txt > sorted_jsonl.txt
 
 # Count unique unanalyzed base names
-total_count=$(awk -F'|' 'NR==FNR{analyzed[$1]=1; next} !analyzed[$1] && !seen[$1]++{count++} END{print count}' analyzed_bases.txt sorted_jsonl.txt)
-
-echo "Total number of unique unanalyzed tactic/test/turn combinations: $total_count"
-
-# Also show the full list of unique base names that need analysis
-echo -e "\nUnique tactic/test/turn combinations that need analysis:"
-awk -F'|' 'NR==FNR{analyzed[$1]=1; next} !analyzed[$1] && !seen[$1]++{print $1}' analyzed_bases.txt sorted_jsonl.txt | sort
+if [ ! -s analyzed_bases.txt ]; then
+    # File is empty, so count and print unique base names directly
+    total_count=$(awk -F'|' '!seen[$1]++{count++} END{print count}' sorted_jsonl.txt)
+    echo "Total number of unique unanalyzed tactic/test/turn combinations: $total_count"
+    echo -e "\nUnique tactic/test/turn combinations that need analysis:"
+    awk -F'|' '!seen[$1]++{print $1}' sorted_jsonl.txt | sort
+else
+    total_count=$(awk -F'|' 'NR==FNR{analyzed[$1]=1; next} !analyzed[$1] && !seen[$1]++{count++} END{print count}' analyzed_bases.txt sorted_jsonl.txt)
+    echo "Total number of unique unanalyzed tactic/test/turn combinations: $total_count"
+    echo -e "\nUnique tactic/test/turn combinations that need analysis:"
+    awk -F'|' 'NR==FNR{analyzed[$1]=1; next} !analyzed[$1] && !seen[$1]++{print $1}' analyzed_bases.txt sorted_jsonl.txt | sort
+fi
 
 # Clean up temporary files
 rm all_jsonl.txt all_analysis.txt processed_jsonl.txt processed_analysis.txt analyzed_bases.txt sorted_jsonl.txt 
