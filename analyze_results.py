@@ -1261,6 +1261,180 @@ def generate_analysis_plots(df: pd.DataFrame, output_dir: str):
     plt.tight_layout()
     plt.savefig(f'{output_dir}/sub_issues_by_test_case.png')
     plt.close()
+    
+
+def generate_analysis_plots2(df: pd.DataFrame, output_dir: str):
+    """Generate visualizations from the analysis results"""
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Set style for better-looking plots
+    # plt.style.use('seaborn')
+    # Use seaborn style for better aesthetics
+    sns.set_theme()
+    
+    # Handle round scores safely
+    max_rounds = 0
+    if 'round_scores' in df.columns:
+        # Convert round_scores back to list if it was converted to string
+        df['round_scores'] = df['round_scores'].apply(lambda x: eval(x) if isinstance(x, str) and x.startswith('[') else x)
+        
+        # Calculate max rounds safely
+        valid_scores = [scores for scores in df['round_scores'] if isinstance(scores, list) and scores]
+        max_rounds = max(len(scores) for scores in valid_scores) if valid_scores else 0
+    
+    # Extract model size from target_model name
+    def extract_model_size(model_name):
+        if pd.isna(model_name) or model_name == 'unknown':
+            return None
+        size_match = re.search(r'(\d+)b', str(model_name).lower())
+        if size_match:
+            return float(size_match.group(1))
+        return None
+    
+    # Only create model_size column if target_model exists
+    if 'target_model' in df.columns:
+        df['model_size'] = df['target_model'].apply(extract_model_size)
+    else:
+        print("WARNING: target_model column not found in DataFrame")
+        df['model_size'] = None
+
+
+    
+    # 3. Round scores progression (only if round_scores exist)
+    if max_rounds > 0 and 'round_scores' in df.columns:
+        plt.figure(figsize=(12, 6))
+        round_data = []
+        round_sizes = []
+        
+        for round_idx in range(max_rounds):
+            scores = [scores[round_idx] for scores in df['round_scores'] 
+                     if isinstance(scores, list) and round_idx < len(scores) and scores[round_idx] is not None]
+            if scores:
+                round_data.append(scores)
+                round_sizes.append(len(scores))
+        
+        if round_data:
+            bp = plt.boxplot(round_data)
+            plt.title('Score Progression by Round')
+            plt.xlabel('Round Number')
+            plt.ylabel('Score')
+            
+            # Add sample size annotations
+            for i, size in enumerate(round_sizes, 1):
+                plt.text(i, plt.ylim()[0], f'n={size}', horizontalalignment='center', verticalalignment='top')
+            
+            plt.tight_layout()
+            plt.savefig(f'{output_dir}/round_progression.png')
+        plt.close()
+    
+    
+    # 5. Distribution of rounds to success (only if completed_rounds exists)
+    if 'completed_rounds' in df.columns and 'goal_achieved' in df.columns:
+        plt.figure(figsize=(10, 6))
+        successful_attempts = df[df['goal_achieved'] == True].copy()
+        if len(successful_attempts) > 0:
+            sns.histplot(data=successful_attempts, x='completed_rounds', bins=20)
+            plt.title('Distribution of Rounds to Success')
+            plt.xlabel('Number of Rounds')
+            plt.ylabel('Count')
+            plt.tight_layout()
+            plt.savefig(f'{output_dir}/rounds_to_success.png')
+        plt.close()
+    
+    
+    # 7. Performance by model size
+    plt.figure(figsize=(12, 6))
+    model_perf = df.groupby('model_size').agg({
+        'reliability_score': ['mean', 'std', 'count']
+    }).round(2)
+    
+    if 'goal_achieved' in df.columns:
+        model_perf['goal_achieved', 'mean'] = df.groupby('model_size')['goal_achieved'].mean()
+    
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+    ax2 = ax1.twinx()
+    
+    # Plot reliability score
+    ax1.errorbar(model_perf.index, model_perf[('reliability_score', 'mean')],
+                yerr=model_perf[('reliability_score', 'std')],
+                fmt='o-', color='blue', label='Reliability Score')
+    ax1.set_xscale('log')  # Set x-axis to logarithmic scale
+    ax1.set_xlabel('Model Size (B parameters)')
+    ax1.set_ylabel('Reliability Score', color='blue')
+    
+    # Plot success rate if available
+    if 'goal_achieved' in df.columns:
+        ax2.plot(model_perf.index, model_perf[('goal_achieved', 'mean')] * 100,
+                'r--', label='Success Rate')
+        ax2.set_ylabel('Success Rate (%)', color='red')
+    
+    plt.title('Model Performance by Size')
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/model_size_performance.png')
+    plt.close()
+    
+    # 8. Success rate by jailbreak tactic and test case (if goal_achieved exists)
+    if 'goal_achieved' in df.columns and 'jailbreak_tactic' in df.columns:
+        plt.figure(figsize=(14, 7))
+        
+        # Calculate mean success rates
+        success_means = df.pivot_table(
+            values='goal_achieved',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc='mean'
+        ) * 100
+        
+        # Calculate standard deviations
+        success_stds = df.pivot_table(
+            values='goal_achieved',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: x.std(ddof=0) if len(x) > 1 else 0
+        ) * 100
+        
+        # Calculate sample sizes
+        sample_sizes = df.pivot_table(
+            values='goal_achieved',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc='count'
+        )
+        
+        if not success_means.empty:
+            # Create heatmap with mean values
+            sns.heatmap(success_means, annot=False, fmt='.1f', cmap='YlOrRd')
+            
+            # Add text annotations with mean ± std (n=sample_size)
+            for i in range(len(success_means.index)):
+                for j in range(len(success_means.columns)):
+                    mean = success_means.iloc[i, j]
+                    std = success_stds.iloc[i, j]
+                    n = sample_sizes.iloc[i, j]
+                    if not pd.isna(mean):
+                        # Format text with standard deviation if available
+                        if pd.isna(std) or std == 0:
+                            text = f'{mean:.1f}\n(n={int(n)})'
+                        else:
+                            text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+                        plt.text(j + 0.5, i + 0.5, text,
+                                ha='center', va='center')
+            
+            plt.title('Success Rate (%) by Tactic and Test Case\n(mean ± std)')
+            plt.xlabel('Jailbreak Tactic')
+            plt.ylabel('Test Case')
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+            plt.savefig(f'{output_dir}/success_by_tactic_test.png')
+        plt.close()
+
+
+
 
 def analyze_results(results_dir: str) -> pd.DataFrame:
     """Analyze all result files in the specified directory"""
@@ -1646,19 +1820,22 @@ def determine_issues_from_scores(data: Dict) -> Dict[str, bool]:
     return issues
 
 if __name__ == "__main__":
-    results_dir = "analyzed_results"
+    # results_dir = "analyzed_results"
+    results_dir = "results"
     output_dir = "analysis_output"
     
     # Perform analysis
     df, warning_counter = analyze_results(results_dir)
+    print(f"Total number of rows in df: {len(df)}")
     
     # Generate visualizations
-    generate_analysis_plots(df, output_dir)
+    # generate_analysis_plots(df, output_dir)
+    generate_analysis_plots2(df, output_dir)
     
-    # Generate and save summary report
-    report = generate_summary_report(df)
-    with open(f"{output_dir}/summary_report.md", "w") as f:
-        f.write(report)
+    # # Generate and save summary report
+    # report = generate_summary_report(df)
+    # with open(f"{output_dir}/summary_report.md", "w") as f:
+    #     f.write(report)
     
     # Save detailed results
     df.to_csv(f'{output_dir}/jailbreak_analysis_results.csv', index=False)

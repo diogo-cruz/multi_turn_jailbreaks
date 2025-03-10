@@ -5,3 +5,4 @@ seaborn==0.13.2
 ipykernel==6.15.2
 dash==2.18.2
 plotly==6.0.0
+scipy==1.7.3
