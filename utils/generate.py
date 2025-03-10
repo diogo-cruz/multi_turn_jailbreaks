@@ -21,8 +21,15 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False)
         # print(content)
         try:
             return json.loads(content)
-        except json.JSONDecodeError:
-            return extract_json(content)
+        except json.JSONDecodeError as e:
+            # A common error is the response trying to escape speech marks, such as \' or \"
+            # This is not valid JSON, so we need to remove the escape characters
+            if "Invalid \\escape" in e.msg:
+                print("Invalid escape character found, attempting to fix...")
+                content = content.replace("\\'", "'").replace('\\"', '"')
+                return json.loads(content)
+            else:
+                return extract_json(content)
 
     return response.choices[0].message.content
 
