@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 from dash import Dash, dcc, html, Input, Output
 
+pd.set_option('future.no_silent_downcasting', True)
 # Load summary data from the jsonl file into a DataFrame
 data = []
 with open('./results/summary.jsonl', 'r', encoding='utf-8') as f:
@@ -25,7 +26,27 @@ app.layout = html.Div([
         dcc.Tab(label="Average min_score by Model & Turn Type", value="tab3"),
         dcc.Tab(label="Histogram of min_round (Multi-Turn)", value="tab4"),
     ]),
-    html.Div(id="tabs-content")
+    html.Div(id="tabs-content"),
+    html.Div([
+        # Tab 1 components
+        dcc.Dropdown(id='tab1-model-dropdown', style={'display': 'none'}),
+        dcc.Dropdown(id='tab1-tactic-dropdown', style={'display': 'none'}),
+        dcc.Graph(id='tab1-graph', style={'display': 'none'}),
+        
+        # Tab 2 components
+        dcc.Dropdown(id='tab2-model-dropdown', style={'display': 'none'}),
+        dcc.Dropdown(id='tab2-tactic-dropdown', style={'display': 'none'}),
+        dcc.Graph(id='tab2-graph', style={'display': 'none'}),
+        
+        # Tab 3 components
+        dcc.Dropdown(id='tab3-tactic-dropdown', style={'display': 'none'}),
+        dcc.Graph(id='tab3-graph', style={'display': 'none'}),
+        
+        # Tab 4 components
+        dcc.Dropdown(id='tab4-model-dropdown', style={'display': 'none'}),
+        dcc.Dropdown(id='tab4-tactic-dropdown', style={'display': 'none'}),
+        dcc.Graph(id='tab4-graph', style={'display': 'none'})
+    ], style={'display': 'none'})
 ])
 
 ##############################
