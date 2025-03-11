@@ -6,7 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.ticker import ScalarFormatter
-#import scipy.stats as stats
+import argparse
+import os
 
 # Define model sizes (in billions of parameters)
 MODEL_SIZES = {
@@ -411,21 +412,37 @@ def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
     print(f"Saved model bar plot to {output_filename}")
 
 def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Generate plots from results data CSV file.')
+    parser.add_argument('--csv', dest='csv_file', default='yolanda_clean_results_data.csv', help='Path to the CSV file containing results data (default: yolanda_clean_results_data.csv)')
+    
+    # Parse arguments
+    args = parser.parse_args()
+    csv_file = args.csv_file
+    
+    # Extract filename without extension for use in output filenames
+    csv_basename = os.path.splitext(os.path.basename(csv_file))[0]
+    
     # Read the data
-    print("Reading data from 'results_data.csv'...")
-    df = pd.read_csv('yolanda_clean_results_data.csv')
+    print(f"Reading data from '{csv_file}'...")
+    df = pd.read_csv(csv_file)
     
     print(f"Found {len(df)} rows of data")
     
-    # Create both plots
+    # Create output filenames with CSV basename suffix
+    heatmap_filename = f"success_by_tactic_test_from_{csv_basename}.png"
+    model_size_filename = f"success_rate_by_model_size_from_{csv_basename}.png"
+    model_bar_filename = f"success_rate_by_model_name_from_{csv_basename}.png"
+    
+    # Create all plots
     print("Creating success rate heatmap...")
-    create_success_heatmap(df)
+    create_success_heatmap(df, heatmap_filename)
     
     print("Creating model size line plot...")
-    create_model_size_plot(df)
+    create_model_size_plot(df, model_size_filename)
     
     print("Creating model name bar plot...")
-    create_model_bar_plot(df)
+    create_model_bar_plot(df, model_bar_filename)
     
     print("Done!")
 
