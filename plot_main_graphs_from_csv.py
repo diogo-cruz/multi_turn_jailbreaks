@@ -36,7 +36,7 @@ def create_success_heatmap(df, output_filename='success_by_tactic_test.png'):
         values='goal_achieved',
         index='test_case',
         columns='jailbreak_tactic',
-        aggfunc=lambda x: x.std(ddof=0) if len(x) > 1 else 0
+        aggfunc=lambda x: x.std(ddof=1) if len(x) > 1 else 0 # use ddof=1 to get the sample std
     ) * 100
     
     # Calculate sample sizes
