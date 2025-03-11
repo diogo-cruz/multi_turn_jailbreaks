@@ -20,7 +20,7 @@ MODEL_SIZES = {
     "meta-llama/llama-3.3-70b-instruct": 70
 }
 
-def create_success_heatmap(df, output_filename='success_by_tactic_test.png'):
+def create_success_heatmap(df, output_filename):
     """
     Create a heatmap showing success rate by jailbreak tactic and test case
     """
@@ -89,7 +89,8 @@ def create_success_heatmap(df, output_filename='success_by_tactic_test.png'):
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+    output_path = '../plot_outputs/' + output_filename
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"Saved heatmap to {output_filename}")
@@ -111,7 +112,7 @@ def calculate_success_stats(data):
         
     return success_rate, margin, n
 
-def create_model_size_plot(df, output_filename='success_rate_by_model_size.png'):
+def create_model_size_plot(df, output_filename):
     """
     Create a plot showing success rate vs model size by turn type
     """
@@ -253,7 +254,9 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
     
     # Save and show
     plt.tight_layout()
-    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+
+    output_path = '../plot_outputs/' + output_filename
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"Saved model size plot to {output_filename}")
@@ -406,7 +409,9 @@ def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
     
     # Save and show
     plt.subplots_adjust(bottom=0.25)
-    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+    
+    output_path = '../plot_outputs/' + output_filename
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"Saved model bar plot to {output_filename}")
@@ -414,11 +419,11 @@ def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate plots from results data CSV file.')
-    parser.add_argument('--csv', dest='csv_file', default='yolanda_clean_results_data.csv', help='Path to the CSV file containing results data (default: yolanda_clean_results_data.csv)')
+    parser.add_argument('--csv', dest='csv_file', default='results.csv', help='Name of the CSV file under ../csv_results/ that will be used to generate plots (default: results.csv)')
     
     # Parse arguments
     args = parser.parse_args()
-    csv_file = args.csv_file
+    csv_file = '../csv_results/' + args.csv_file
     
     # Extract filename without extension for use in output filenames
     csv_basename = os.path.splitext(os.path.basename(csv_file))[0]
