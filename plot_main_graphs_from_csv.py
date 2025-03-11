@@ -257,6 +257,159 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
     
     print(f"Saved model size plot to {output_filename}")
 
+def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
+    """
+    Create a bar plot showing success rate by model name (ordered by model size) and turn type
+    """
+    # Add model size column
+    df['model_size'] = df['target_model'].map(MODEL_SIZES)
+    
+    # Process data for models
+    results = []
+    for turn_type in ['single', 'multi']:
+        for model_name in df['target_model'].unique():
+            subset = df[(df['turn_type'] == turn_type) & (df['target_model'] == model_name)]
+            
+            if not subset.empty:
+                success_rate, margin, n = calculate_success_stats(subset['goal_achieved'])
+                model_size = MODEL_SIZES.get(model_name, 0)  # Get model size for ordering
+                results.append({
+                    'turn_type': turn_type,
+                    'model_name': model_name,
+                    'model_size': model_size,  # For ordering
+                    'success_rate': success_rate,
+                    'margin': margin,
+                    'n': n
+                })
+    
+    # Convert results to DataFrame
+    results_df = pd.DataFrame(results)
+    
+    # Create mapping of model names to display names (shorter for readability)
+    display_names = {
+        "gpt-4o-mini-2024-07-18": "GPT-4o-mini",
+        "meta-llama/llama-3.1-8b-instruct": "Llama 3.1 8B",
+        "meta-llama/llama-3.1-70b-instruct": "Llama 3.1 70B",
+        "meta-llama/llama-3.1-405b-instruct": "Llama 3.1 405B",
+        "meta-llama/llama-3.2-1b-instruct": "Llama 3.2 1B",
+        "meta-llama/llama-3.2-3b-instruct": "Llama 3.2 3B",
+        "meta-llama/llama-3.3-70b-instruct": "Llama 3.3 70B"
+    }
+    
+    # Add display name column
+    results_df['display_name'] = results_df['model_name'].map(display_names)
+    
+    # Create the figure
+    plt.figure(figsize=(14, 8))
+    ax = plt.subplot(111)
+    
+    # Set background color
+    ax.set_facecolor('#f0f0f5')
+    
+    # Get unique model names ordered by model size
+    ordered_models = sorted(results_df['model_name'].unique(), key=lambda x: MODEL_SIZES.get(x, 0))
+    ordered_display_names = [display_names.get(model, model) for model in ordered_models]
+    
+    # Set width of bars
+    bar_width = 0.35
+    
+    # Set positions for bars
+    indices = np.arange(len(ordered_models))
+    
+    # Create bar plots for each turn type
+    for i, (turn_type, color) in enumerate([('single', 'blue'), ('multi', 'green')]):
+        # Filter data for this turn type
+        turn_data = results_df[results_df['turn_type'] == turn_type]
+        
+        # Create a dictionary for easy lookup
+        model_to_data = {row['model_name']: row for _, row in turn_data.iterrows()}
+        
+        # Prepare data in the correct order
+        success_rates = []
+        error_bars = []
+        sample_sizes = []
+        
+        for model in ordered_models:
+            if model in model_to_data:
+                row = model_to_data[model]
+                success_rates.append(row['success_rate'])
+                error_bars.append(row['margin'])
+                sample_sizes.append(row['n'])
+            else:
+                success_rates.append(0)
+                error_bars.append(0)
+                sample_sizes.append(0)
+        
+        # Plot bars
+        ax.bar(
+            indices + (i * bar_width - bar_width/2),  # Position bars side by side
+            success_rates,
+            bar_width,
+            color=color,
+            alpha=0.7,
+            label=f'{turn_type}-turn'
+        )
+        
+        # Add error bars
+        ax.errorbar(
+            indices + (i * bar_width - bar_width/2),
+            success_rates,
+            yerr=error_bars,
+            fmt='none',
+            color='black',
+            capsize=5
+        )
+        
+        # Add sample size annotations
+        for j, (rate, n) in enumerate(zip(success_rates, sample_sizes)):
+            if n > 0:
+                ax.annotate(
+                    f'n={n}',
+                    xy=(indices[j] + (i * bar_width - bar_width/2), rate + 3),
+                    ha='center',
+                    va='bottom',
+                    fontsize=8,
+                    color='black'
+                )
+    
+    # Set x-axis labels
+    ax.set_xticks(indices)
+    ax.set_xticklabels(ordered_display_names, rotation=45, ha='right')
+    
+    # Add model size underneath model names
+    for i, model_name in enumerate(ordered_models):
+        size = MODEL_SIZES.get(model_name, "Unknown")
+        ax.annotate(
+           f"{size}B params",
+            xy=(i, -0.05),  # Position in data/axes coordinates
+            xytext=(0, 0),  # No offset since we're using absolute position
+            xycoords=('data', 'axes fraction'),
+            textcoords='offset points',
+            size=8,
+            va='top',
+            ha='center',
+            rotation=45
+        )
+    
+    # Set limits and labels
+    ax.set_ylim(0, 100)
+    ax.set_xlabel('Model Name (Parameter Size)', fontsize=12)
+    ax.set_ylabel('Success Rate (%)', fontsize=12)
+    ax.set_title('Attack Success Rate by Model and Turn Type', fontsize=14)
+    
+    # Add legend
+    ax.legend(loc='upper right', fontsize=10)
+    
+    # Add grid for better readability
+    ax.grid(True, linestyle='--', alpha=0.7, axis='y')
+    
+    # Save and show
+    plt.subplots_adjust(bottom=0.25)
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Saved model bar plot to {output_filename}")
+
 def main():
     # Read the data
     print("Reading data from 'results_data.csv'...")
@@ -268,8 +421,11 @@ def main():
     print("Creating success rate heatmap...")
     create_success_heatmap(df)
     
-    print("Creating model size plot...")
+    print("Creating model size line plot...")
     create_model_size_plot(df)
+    
+    print("Creating model name bar plot...")
+    create_model_bar_plot(df)
     
     print("Done!")
 
