@@ -8,7 +8,7 @@ directory = '../results'  # Update this to your actual directory
 summary = []
 
 # Iterate over all .jsonl files in the directory.
-for filepath in glob.glob(os.path.join(directory, '*.jsonl')):
+for filepath in glob.glob(os.path.join(directory, '**/*.jsonl')):
     with open(filepath, 'r', encoding='utf-8') as f:
         lines = [line.strip() for line in f if line.strip()]
 

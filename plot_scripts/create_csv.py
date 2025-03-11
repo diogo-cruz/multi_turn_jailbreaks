@@ -29,6 +29,9 @@ def get_results(filepath: Path) -> tuple:
     test_case = data[0].get("test_case")
     turn_type = data[0].get("turn_type")
     target_model = data[0].get("target_model")
+    if target_model == "gpt-4o-mini":
+        # add the gpt-4o-mini version for the old results
+        target_model = "gpt-4o-mini-2024-07-18"
     target_temp = data[0].get("target_temp")
     max_round = max(
         (entry.get("round", 0) for entry in data if "round" in entry), default=0
@@ -36,16 +39,17 @@ def get_results(filepath: Path) -> tuple:
     goal_achieved = any(entry.get("goal_achieved", False) for entry in data)
     scores = []
     refused = 0
-    for i in range(2, len(data) - 1):
-        score = data[i].get("score")
-        if score != "refused":
-            # check if score is an integer
-            if isinstance(score, int):
-                scores.append(score)
+    for entry in data:
+        if "score" in entry:
+            score = entry.get("score")
+            if score != "refused":
+                # check if score is an integer
+                if isinstance(score, int):
+                    scores.append(score)
+                else:
+                    raise ValueError(f"Score is not an integer: {score}")
             else:
-                raise ValueError(f"Score is not an integer: {score}")
-        else:
-            refused += 1
+                refused += 1
 
     return (
         jailbreak_tactic,
