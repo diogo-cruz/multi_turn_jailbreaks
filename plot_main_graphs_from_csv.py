@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.ticker import ScalarFormatter
-import scipy.stats as stats
+#import scipy.stats as stats
 
 # Define model sizes (in billions of parameters)
 MODEL_SIZES = {
@@ -178,6 +178,7 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
             regular_data = regular_data.sort_values('model_size')
             
             # Plot regular models with lines
+            # TODO: Use asymmetric errorbar when succes_rate +/- margin is beyong 0 or 100
             ax.errorbar(
                 regular_data['model_size'],
                 regular_data['success_rate'],
@@ -195,9 +196,9 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
             for _, row in regular_data.iterrows():
                 ax.annotate(
                     f'n={row["n"]}',
-                    xy=(row['model_size'], row['success_rate'] + row['margin'] + 2),
+                    xy=(row['model_size'], row['success_rate'] + 5),
                     ha='center',
-                    va='bottom',
+                    va='top',
                     fontsize=8
                 )
         
@@ -222,9 +223,9 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
             for _, row in gpt4o_data.iterrows():
                 ax.annotate(
                     f'n={row["n"]}',
-                    xy=(row['model_size'], row['success_rate'] - row['margin'] - 2),
+                    xy=(row['model_size'], row['success_rate'] - 5),
                     ha='center',
-                    va='top',
+                    va='bottom',
                     fontsize=8,
                     color='red'
                 )
@@ -233,7 +234,7 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
     ax.set_xscale('log')
     
     # Set limits and labels
-    ax.set_ylim(0, 80)
+    ax.set_ylim(0, 100)
     ax.set_xlim(0.8, 700)
     ax.set_xlabel('Model Size (B parameters)', fontsize=12)
     ax.set_ylabel('Success Rate (%)', fontsize=12)
@@ -244,7 +245,7 @@ def create_model_size_plot(df, output_filename='success_rate_by_model_size.png')
     ax.xaxis.get_major_formatter().set_scientific(False)
     
     # Add legend
-    ax.legend(loc='upper right', fontsize=10)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.01,1), fontsize=10)
     
     # Add grid for better readability
     ax.grid(True, linestyle='--', alpha=0.7)
