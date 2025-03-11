@@ -6,7 +6,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 # Define the folder and filename pattern
-folder = "results"
+folder = "../results"
 file_prefix = "crowding_identity"
 
 # Define state mapping function

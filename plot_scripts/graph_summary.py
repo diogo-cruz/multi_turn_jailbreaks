@@ -6,7 +6,7 @@ from dash import Dash, dcc, html, Input, Output
 pd.set_option('future.no_silent_downcasting', True)
 # Load summary data from the jsonl file into a DataFrame
 data = []
-with open('./results/summary.jsonl', 'r', encoding='utf-8') as f:
+with open('../results/summary.jsonl', 'r', encoding='utf-8') as f:
     for line in f:
         data.append(json.loads(line))
 df = pd.DataFrame(data)

@@ -479,7 +479,7 @@ def main():
     parser.add_argument(
         "--results-dir",
         type=Path,
-        default=current_path / "results",
+        default=current_path.parent / "results",
         help="Directory containing the JSONL result files to analyze (default: ./results)",
     )
 

@@ -3,7 +3,7 @@ import json
 import glob
 
 # Set the directory containing the .jsonl result files.
-directory = './results'  # Update this to your actual directory
+directory = '../results'  # Update this to your actual directory
 
 summary = []
 
