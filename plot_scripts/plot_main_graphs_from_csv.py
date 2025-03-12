@@ -23,6 +23,7 @@ MODEL_SIZES = {
 def create_success_heatmap(df, output_filename):
     """
     Create a heatmap showing success rate by jailbreak tactic and test case
+    with average success rates for each tactic and test case
     """
     # Calculate mean success rates
     success_means = df.pivot_table(
@@ -48,11 +49,38 @@ def create_success_heatmap(df, output_filename):
         aggfunc='count'
     )
     
-    # Create the figure
-    plt.figure(figsize=(14, 10))
+    # Calculate average success rates for each tactic (column averages)
+    tactic_averages = success_means.mean(axis=0)
+    
+    # Calculate standard deviations for tactic averages
+    tactic_stds = success_means.std(axis=0)
+    
+    # Calculate total sample sizes for tactic averages
+    tactic_samples = sample_sizes.sum(axis=0)
+    
+    # Calculate average success rates for each test case (row averages)
+    testcase_averages = success_means.mean(axis=1)
+    
+    # Calculate standard deviations for test case averages
+    testcase_stds = success_means.std(axis=1)
+    
+    # Calculate total sample sizes for test case averages
+    testcase_samples = sample_sizes.sum(axis=1)
+    
+    # Create the figure with extra space for averages
+    plt.figure(figsize=(16, 12))
+    
+    # Define subplot layout to accommodate averages
+    # Using 3 columns: [avg column, main heatmap, colorbar space]
+    gs = plt.GridSpec(2, 3, width_ratios=[2, 20, 0.5], height_ratios=[20, 1], 
+                     wspace=0.05, hspace=0.05)
+    
+    # Main heatmap
+    ax_main = plt.subplot(gs[0, 1])
     
     # Create heatmap with mean values
-    ax = sns.heatmap(success_means, annot=False, fmt='.1f', cmap='YlOrRd', vmin=0, vmax=100)
+    hm = sns.heatmap(success_means, annot=False, fmt='.1f', cmap='YlOrRd', 
+               vmin=0, vmax=100, ax=ax_main, cbar=False)
     
     # Add text annotations with mean and std (n=sample_size)
     for i in range(len(success_means.index)):
@@ -70,30 +98,92 @@ def create_success_heatmap(df, output_filename):
                 # Calculate text color based on cell color
                 text_color = 'white' if mean > 50 else 'black'
                 
-                plt.text(j + 0.5, i + 0.5, text,
+                ax_main.text(j + 0.5, i + 0.5, text,
                         ha='center', va='center', color=text_color)
     
-    # Add title and labels
-    plt.title('Success Rate (%) by Tactic and Test Case', fontsize=16)
-    plt.xlabel('Jailbreak Tactic', fontsize=12)
-    plt.ylabel('Test Case', fontsize=12)
+    # Create heatmap for tactic averages (bottom row)
+    ax_tactic_avg = plt.subplot(gs[1, 1], sharex=ax_main)
+    tactic_avg_df = pd.DataFrame([tactic_averages]).rename(index={0: 'Avg'})
+    sns.heatmap(tactic_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
+               vmin=0, vmax=100, ax=ax_tactic_avg, cbar=False)
+               
+    # Add text annotations with mean, std, and sample size
+    for j in range(len(tactic_averages)):
+        mean = tactic_averages.iloc[j]
+        std = tactic_stds.iloc[j]
+        n = tactic_samples.iloc[j]
+        
+        # Format text with standard deviation and sample size
+        text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+        
+        # Calculate text color based on cell color
+        text_color = 'white' if mean > 50 else 'black'
+        
+        ax_tactic_avg.text(j + 0.5, 0.5, text,
+                ha='center', va='center', color=text_color)
     
-    # Rotate x-axis labels for better readability
-    plt.xticks(rotation=45, ha='right')
+    ax_tactic_avg.set_xlabel('Jailbreak Tactic', fontsize=12)
+    ax_tactic_avg.set_ylabel('', rotation=0)
     
-    # Add a colorbar label
-    cbar = ax.collections[0].colorbar
+    # Create heatmap for test case averages (left column)
+    ax_testcase_avg = plt.subplot(gs[0, 0], sharey=ax_main)
+    testcase_avg_df = pd.DataFrame(testcase_averages).rename(columns={0: 'Avg'})
+    sns.heatmap(testcase_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
+               vmin=0, vmax=100, ax=ax_testcase_avg, cbar=False)
+               
+    # Add text annotations with mean, std, and sample size
+    for i in range(len(testcase_averages)):
+        mean = testcase_averages.iloc[i]
+        std = testcase_stds.iloc[i]
+        n = testcase_samples.iloc[i]
+        
+        # Format text with standard deviation and sample size
+        text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+        
+        # Calculate text color based on cell color
+        text_color = 'white' if mean > 50 else 'black'
+        
+        ax_testcase_avg.text(0.5, i + 0.5, text,
+                ha='center', va='center', color=text_color)
+    
+    # Add empty plot for the bottom left square
+    ax_empty = plt.subplot(gs[1, 0])
+    ax_empty.axis('off')
+    
+    # Add colorbar to the main heatmap
+    cbar_ax = plt.subplot(gs[0, 2])
+    cbar = plt.colorbar(hm.get_children()[0], cax=cbar_ax)
     cbar.set_label('Success Rate (%)', fontsize=12)
     
+    # Add title and labels for main plot
+    plt.suptitle('Success Rate (%) by Tactic and Test Case', fontsize=16)
+    ax_main.set_xlabel('')
+    ax_main.set_ylabel('')  # Remove duplicate y-axis label
+    
+    # Set the y-axis label only on the averages plot since it's on the left now
+    ax_testcase_avg.set_ylabel('Test Case', fontsize=12)
+    
+    # Rotate x-axis labels for better readability
+    plt.setp(ax_main.get_xticklabels(), rotation=45, ha='right')
+    
+    # Fix the duplicate axis labels
+    plt.setp(ax_testcase_avg.get_yticklabels(), visible=True)  # Keep left labels visible
+    plt.setp(ax_main.get_yticklabels(), visible=False)  # Hide main heatmap y labels
+    plt.setp(ax_tactic_avg.get_yticklabels(), visible=False)  # Hide bottom avg y labels
+    
+    # Fix the duplicate x-axis labels
+    plt.setp(ax_tactic_avg.get_xticklabels(), visible=True)  # Keep bottom x labels visible
+    plt.setp(ax_main.get_xticklabels(), visible=False)  # Hide main heatmap x labels
+    
     # Adjust layout to prevent overlap
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Leave space for the title
     
     # Save the figure
     output_path = '../plot_outputs/' + output_filename
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"Saved heatmap to {output_filename}")
+    print(f"Saved enhanced heatmap with averages to {output_filename}")
 
 def calculate_success_stats(data):
     """Calculate success rate, confidence interval, and sample size for a group"""
