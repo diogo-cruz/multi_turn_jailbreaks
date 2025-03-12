@@ -22,7 +22,16 @@ def get_results(filepath: Path) -> tuple:
         if not re.match(pattern, timestamp_str):
             # If the format is wrong, use the fallback timestamp
             timestamp_str = '2025-01-22_06:20:52'
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d_%H:%M:%S")
+            
+    formats = [
+        "%Y-%m-%d_%H:%M:%S",  # Format with hyphens and colons
+        "%Y_%m_%d_%H_%M_%S"   # Format with all underscores
+    ]
+    for format_str in formats:
+        try:
+            timestamp = datetime.strptime(timestamp_str, format_str)
+        except ValueError:
+            continue
 
     # Extract target_model, max_round, and goal_achieved
     jailbreak_tactic = data[0].get("jailbreak_tactic")
