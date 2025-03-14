@@ -15,9 +15,11 @@ load_dotenv()
 JAILBREAK_TACTICS = [d for d in os.listdir('jailbreaks') 
                     if os.path.isdir(os.path.join('jailbreaks', d))]
 
-# Get available test cases
-TEST_CASES = [d for d in os.listdir('test_cases') 
-              if os.path.isdir(os.path.join('test_cases', d))]
+# Get available test cases, include subdirectories in 'old' as well
+TEST_CASES = [d for d in os.listdir('test_cases')
+              if os.path.isdir(os.path.join('test_cases', d))] + \
+              ['old/' + d for d in os.listdir('test_cases/old')
+              if os.path.isdir(os.path.join('test_cases/old', d))]
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -108,23 +110,23 @@ def attacker_generate(messages, temperature=attacker_temp, **kwargs):
     temperature=temperature, **kwargs)
 
 
-if args.gen_score_rubric:
-    test_cases_dir = "test_cases"
-    test_cases = [d for d in os.listdir(test_cases_dir) if os.path.isdir(os.path.join(test_cases_dir, d))] if args.gen_score_rubric_test_cases is None else args.gen_score_rubric_test_cases
+# if args.gen_score_rubric:
+#     test_cases_dir = "test_cases"
+#     test_cases = [d for d in os.listdir(test_cases_dir) if os.path.isdir(os.path.join(test_cases_dir, d))] if args.gen_score_rubric_test_cases is None else args.gen_score_rubric_test_cases
 
-    for t in test_cases:
-        print(f"Generating score rubric for {t}")
-        test_case_path = os.path.join(test_cases_dir, t, "multi_turn.json")
-        with open(test_case_path, "r") as f:
-            test_case = json.load(f)
+#     for t in test_cases:
+#         print(f"Generating score rubric for {t}")
+#         test_case_path = os.path.join(test_cases_dir, t, "multi_turn.json")
+#         with open(test_case_path, "r") as f:
+#             test_case = json.load(f)
         
-        goal = test_case["task"]
-        success_condition = test_case.get("success_condition", None)
-        criteria = generate_score_rubric.generate_rubric(goal, attacker_generate, success_condition)
+#         goal = test_case["task"]
+#         success_condition = test_case.get("success_condition", None)
+#         criteria = generate_score_rubric.generate_rubric(goal, attacker_generate, success_condition)
 
-        score_rubric_path = os.path.join(test_cases_dir, t, "score_rubric.json")
-        with open(score_rubric_path, "w") as file:
-            json.dump({"score_rubric": criteria}, file, indent=2)
+#         score_rubric_path = os.path.join(test_cases_dir, t, "score_rubric.json")
+#         with open(score_rubric_path, "w") as file:
+#             json.dump({"score_rubric": criteria}, file, indent=2)
         
 # Load the appropriate test case file based on whether it's single or multi turn
 test_case_file = f"{args.turn_type}.json"
@@ -133,10 +135,10 @@ test_case_path = os.path.join("test_cases", args.test_case, test_case_file)
 with open(test_case_path, "r") as f:
     test_case = json.load(f)
 
-test_case_score_rubric_path = os.path.join("test_cases", args.test_case, "score_rubric.json")
+# test_case_score_rubric_path = os.path.join("test_cases", args.test_case, "score_rubric.json")
 
-with open(test_case_score_rubric_path, "r") as f:
-    test_case_score_rubric = json.load(f)
+# with open(test_case_score_rubric_path, "r") as f:
+#     test_case_score_rubric = json.load(f)
 
 current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 timestamp = {"timestamp": current_time}
@@ -157,9 +159,9 @@ try:
     run_function = run.get_custom_run(args.jailbreak_tactic)
     if run_function is None:
         print("No custom run file found, using default.")
-        run.run_attack(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
+        run.run_attack(test_case, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
     else:
         print("Custom run file found, using it.")
-        run_function(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate)
+        run_function(test_case, output_file_path, target_generate, attacker_generate)
 except (ImportError, AttributeError) as e:
     raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}': {str(e)}")

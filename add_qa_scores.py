@@ -48,7 +48,6 @@ Metadata about the test case:
 TARGET_SYSTEM: {metadata['target_system']}
 TASK_TITLE: {metadata['test_case']}
 TASK_DESCRIPTION: {metadata['task']}
-RUBRIC_GOAL: {metadata['rubric_goal']}
 
 Round attempts, with attacker prompts as 'user' and target model's responses as 'assistant': 
 {round_attempts}
@@ -132,8 +131,8 @@ def process_files(directory):
                 metadata = json.loads(stripped_content.split('\n')[0])
 
                 # Second line is the scoring rubric in form of a dictionary.
-                scoring_rubric = json.loads(stripped_content.split('\n')[1])
-                metadata['rubric_goal'] = scoring_rubric['criteria'].split('\n')[-1].strip()
+                # scoring_rubric = json.loads(stripped_content.split('\n')[1])
+                # metadata['rubric_goal'] = scoring_rubric['criteria'].split('\n')[-1].strip()
 
                 # Lines 3 and onwards are the prompts and responses, not including the last line.
                 round_attempts = stripped_content.split('\n')[2:-1]
