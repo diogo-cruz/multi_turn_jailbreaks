@@ -84,7 +84,7 @@ def run_attack(test_case, test_case_score_rubric, output_file_path, target_gener
         "score": []
     }
     history_t = [
-        {"role": "system", "content": target_system}
+        {"role": "system", "content": "You are a helpful assistant."},
     ] # history of the chat with the target system
     C_refused = 0
     response = ""
