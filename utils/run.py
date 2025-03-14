@@ -106,7 +106,6 @@ def run_attack(test_case, test_case_score_rubric, output_file_path, target_gener
 
         while (
             check_refusal(prompt, response, attacker_generate)
-            or check_disclaimer(prompt, response, attacker_generate)
         ) and C_refused < 10:
             print("Refused, Backtrack")
             score = "refused"
