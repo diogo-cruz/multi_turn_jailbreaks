@@ -82,14 +82,12 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         "target": [], # save the summarized target's responses
         "score": []
     }
-    history_t = [
-        {"role": "system", "content": "You are a helpful assistant."},
-    ] # history of the chat with the target system
+    history_t = [] # history of the chat with the target system
     C_refused = 0
     response = ""
     round_number = 0
     while round_number < max_rounds:
-        round_number = len(history_t) // 2 + 1
+        round_number = (len(history_t) + 1) // 2 + 1
         prompt, response_summary = generate_step(
             round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate
         )
