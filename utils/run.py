@@ -4,8 +4,7 @@ import importlib
 import json
 from utils import (
     check_refusal,
-    evaluate_with_rubric,
-    check_disclaimer,
+    evaluate_with_strongreject,
 )
 
 def generate_step(
@@ -58,10 +57,10 @@ def get_custom_run(jailbreak_tactic):
     except ModuleNotFoundError:
         return None
 
-def run_attack(test_case, test_case_score_rubric, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
+def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
     goal = test_case["task"]
-    target_system = test_case["target_system"]
-    success_condition = test_case.get("success_condition", None)
+    # target_system = test_case["target_system"]
+    # success_condition = test_case.get("success_condition", None)
     turn_type = test_case["turn_type"]
     max_rounds = test_case["max_rounds"]
 
@@ -73,9 +72,9 @@ def run_attack(test_case, test_case_score_rubric, output_file_path, target_gener
 
     print(f"Starting {jailbreak_tactic} attack")
     print("Goal:", goal)
-    criteria = test_case_score_rubric["score_rubric"]
-    with open(output_file_path, "a") as f:
-        f.write(json.dumps({"criteria": criteria}) + "\n")
+    # criteria = test_case_score_rubric["score_rubric"]
+    # with open(output_file_path, "a") as f:
+    #     f.write(json.dumps({"criteria": criteria}) + "\n")
 
     history_a = {
         "round_number": [], 
@@ -161,7 +160,8 @@ def run_attack(test_case, test_case_score_rubric, output_file_path, target_gener
             history_a["target"].append("(Summary) " + response_summary)
 
         history_t.append({"role": "assistant", "content": response})
-        score = evaluate_with_rubric(response, goal, criteria, attacker_generate)
+        # score = evaluate_with_rubric(response, goal, criteria, attacker_generate)
+        score = evaluate_with_strongreject(response, goal, attacker_generate)
         history_a["score"].append(score)
 
         print(f"Round {round_number} - Loss: {score}")

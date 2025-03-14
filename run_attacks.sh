@@ -13,21 +13,31 @@ jailbreak_tactics=(
     #"emotional_appeal"
 )
 test_cases=(
-    #"academic_integrity"
-    #"child_exploitation"
-    #"corporate_secrets"
-    #"cybersecurity_exploits"
-    #"election_interference"
-    #"extremist_content"
-    #"figure_out_password"
-    #"financial_fraud"
-    "how_to_make_meth" 
-    #"how_to_make_bomb"
-    #n"human_trafficking"
-    # "identity_theft"
-    # "medical_privacy"
-    # "racial_slurs"
-    # "misinformation_annexation_of_crimea_russia"
+    ### StrongREJECT ###
+    "deoderant_flamethrower"
+    # "disarm_police"
+    # "hate_speech"
+    # "leak_photos"
+    # "steal_info"
+    # "women_drivers"
+
+
+    ### OLD TEST CASES ###
+    # "old/academic_integrity"
+    # "old/child_exploitation"
+    # "old/corporate_secrets"
+    # "old/cybersecurity_exploits"
+    # "old/election_interference"
+    # "old/extremist_content"
+    # "old/figure_out_password"
+    # "old/financial_fraud"
+    # "old/how_to_make_meth" 
+    # "old/how_to_make_bomb"
+    # "old/human_trafficking"
+    # "old/identity_theft"
+    # "old/medical_privacy"
+    # "old/racial_slurs"
+    # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
     #"gpt-4o-mini-2024-07-18"
@@ -40,17 +50,17 @@ target_models=(
 
 )
 temperatures=(
-    # "0.0"
-    "1.0"
+    "0.0"
+    # "1.0"
 )
 turn_types=(
-    "single_turn"
-    #"multi_turn"
+    # "single_turn"
+    "multi_turn"
 )
 
 attacker_models=(
     "gpt-4o-mini-2024-07-18"
-    "cognitivecomputations/dolphin-mixtral-8x7b"
+    # "cognitivecomputations/dolphin-mixtral-8x7b"
     #"cohere/command-r-plus"
     #"nousresearch/nous-hermes-2-mixtral-8x7b-dpo"
 )
