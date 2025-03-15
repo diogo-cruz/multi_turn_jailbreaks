@@ -104,7 +104,7 @@ def get_csv_results(results_dir: Path, csv_filename: Path) -> None:
 
 
 def main():
-    parent_path = Path(__file__).parent.parent
+    parent_path = Path(__file__).resolve().parent.parent
 
     parser = argparse.ArgumentParser(description="Generate CSV file with given results data")
 
