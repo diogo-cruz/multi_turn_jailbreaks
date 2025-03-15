@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,7 +21,7 @@ MODEL_SIZES = {
     "meta-llama/llama-3.3-70b-instruct": 70
 }
 
-def create_success_heatmap(df, output_filename):
+def create_success_heatmap(df, output_dir, output_filename):
     """
     Create a heatmap showing success rate by jailbreak tactic and test case
     with average success rates for each tactic and test case
@@ -179,7 +180,7 @@ def create_success_heatmap(df, output_filename):
     plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Leave space for the title
     
     # Save the figure
-    output_path = '../plot_outputs/' + output_filename
+    output_path = output_dir/output_filename
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
@@ -202,7 +203,7 @@ def calculate_success_stats(data):
         
     return success_rate, margin, n
 
-def create_model_size_plot(df, output_filename):
+def create_model_size_plot(df, output_dir, output_filename):
     """
     Create a plot showing success rate vs model size by turn type
     """
@@ -345,13 +346,13 @@ def create_model_size_plot(df, output_filename):
     # Save and show
     plt.tight_layout()
 
-    output_path = '../plot_outputs/' + output_filename
+    output_path = output_dir/output_filename
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
     print(f"Saved model size plot to {output_filename}")
 
-def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
+def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model_name.png'):
     """
     Create a bar plot showing success rate by model name (ordered by model size) and turn type
     """
@@ -500,7 +501,7 @@ def create_model_bar_plot(df, output_filename='success_rate_by_model_name.png'):
     # Save and show
     plt.subplots_adjust(bottom=0.25)
     
-    output_path = '../plot_outputs/' + output_filename
+    output_path = output_dir/output_filename
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
@@ -513,7 +514,8 @@ def main():
     
     # Parse arguments
     args = parser.parse_args()
-    csv_file = '../csv_results/' + args.csv_file
+    root_dir = Path(__file__).resolve().parent.parent
+    csv_file = root_dir/'csv_results'/args.csv_file
     
     # Extract filename without extension for use in output filenames
     csv_basename = os.path.splitext(os.path.basename(csv_file))[0]
@@ -528,16 +530,19 @@ def main():
     heatmap_filename = f"success_by_tactic_test_from_{csv_basename}.png"
     model_size_filename = f"success_rate_by_model_size_from_{csv_basename}.png"
     model_bar_filename = f"success_rate_by_model_name_from_{csv_basename}.png"
-    
+
+    plot_outputs_folder = root_dir/"plot_outputs"
+    plot_outputs_folder.mkdir(exist_ok=True)
+        
     # Create all plots
     print("Creating success rate heatmap...")
-    create_success_heatmap(df, heatmap_filename)
+    create_success_heatmap(df, plot_outputs_folder, heatmap_filename)
     
     print("Creating model size line plot...")
-    create_model_size_plot(df, model_size_filename)
+    create_model_size_plot(df, plot_outputs_folder, model_size_filename)
     
     print("Creating model name bar plot...")
-    create_model_bar_plot(df, model_bar_filename)
+    create_model_bar_plot(df, plot_outputs_folder, model_bar_filename)
     
     print("Done!")
 
