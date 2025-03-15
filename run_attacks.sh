@@ -2,15 +2,16 @@
 
 # Define the values for each parameter
 jailbreak_tactics=(
-    #"opposite_day" 
-    #"crescendomation" 
-    #"actor_attack" 
-    #"acronym"
+    "crescendomation" 
+    "actor_attack" 
+    "acronym"
+    "opposite_day" 
+    "direct_request"
+    "emotional_appeal"
+    "command"
+    "crowding"
     #"allegory"
     #"appeal_to_authority"
-    #"command"
-    "direct_request"
-    #"emotional_appeal"
 )
 test_cases=(
     ### StrongREJECT ###
@@ -40,21 +41,21 @@ test_cases=(
     # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    #"gpt-4o-mini-2024-07-18"
-    #"meta-llama/llama-3.1-405b-instruct"
-    #"meta-llama/llama-3.3-70b-instruct"
-    "meta-llama/llama-3.2-1b-instruct"
-    #"meta-llama/llama-3.1-8b-instruct"
+    # "meta-llama/llama-3.1-8b-instruct"
     #"meta-llama/llama-3.1-70b-instruct"
+    #"meta-llama/llama-3.1-405b-instruct"
+    "meta-llama/llama-3.2-1b-instruct"
     #"meta-llama/llama-3.2-3b-instruct"
+    #"meta-llama/llama-3.3-70b-instruct"
+    #"gpt-4o-mini-2024-07-18"
 
 )
 temperatures=(
-    "0.0"
-    # "1.0"
+    # "0.0"
+    "1.0"
 )
 turn_types=(
-    # "single_turn"
+    "single_turn"
     "multi_turn"
 )
 
