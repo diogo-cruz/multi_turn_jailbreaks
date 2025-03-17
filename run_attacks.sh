@@ -16,11 +16,11 @@ jailbreak_tactics=(
 test_cases=(
     ### StrongREJECT ###
     "deoderant_flamethrower"
-    # "disarm_police"
-    # "hate_speech"
-    # "leak_photos"
-    # "steal_info"
-    # "women_drivers"
+    "disarm_police"
+    "hate_speech"
+    "leak_photos"
+    "steal_info"
+    "women_drivers"
 
 
     ### OLD TEST CASES ###
@@ -41,13 +41,13 @@ test_cases=(
     # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    # "meta-llama/llama-3.1-8b-instruct"
-    #"meta-llama/llama-3.1-70b-instruct"
-    #"meta-llama/llama-3.1-405b-instruct"
+    "meta-llama/llama-3.1-8b-instruct"
+    "meta-llama/llama-3.1-70b-instruct"
+    "meta-llama/llama-3.1-405b-instruct"
     "meta-llama/llama-3.2-1b-instruct"
-    #"meta-llama/llama-3.2-3b-instruct"
-    #"meta-llama/llama-3.3-70b-instruct"
-    #"gpt-4o-mini-2024-07-18"
+    "meta-llama/llama-3.2-3b-instruct"
+    "meta-llama/llama-3.3-70b-instruct"
+    "gpt-4o-mini-2024-07-18"
 
 )
 temperatures=(
