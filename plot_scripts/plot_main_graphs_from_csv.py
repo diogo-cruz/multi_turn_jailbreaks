@@ -367,6 +367,9 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type):
     # Calculate total sample sizes for test case averages
     testcase_samples = sample_sizes.sum(axis=1)
     
+    all_test_cases = list(success_means.index)
+    all_tactics = list(success_means.columns)
+    
     # Create the figure with extra space for averages
     plt.figure(figsize=(16, 12))
     
@@ -462,7 +465,8 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type):
     
     # Set the y-axis label only on the averages plot since it's on the left now
     ax_testcase_avg.set_ylabel('Test Case', fontsize=12)
-    
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
     # Rotate x-axis labels for better readability
     # plt.setp(ax_main.get_xticklabels(), rotation=45, ha='right')
     
@@ -479,6 +483,16 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type):
     ax_main.set_yticklabels([])
     plt.setp(ax_main.get_xticklabels(), visible=False)
     plt.setp(ax_main.get_yticklabels(), visible=False)
+    
+    # For tactic averages (bottom plot)
+    ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
+    ax_tactic_avg.set_xticks(np.arange(len(all_tactics)) + 0.5)
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
+
+    # For test case averages (left plot)
+    ax_testcase_avg.tick_params(axis='y', which='both', labelleft=True)
+    ax_testcase_avg.set_yticks(np.arange(len(all_test_cases)) + 0.5)
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
     
     # Adjust layout to prevent overlap
     plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Leave space for the title
@@ -814,7 +828,7 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate plots from results data CSV file.')
-    parser.add_argument('--csv', dest='csv_file', default='results_strongreject.csv', help='Name of the CSV file under ../csv_results/ that will be used to generate plots (default: results.csv)')
+    parser.add_argument('--csv', dest='csv_file', default='results.csv', help='Name of the CSV file under ../csv_results/ that will be used to generate plots (default: results.csv)')
     
     # Parse arguments
     args = parser.parse_args()
