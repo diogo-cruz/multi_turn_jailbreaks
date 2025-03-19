@@ -218,11 +218,12 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
         plt.Rectangle((0,0), 1, 1, color='#ff7f0e', alpha=0.7),
         plt.Rectangle((0,0), 1, 1, color='#1f77b4', alpha=0.7)
     ]
-    labels = ['Multi-turn', 'Single-turn']
-    ax_tactic_avg.legend(handles, labels, loc='lower right', fontsize=9)
+    labels = ['Multi', 'Single']
+    ax_tactic_avg.legend(handles, labels, loc='upper left', fontsize=9)
     
-    ax_tactic_avg.set_ylim(0, 105)  # Increased height to prevent number cutoff
-    ax_tactic_avg.set_ylabel('Avg %', fontsize=11)
+    ax_tactic_avg.set_ylim(0, 120)  # Increased height to prevent number cutoff
+    ax_tactic_avg.set_ylabel('ASR(%)', fontsize=11)
+    ax_tactic_avg.set_yticks([])
     
     ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
     
@@ -238,13 +239,13 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
         single_val = single_testcase_averages[test_case]
         
         # Multi-turn bar (top position)
-        bar_pos_multi = y_pos[i] - bar_width/2
+        bar_pos_multi = y_pos[i] + bar_width/2
         ax_testcase_avg.barh(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
         ax_testcase_avg.text(multi_val + 2, bar_pos_multi, f'{multi_val:.1f}', 
                        ha='left', va='center', fontsize=9)
         
         # Single-turn bar (bottom position)
-        bar_pos_single = y_pos[i] + bar_width/2
+        bar_pos_single = y_pos[i] - bar_width/2
         ax_testcase_avg.barh(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
         ax_testcase_avg.text(single_val + 2, bar_pos_single, f'{single_val:.1f}', 
                        ha='left', va='center', fontsize=9)
@@ -254,11 +255,12 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
         plt.Rectangle((0,0), 1, 1, color='#ff7f0e', alpha=0.7),
         plt.Rectangle((0,0), 1, 1, color='#1f77b4', alpha=0.7)
     ]
-    labels = ['Multi-turn', 'Single-turn']
-    ax_testcase_avg.legend(handles, labels, loc='upper left', fontsize=9)
+    labels = ['Multi', 'Single']
+    ax_testcase_avg.legend(handles, labels, loc='upper left', bbox_to_anchor=(0, 1.06), fontsize=9)
     
-    ax_testcase_avg.set_xlim(0, 105)  # Increased width to prevent number cutoff
-    ax_testcase_avg.set_xlabel('Avg %', fontsize=11)
+    ax_testcase_avg.set_xlim(0, 150)  # Increased width to prevent number cutoff
+    ax_testcase_avg.set_xlabel('ASR(%)', fontsize=11)
+    ax_testcase_avg.set_xticks([])
     
     # Set test case labels only on the left side
     ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
