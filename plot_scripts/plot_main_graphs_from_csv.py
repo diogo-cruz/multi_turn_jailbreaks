@@ -22,11 +22,351 @@ MODEL_SIZES = {
 }
 
 
-def create_refined_split_cell_heatmap(df, output_dir, output_filename):
+
+def create_last_round_split_cell_heatmap(df, output_dir, output_filename, target_model=None):
+    """
+    Create a refined heatmap using the average of the last round's score instead of goal_achieved.
+    Similar to create_refined_split_cell_heatmap but using different metrics.
+    """
+    # Filter by target_model if specified
+    if target_model is not None:
+        df = df[df['target_model'] == target_model]
+        if df.empty:
+            print(f"Warning: No data found for target model '{target_model}'")
+            return
+        # Add model info to filename unless already present
+        if target_model not in output_filename:
+            name_parts = output_filename.split('.')
+            output_filename = f"{name_parts[0]}_{target_model.split('/')[-1]}.{name_parts[1]}"
+    
+    # Filter data for each turn type
+    multi_turn_df = df[df['turn_type'] == 'multi']
+    single_turn_df = df[df['turn_type'] == 'single']
+    
+    # Function to extract the last score from the scores list
+    def extract_last_score(scores_str):
+        try:
+            # Parse the string representation of the list
+            scores_list = eval(scores_str)
+            # Return the last score if the list is not empty
+            return scores_list[-1] if scores_list else 0
+        except:
+            return 0
+    
+    # Add last_score column to each dataframe
+    multi_turn_df = multi_turn_df.copy()
+    single_turn_df = single_turn_df.copy()
+    
+    multi_turn_df['last_score'] = multi_turn_df['scores'].apply(extract_last_score)
+    single_turn_df['last_score'] = single_turn_df['scores'].apply(extract_last_score)
+    
+    # Calculate mean last_score for each turn type
+    multi_last_score_means = multi_turn_df.pivot_table(
+        values='last_score',  # Use last_score instead of goal_achieved
+        index='test_case',
+        columns='jailbreak_tactic',
+        aggfunc='mean'
+    )
+    
+    single_last_score_means = single_turn_df.pivot_table(
+        values='last_score',  # Use last_score instead of goal_achieved
+        index='test_case',
+        columns='jailbreak_tactic',
+        aggfunc='mean'
+    )
+    
+    # Find tactics that have both multi and single turn data
+    valid_combinations = []
+    for test_case in multi_last_score_means.index:
+        for tactic in multi_last_score_means.columns:
+            # Check if this combination exists in both multi and single turn data
+            has_multi = (test_case in multi_last_score_means.index and 
+                        tactic in multi_last_score_means.columns and 
+                        not pd.isna(multi_last_score_means.loc[test_case, tactic]))
+            
+            has_single = (test_case in single_last_score_means.index and 
+                         tactic in single_last_score_means.columns and 
+                         not pd.isna(single_last_score_means.loc[test_case, tactic]))
+            
+            if has_multi and has_single:
+                valid_combinations.append((test_case, tactic))
+    
+    # If no valid combinations, print warning and return
+    if not valid_combinations:
+        print("Warning: No test case/tactic combinations found with both multi-turn and single-turn data.")
+        return
+    
+    # Get unique test cases and tactics that have both types of data
+    valid_test_cases = sorted(set(combo[0] for combo in valid_combinations))
+    valid_tactics = sorted(set(combo[1] for combo in valid_combinations))
+    
+    # Filter the original dataframe to only include these combinations
+    filtered_df = df[
+        (df['test_case'].isin(valid_test_cases)) & 
+        (df['jailbreak_tactic'].isin(valid_tactics))
+    ]
+    
+    # Create filtered dataframes with last_score
+    filtered_multi_df = filtered_df[filtered_df['turn_type'] == 'multi'].copy()
+    filtered_single_df = filtered_df[filtered_df['turn_type'] == 'single'].copy()
+    
+    filtered_multi_df['last_score'] = filtered_multi_df['scores'].apply(extract_last_score)
+    filtered_single_df['last_score'] = filtered_single_df['scores'].apply(extract_last_score)
+    
+    # Recalculate means with filtered data
+    multi_last_score_means = filtered_multi_df.pivot_table(
+        values='last_score',
+        index='test_case',
+        columns='jailbreak_tactic',
+        aggfunc='mean'
+    )
+    
+    single_last_score_means = filtered_single_df.pivot_table(
+        values='last_score',
+        index='test_case',
+        columns='jailbreak_tactic',
+        aggfunc='mean'
+    )
+    
+    # Calculate average last_scores across all test cases for each turn type
+    multi_tactic_averages = multi_last_score_means.mean(axis=0)
+    single_tactic_averages = single_last_score_means.mean(axis=0)
+    
+    # Calculate average last_scores for each test case
+    multi_testcase_averages = multi_last_score_means.mean(axis=1)
+    single_testcase_averages = single_last_score_means.mean(axis=1)
+    
+    # Create the figure with extra space for averages
+    plt.figure(figsize=(14, 12))
+    
+    # Define subplot layout with better proportions and more height for bar plots
+    gs = plt.GridSpec(2, 3, width_ratios=[2.0, 20, 0.5], height_ratios=[20, 2.5], 
+                     wspace=0.05, hspace=0.05)
+    
+    # Main heatmap area
+    ax_main = plt.subplot(gs[0, 1])
+    
+    # Create an empty canvas for our custom heatmap
+    all_test_cases = list(multi_last_score_means.index)
+    all_tactics = list(multi_last_score_means.columns)
+    
+    ax_main.set_xlim(0, len(all_tactics))
+    ax_main.set_ylim(0, len(all_test_cases))
+    
+    # For each cell, create a split-cell for visualization
+    for i, test_case in enumerate(all_test_cases):
+        for j, tactic in enumerate(all_tactics):
+            # Get values for this cell
+            multi_value = multi_last_score_means.loc[test_case, tactic]
+            single_value = single_last_score_means.loc[test_case, tactic]
+            
+            # Skip if we somehow have NaN values
+            if np.isnan(multi_value) or np.isnan(single_value):
+                continue
+                
+            # Using a blue-based colormap since we're dealing with scores 0-10 instead of percentages
+            cmap = plt.cm.YlGnBu  # Changed colormap to better suit score range
+            norm = plt.Normalize(0, 10)  # Score range is 0-10 instead of 0-100
+            
+            # Create coordinates for the diagonal line
+            diag_line = np.array([[j, i], [j+1, i+1]])
+            
+            # Create polygons for the two triangles (upper left and lower right)
+            upper_left_triangle = np.array([[j, i], [j+1, i+1], [j, i+1]])
+            lower_right_triangle = np.array([[j, i], [j+1, i+1], [j+1, i]])
+            
+            # Get colors based on the values
+            multi_color = cmap(norm(multi_value))
+            single_color = cmap(norm(single_value))
+            
+            # Draw the triangles
+            upper_left = plt.Polygon(upper_left_triangle, color=multi_color, alpha=0.9)
+            lower_right = plt.Polygon(lower_right_triangle, color=single_color, alpha=0.9)
+            
+            ax_main.add_patch(upper_left)
+            ax_main.add_patch(lower_right)
+            
+            # Draw the diagonal line
+            plt.plot(diag_line[:, 0], diag_line[:, 1], 'k-', linewidth=0.5)
+            
+            # Add text annotations for multi-turn (top) with M: prefix
+            text_multi = f'M: {multi_value:.1f}'
+            
+            # Text color based on background (adjust thresholds for 0-10 scale)
+            text_color_multi = 'white' if multi_value > 5 else 'black'
+            
+            # Position text in upper left triangle
+            ax_main.text(j + 0.25, i + 0.75, text_multi,
+                    ha='center', va='center', color=text_color_multi, fontsize=14)  # Increased font size
+        
+            # Add text annotations for single-turn (bottom) with S: prefix
+            text_single = f'S: {single_value:.1f}'
+            
+            # Text color based on background (adjust thresholds for 0-10 scale)
+            text_color_single = 'white' if single_value > 5 else 'black'
+            
+            # Position text in lower right triangle
+            ax_main.text(j + 0.75, i + 0.25, text_single,
+                    ha='center', va='center', color=text_color_single, fontsize=14)  # Increased font size
+    
+    # Add gridlines to separate cells
+    for x in range(len(all_tactics) + 1):
+        plt.axvline(x, color='black', linewidth=0.5)
+    for y in range(len(all_test_cases) + 1):
+        plt.axhline(y, color='black', linewidth=0.5)
+    
+    # Set up the axis ticks but hide all labels for main heatmap
+    ax_main.set_xticks(np.arange(len(all_tactics)) + 0.5)
+    ax_main.set_yticks(np.arange(len(all_test_cases)) + 0.5)
+    ax_main.set_xticklabels([])  # Explicitly remove x-axis labels for main heatmap
+    ax_main.set_yticklabels([])  # Explicitly remove y-axis labels for main heatmap
+    
+    # Create tactic averages bar at bottom - exact same width as main heatmap
+    ax_tactic_avg = plt.subplot(gs[1, 1], sharex=ax_main)
+    
+    # Create bar pairs for multi and single turn averages
+    x_pos = np.arange(len(all_tactics)) + 0.5  # Center bars on tactic positions
+    bar_width = 0.35  # Both types of data exist for all cells
+    
+    # Plot bars for tactic averages
+    for i, tactic in enumerate(all_tactics):
+        multi_val = multi_tactic_averages[tactic]
+        single_val = single_tactic_averages[tactic]
+        
+        # Multi-turn bar (left position)
+        bar_pos_multi = x_pos[i] - bar_width/2
+        ax_tactic_avg.bar(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
+        ax_tactic_avg.text(bar_pos_multi, multi_val + 0.2, f'{multi_val:.1f}', 
+                     ha='center', va='bottom', fontsize=10)
+        
+        # Single-turn bar (right position)
+        bar_pos_single = x_pos[i] + bar_width/2
+        ax_tactic_avg.bar(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
+        ax_tactic_avg.text(bar_pos_single, single_val + 0.2, f'{single_val:.1f}', 
+                     ha='center', va='bottom', fontsize=10)
+    
+    # Create legend for bottom average bars
+    handles = [
+        plt.Rectangle((0,0), 1, 1, color='#ff7f0e', alpha=0.7),
+        plt.Rectangle((0,0), 1, 1, color='#1f77b4', alpha=0.7)
+    ]
+    labels = ['Multi', 'Single']
+    ax_tactic_avg.legend(handles, labels, loc='upper left', fontsize=10)
+    
+    ax_tactic_avg.set_ylim(0, 12)  # Set y limit to 12 for 0-10 scale scores with some padding
+    ax_tactic_avg.set_ylabel('Avg Last Score', fontsize=12)
+    ax_tactic_avg.set_yticks([])
+    
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=14)  # Increased font size
+    
+    # Create test case averages column on left
+    ax_testcase_avg = plt.subplot(gs[0, 0], sharey=ax_main)
+    
+    # Create bar pairs for multi and single turn test case averages
+    y_pos = np.arange(len(all_test_cases)) + 0.5  # Center bars on test case positions
+    
+    # Plot bars for test case averages (horizontal)
+    for i, test_case in enumerate(all_test_cases):
+        multi_val = multi_testcase_averages[test_case]
+        single_val = single_testcase_averages[test_case]
+        
+        # Multi-turn bar (top position)
+        bar_pos_multi = y_pos[i] + bar_width/2
+        ax_testcase_avg.barh(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
+        ax_testcase_avg.text(multi_val + 0.2, bar_pos_multi, f'{multi_val:.1f}', 
+                       ha='left', va='center', fontsize=10)
+        
+        # Single-turn bar (bottom position)
+        bar_pos_single = y_pos[i] - bar_width/2
+        ax_testcase_avg.barh(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
+        ax_testcase_avg.text(single_val + 0.2, bar_pos_single, f'{single_val:.1f}', 
+                       ha='left', va='center', fontsize=10)
+    
+    # Create legend for left average bars
+    handles = [
+        plt.Rectangle((0,0), 1, 1, color='#ff7f0e', alpha=0.7),
+        plt.Rectangle((0,0), 1, 1, color='#1f77b4', alpha=0.7)
+    ]
+    labels = ['Multi', 'Single']
+    ax_testcase_avg.legend(handles, labels, loc='upper left', bbox_to_anchor=(0, 1.06), fontsize=10)
+    
+    ax_testcase_avg.set_xlim(0, 15)  # Set x limit to 15 for 0-10 scale scores with some padding
+    ax_testcase_avg.set_xlabel('Avg Last Score', fontsize=12)
+    ax_testcase_avg.set_xticks([])
+    
+    # Set test case labels only on the left side
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=14)  # Increased font size
+    
+    # Add empty plot for the bottom left square
+    ax_empty = plt.subplot(gs[1, 0])
+    ax_empty.axis('off')
+    
+    # Add colorbar
+    cbar_ax = plt.subplot(gs[0, 2])
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, cax=cbar_ax)
+    cbar.set_label('Last Round Score (0-10)', fontsize=12)
+    
+    # CRITICAL: Explicitly remove ticks and labels from main heatmap again
+    ax_main.set_xticklabels([])
+    ax_main.set_yticklabels([])
+    plt.setp(ax_main.get_xticklabels(), visible=False)
+    plt.setp(ax_main.get_yticklabels(), visible=False)
+    
+    # Make sure only tactic_avg has x-labels and only testcase_avg has y-labels
+    plt.setp(ax_tactic_avg.get_xticklabels(), visible=True)
+    plt.setp(ax_testcase_avg.get_yticklabels(), visible=True)
+    
+    # Add title
+    if target_model is not None:
+        plt.suptitle(f'Split-Cell Last Round Score (0-10) by Tactic and Test Case for {target_model}', fontsize=16)
+    else:
+        plt.suptitle('Split-Cell Last Round Score (0-10) by Tactic and Test Case', fontsize=16)
+    
+    # For tactic averages (bottom plot)
+    ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
+    ax_tactic_avg.set_xticks(np.arange(len(all_tactics)) + 0.5)
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=14)  # Increased font size
+
+    # For test case averages (left plot)
+    ax_testcase_avg.tick_params(axis='y', which='both', labelleft=True)
+    ax_testcase_avg.set_yticks(np.arange(len(all_test_cases)) + 0.5)
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=14)  # Increased font size
+
+    # Explicitly turn off ticks on other axes to prevent override
+    ax_main.tick_params(axis='both', which='both', labelbottom=False, labelleft=False)
+
+    # Add a bit more padding to ensure labels aren't cut off
+    plt.tight_layout(rect=[0, 0.05, 0.95, 0.95])
+    
+    # Save the figure
+    output_path = output_dir/output_filename
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Saved last round score split-cell heatmap to {output_filename}")
+    print(f"Included {len(valid_tactics)} tactics and {len(valid_test_cases)} test cases with data from both turn types")
+
+
+
+
+def create_refined_split_cell_heatmap(df, output_dir, output_filename, target_model=None):
     """
     Create a refined heatmap that only includes tactics and test cases
     where both multi-turn and single-turn data are available.
     """
+    # Filter by target_model if specified
+    if target_model is not None:
+        df = df[df['target_model'] == target_model]
+        if df.empty:
+            print(f"Warning: No data found for target model '{target_model}'")
+            return
+        # Add model info to filename unless already present
+        if target_model not in output_filename:
+            name_parts = output_filename.split('.')
+            output_filename = f"{name_parts[0]}_{target_model.split('/')[-1]}.{name_parts[1]}"
+            
     # Filter data for each turn type
     multi_turn_df = df[df['turn_type'] == 'multi']
     single_turn_df = df[df['turn_type'] == 'single']
@@ -165,7 +505,7 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
             
             # Position text in upper left triangle
             ax_main.text(j + 0.25, i + 0.75, text_multi,
-                    ha='center', va='center', color=text_color_multi, fontsize=10)
+                    ha='center', va='center', color=text_color_multi, fontsize=14)
         
             # Add text annotations for single-turn (bottom) with S: prefix
             text_single = f'S: {single_value:.1f}'
@@ -175,7 +515,7 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
             
             # Position text in lower right triangle
             ax_main.text(j + 0.75, i + 0.25, text_single,
-                    ha='center', va='center', color=text_color_single, fontsize=10)
+                    ha='center', va='center', color=text_color_single, fontsize=14)
     
     # Add gridlines to separate cells
     for x in range(len(all_tactics) + 1):
@@ -287,7 +627,10 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
     plt.setp(ax_testcase_avg.get_yticklabels(), visible=True)
     
     # Add title
-    plt.suptitle('Split-Cell Success Rate (%) by Tactic and Test Case', fontsize=16)
+    if target_model is not None:
+        plt.suptitle(f'Split-Cell Success Rate (%) by Tactic and Test Case for {target_model}', fontsize=16)
+    else:
+        plt.suptitle('Split-Cell Success Rate (%) by Tactic and Test Case', fontsize=16)
     
     
     # After creating all the plots but before plt.tight_layout()
@@ -322,11 +665,22 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename):
 
 
 
-def create_success_heatmap(df, output_dir, output_filename, turn_type):
+def create_success_heatmap(df, output_dir, output_filename, turn_type, target_model=None):
     """
     Create a heatmap showing success rate by jailbreak tactic and test case
     with average success rates for each tactic and test case
     """
+    # Filter by target_model if specified
+    if target_model is not None:
+        df = df[df['target_model'] == target_model]
+        if df.empty:
+            print(f"Warning: No data found for target model '{target_model}'")
+            return
+        # Add model info to filename unless already present
+        if target_model not in output_filename:
+            name_parts = output_filename.split('.')
+            output_filename = f"{name_parts[0]}_{target_model.split('/')[-1]}.{name_parts[1]}"
+            
     # Calculate mean success rates
     success_means = df.pivot_table(
         values='goal_achieved',
@@ -461,7 +815,10 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type):
     cbar.set_label('Success Rate (%)', fontsize=12)
     
     # Add title and labels for main plot
-    plt.suptitle(f'Success Rate (%) by Tactic and Test Case ({turn_type})', fontsize=16)
+    if target_model is not None:
+        plt.suptitle(f'Success Rate (%) by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
+    else:
+        plt.suptitle(f'Success Rate (%) by Tactic and Test Case ({turn_type})', fontsize=16)
     ax_main.set_xlabel('')
     ax_main.set_ylabel('')  # Remove duplicate y-axis label
     
@@ -851,6 +1208,7 @@ def main():
     single_turn_df = df[df['turn_type'] == 'single']
     
     # Create output filenames with CSV basename suffix
+    last_round_filename = f"last_round_score_heatmap_from_{csv_basename}.png"
     heatmap_filename = f"success_by_tactic_test_from_{csv_basename}.png"
     multi_heatmap_filename = f"success_by_tactic_test(multi)_from_{csv_basename}.png"
     single_heatmap_filename = f"success_by_tactic_test(single)_from_{csv_basename}.png"
@@ -861,6 +1219,9 @@ def main():
     plot_outputs_folder.mkdir(exist_ok=True)
         
     # Create all plots
+    print("Creating last round score heatmap...")
+    create_last_round_split_cell_heatmap(df, plot_outputs_folder, last_round_filename)
+    
     print("Creating success rate heatmap (both)...")
     create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename)
 
@@ -869,6 +1230,16 @@ def main():
     
     print("Creating success rate heatmap (single)...")
     create_success_heatmap(single_turn_df, plot_outputs_folder, single_heatmap_filename, 'single')
+    
+    plot_outputs_folder = root_dir/"plot_outputs"/"result_by_model"/csv_basename
+    plot_outputs_folder.mkdir(exist_ok=True, parents=True)
+    for key in MODEL_SIZES:
+        create_last_round_split_cell_heatmap(df, plot_outputs_folder, last_round_filename, target_model=key)
+        create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename, target_model=key)
+        create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', target_model=key)
+        create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'single', target_model=key)
+        
+    plot_outputs_folder = root_dir/"plot_outputs"
     
     print("Creating model size line plot...")
     create_model_size_plot(df, plot_outputs_folder, model_size_filename)
