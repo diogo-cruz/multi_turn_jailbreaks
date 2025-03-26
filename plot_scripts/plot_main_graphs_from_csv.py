@@ -665,7 +665,7 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, target_mo
 
 
 
-def create_success_heatmap(df, output_dir, output_filename, turn_type, target_model=None):
+def create_success_heatmap(df, output_dir, output_filename, turn_type, target_model=None, version=1):
     """
     Create a heatmap showing success rate by jailbreak tactic and test case
     with average success rates for each tactic and test case
@@ -727,12 +727,20 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     all_tactics = list(success_means.columns)
     
     # Create the figure with extra space for averages
-    plt.figure(figsize=(16, 12))
+    plt.figure(figsize=(18, 16))
     
     # Define subplot layout to accommodate averages
     # Using 3 columns: [avg column, main heatmap, colorbar space]
-    gs = plt.GridSpec(2, 3, width_ratios=[2, 20, 0.5], height_ratios=[20, 1], 
+    if version == 1:
+        gs = plt.GridSpec(2, 3, width_ratios=[2, 20, 0.5], height_ratios=[20, 1], 
                      wspace=0.05, hspace=0.05)
+    elif version == 2:
+        gs = plt.GridSpec(2, 3, width_ratios=[5, 15, 1], height_ratios=[15, 5], 
+                        wspace=0.1, hspace=0.1)
+        content_label_size = 45
+        label_size = 48
+        graph_label_size = 30
+        ylimit=120
     
     # Main heatmap
     ax_main = plt.subplot(gs[0, 1])
@@ -757,53 +765,110 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
                 # Calculate text color based on cell color
                 text_color = 'white' if mean > 50 else 'black'
                 
-                ax_main.text(j + 0.5, i + 0.5, text,
-                        ha='center', va='center', color=text_color)
+                if version == 1:
+                    ax_main.text(j + 0.5, i + 0.5, text,
+                        ha='center', va='center', color=text_color, fontsize=14)
+                elif version == 2:
+                    continue
+                    # ax_main.text(j + 0.5, i + 0.5, text,
+                    #     ha='center', va='center', color=text_color, fontsize=14)
     
-    # Create heatmap for tactic averages (bottom row)
-    ax_tactic_avg = plt.subplot(gs[1, 1], sharex=ax_main)
-    tactic_avg_df = pd.DataFrame([tactic_averages]).rename(index={0: 'Avg'})
-    sns.heatmap(tactic_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
-               vmin=0, vmax=100, ax=ax_tactic_avg, cbar=False)
-               
-    # Add text annotations with mean, std, and sample size
-    for j in range(len(tactic_averages)):
-        mean = tactic_averages.iloc[j]
-        std = tactic_stds.iloc[j]
-        n = tactic_samples.iloc[j]
+    if version == 1:
+        # Create heatmap for tactic averages (bottom row)
+        ax_tactic_avg = plt.subplot(gs[1, 1], sharex=ax_main)
+        tactic_avg_df = pd.DataFrame([tactic_averages]).rename(index={0: 'Avg'})
+        sns.heatmap(tactic_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
+                vmin=0, vmax=100, ax=ax_tactic_avg, cbar=False)
+                
+        # Add text annotations with mean, std, and sample size
+        for j in range(len(tactic_averages)):
+            mean = tactic_averages.iloc[j]
+            std = tactic_stds.iloc[j]
+            n = tactic_samples.iloc[j]
+            
+            # Format text with standard deviation and sample size
+            text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+            
+            # Calculate text color based on cell color
+            text_color = 'white' if mean > 50 else 'black'
+            
+            ax_tactic_avg.text(j + 0.5, 0.5, text,
+                    ha='center', va='center', color=text_color)
         
-        # Format text with standard deviation and sample size
-        text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+        ax_tactic_avg.set_xlabel('Jailbreak Tactic', fontsize=16)
+        ax_tactic_avg.set_ylabel('Avg', rotation=0, fontsize=16)
         
-        # Calculate text color based on cell color
-        text_color = 'white' if mean > 50 else 'black'
+    elif version == 2:
+        # Create heatmap for tactic averages (bottom row)
+        ax_tactic_avg = plt.subplot(gs[1, 1], sharex=ax_main)
         
-        ax_tactic_avg.text(j + 0.5, 0.5, text,
-                ha='center', va='center', color=text_color)
+        # Create bar pairs for multi and single turn averages
+        x_pos = np.arange(len(all_tactics)) + 0.5  # Center bars on tactic positions
+        bar_width = 0.6  # Both types of data exist for all cells
+        
+        # Plot bars for tactic averages
+        for i, tactic in enumerate(all_tactics):
+            val = tactic_averages[tactic]
+            
+            # bar 
+            bar_pos_multi = x_pos[i]
+            ax_tactic_avg.bar(bar_pos_multi, val, bar_width, color='#ff7f0e', alpha=0.7)
+            ax_tactic_avg.text(bar_pos_multi, val + 2, f'{val:.1f}', 
+                        ha='center', va='bottom', fontsize=graph_label_size)
+        
+        ax_tactic_avg.set_ylim(0, ylimit)  # Increased height to prevent number cutoff
+        
+        ax_tactic_avg.set_xlabel('Jailbreak Tactic', fontsize=label_size)
+        ax_tactic_avg.set_ylabel('ASR(%)', fontsize=label_size)
+        ax_tactic_avg.set_yticks([])
+        
+        ax_tactic_avg.set_xticklabels(all_tactics, fontsize=content_label_size, rotation=45, ha='right')
     
-    ax_tactic_avg.set_xlabel('Jailbreak Tactic', fontsize=12)
-    ax_tactic_avg.set_ylabel('', rotation=0)
     
-    # Create heatmap for test case averages (left column)
-    ax_testcase_avg = plt.subplot(gs[0, 0], sharey=ax_main)
-    testcase_avg_df = pd.DataFrame(testcase_averages).rename(columns={0: 'Avg'})
-    sns.heatmap(testcase_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
-               vmin=0, vmax=100, ax=ax_testcase_avg, cbar=False)
-               
-    # Add text annotations with mean, std, and sample size
-    for i in range(len(testcase_averages)):
-        mean = testcase_averages.iloc[i]
-        std = testcase_stds.iloc[i]
-        n = testcase_samples.iloc[i]
+    if version == 1:
+        # Create heatmap for test case averages (left column)
+        ax_testcase_avg = plt.subplot(gs[0, 0], sharey=ax_main)
+        testcase_avg_df = pd.DataFrame(testcase_averages).rename(columns={0: 'Avg'})
+        sns.heatmap(testcase_avg_df, annot=False, fmt='.1f', cmap='YlOrRd',
+                vmin=0, vmax=100, ax=ax_testcase_avg, cbar=False)
+                
+        # Add text annotations with mean, std, and sample size
+        for i in range(len(testcase_averages)):
+            mean = testcase_averages.iloc[i]
+            std = testcase_stds.iloc[i]
+            n = testcase_samples.iloc[i]
+            
+            # Format text with standard deviation and sample size
+            text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+            
+            # Calculate text color based on cell color
+            text_color = 'white' if mean > 50 else 'black'
+            
+            ax_testcase_avg.text(0.5, i + 0.5, text,
+                    ha='center', va='center', color=text_color)
+    elif version == 2:
+        # Create bar
+        ax_testcase_avg = plt.subplot(gs[0, 0], sharey=ax_main)
+        y_pos = np.arange(len(all_test_cases)) + 0.5  # Center bars on test case positions
         
-        # Format text with standard deviation and sample size
-        text = f'{mean:.1f}±{std:.1f}\n(n={int(n)})'
+        # Plot bars for test case averages (horizontal)
+        for i, test_case in enumerate(all_test_cases):
+            val = testcase_averages[test_case]
+            
+            # Multi-turn bar (top position)
+            bar_pos_multi = y_pos[i]
+            ax_testcase_avg.barh(bar_pos_multi, val, bar_width, color='#ff7f0e', alpha=0.7)
+            ax_testcase_avg.text(val + 2, bar_pos_multi, f'{val:.1f}', 
+                        ha='left', va='center', fontsize=graph_label_size)
         
-        # Calculate text color based on cell color
-        text_color = 'white' if mean > 50 else 'black'
+        ax_testcase_avg.set_xlim(0, ylimit)  # Increased width to prevent number cutoff
+        ax_testcase_avg.set_xlabel('ASR(%)', fontsize=label_size)
+        ax_testcase_avg.set_ylabel('Test Case', fontsize=label_size)
+        ax_testcase_avg.set_xticks([])
         
-        ax_testcase_avg.text(0.5, i + 0.5, text,
-                ha='center', va='center', color=text_color)
+        # Set test case labels only on the left side
+        ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=content_label_size)
+        
     
     # Add empty plot for the bottom left square
     ax_empty = plt.subplot(gs[1, 0])
@@ -812,20 +877,21 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     # Add colorbar to the main heatmap
     cbar_ax = plt.subplot(gs[0, 2])
     cbar = plt.colorbar(hm.get_children()[0], cax=cbar_ax)
-    cbar.set_label('Success Rate (%)', fontsize=12)
+    cbar.set_label('Success Rate (%)', fontsize=label_size)
+    cbar.ax.tick_params(labelsize=content_label_size)
     
     # Add title and labels for main plot
-    if target_model is not None:
-        plt.suptitle(f'Success Rate (%) by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
-    else:
-        plt.suptitle(f'Success Rate (%) by Tactic and Test Case ({turn_type})', fontsize=16)
+    if version == 1:
+        if target_model is not None:
+            plt.suptitle(f'Success Rate (%) by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
+        else:
+            plt.suptitle(f'Success Rate (%) by Tactic and Test Case ({turn_type})', fontsize=16)
     ax_main.set_xlabel('')
     ax_main.set_ylabel('')  # Remove duplicate y-axis label
     
     # Set the y-axis label only on the averages plot since it's on the left now
-    ax_testcase_avg.set_ylabel('Test Case', fontsize=12)
-    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
-    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
+    # ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
+    # ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
     # Rotate x-axis labels for better readability
     # plt.setp(ax_main.get_xticklabels(), rotation=45, ha='right')
     
@@ -846,12 +912,12 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     # For tactic averages (bottom plot)
     ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
     ax_tactic_avg.set_xticks(np.arange(len(all_tactics)) + 0.5)
-    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=content_label_size)
 
     # For test case averages (left plot)
     ax_testcase_avg.tick_params(axis='y', which='both', labelleft=True)
     ax_testcase_avg.set_yticks(np.arange(len(all_test_cases)) + 0.5)
-    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=content_label_size)
     
     # Adjust layout to prevent overlap
     plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Leave space for the title
@@ -862,6 +928,7 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     plt.close()
     
     print(f"Saved enhanced heatmap with averages to {output_filename}")
+    
 
 def calculate_success_stats(data):
     """Calculate success rate, confidence interval, and sample size for a group"""
@@ -1132,21 +1199,21 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             capsize=5
         )
         
-        # Add sample size annotations
-        for j, (rate, n) in enumerate(zip(success_rates, sample_sizes)):
-            if n > 0:
-                ax.annotate(
-                    f'n={n}',
-                    xy=(indices[j] + (i * bar_width - bar_width/2), rate + 3),
-                    ha='center',
-                    va='bottom',
-                    fontsize=8,
-                    color='black'
-                )
+        # # Add sample size annotations
+        # for j, (rate, n) in enumerate(zip(success_rates, sample_sizes)):
+        #     if n > 0:
+        #         ax.annotate(
+        #             f'n={n}',
+        #             xy=(indices[j] + (i * bar_width - bar_width/2), rate + 3),
+        #             ha='center',
+        #             va='bottom',
+        #             fontsize=8,
+        #             color='black'
+        #         )
     
     # Set x-axis labels
     ax.set_xticks(indices)
-    ax.set_xticklabels(ordered_display_names, rotation=45, ha='right')
+    ax.set_xticklabels(ordered_display_names, fontsize=20, rotation=45, ha='right')
     
     # Add model size underneath model names
     for i, model_name in enumerate(ordered_models):
@@ -1157,20 +1224,21 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             xytext=(0, 0),  # No offset since we're using absolute position
             xycoords=('data', 'axes fraction'),
             textcoords='offset points',
-            size=8,
+            size=15,
             va='top',
             ha='center',
-            rotation=45
+            rotation=45,
         )
     
     # Set limits and labels
     ax.set_ylim(0, 100)
-    ax.set_xlabel('Model Name (Parameter Size)', fontsize=12)
-    ax.set_ylabel('Success Rate (%)', fontsize=12)
-    ax.set_title('Attack Success Rate by Model and Turn Type', fontsize=14)
+    ax.set_xlabel('Model Name (Parameter Size)', fontsize=25)
+    ax.set_ylabel('Success Rate (%)', fontsize=25)
+    ax.tick_params(axis='y', labelsize=20)  # Set y-tick label size to 20
+    # ax.set_title('Attack Success Rate by Model and Turn Type', fontsize=14)
     
     # Add legend
-    ax.legend(loc='upper right', fontsize=10)
+    ax.legend(loc='upper right', fontsize=20)
     
     # Add grid for better readability
     ax.grid(True, linestyle='--', alpha=0.7, axis='y')
@@ -1188,7 +1256,7 @@ def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate plots from results data CSV file.')
     parser.add_argument('--csv', dest='csv_file', default='results.csv', help='Name of the CSV file under ../csv_results/ that will be used to generate plots (default: results.csv)')
-    
+    parser.add_argument('--version', dest='version', type=int, default=1, help='Version of the plot to generate (default: 1)')
     # Parse arguments
     args = parser.parse_args()
     root_dir = Path(__file__).resolve().parent.parent
@@ -1210,8 +1278,8 @@ def main():
     # Create output filenames with CSV basename suffix
     last_round_filename = f"last_round_score_heatmap_from_{csv_basename}.png"
     heatmap_filename = f"success_by_tactic_test_from_{csv_basename}.png"
-    multi_heatmap_filename = f"success_by_tactic_test(multi)_from_{csv_basename}.png"
-    single_heatmap_filename = f"success_by_tactic_test(single)_from_{csv_basename}.png"
+    multi_heatmap_filename = f"success_by_tactic_test(multi)_from_{csv_basename}_v{args.version}.png"
+    single_heatmap_filename = f"success_by_tactic_test(single)_from_{csv_basename}_v{args.version}.png"
     model_size_filename = f"success_rate_by_model_size_from_{csv_basename}.png"
     model_bar_filename = f"success_rate_by_model_name_from_{csv_basename}.png"
 
@@ -1226,20 +1294,20 @@ def main():
     create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename)
 
     print("Creating success rate heatmap (multi)...")
-    create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi')
+    create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', version=args.version)
     
     print("Creating success rate heatmap (single)...")
-    create_success_heatmap(single_turn_df, plot_outputs_folder, single_heatmap_filename, 'single')
+    create_success_heatmap(single_turn_df, plot_outputs_folder, single_heatmap_filename, 'single', version=args.version)
     
-    plot_outputs_folder = root_dir/"plot_outputs"/"result_by_model"/csv_basename
-    plot_outputs_folder.mkdir(exist_ok=True, parents=True)
-    for key in MODEL_SIZES:
-        create_last_round_split_cell_heatmap(df, plot_outputs_folder, last_round_filename, target_model=key)
-        create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename, target_model=key)
-        create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', target_model=key)
-        create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'single', target_model=key)
+    # plot_outputs_folder = root_dir/"plot_outputs"/"result_by_model"/csv_basename
+    # plot_outputs_folder.mkdir(exist_ok=True, parents=True)
+    # for key in MODEL_SIZES:
+    #     create_last_round_split_cell_heatmap(df, plot_outputs_folder, last_round_filename, target_model=key)
+    #     create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename, target_model=key)
+    #     create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', target_model=key)
+    #     create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'single', target_model=key)
         
-    plot_outputs_folder = root_dir/"plot_outputs"
+    # plot_outputs_folder = root_dir/"plot_outputs"
     
     print("Creating model size line plot...")
     create_model_size_plot(df, plot_outputs_folder, model_size_filename)
