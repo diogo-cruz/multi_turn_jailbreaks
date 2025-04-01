@@ -10,13 +10,13 @@ from matplotlib.ticker import ScalarFormatter
 import argparse
 import os
 
-def is_successful(scores_str, threshold=1):
+def is_successful(scores_str, threshold=100):
     """
     Determine if a test case was successful based on minimum score threshold.
     
     Args:
         scores_str: String representation of scores list
-        threshold: Score threshold (default=1)
+        threshold: Score threshold in percentage (0-100) where higher is better (default=100)
     
     Returns:
         bool: True if min(scores) <= threshold, False otherwise
@@ -25,54 +25,100 @@ def is_successful(scores_str, threshold=1):
         scores_list = eval(scores_str)
         if not scores_list:
             return False
-        return min(scores_list) <= threshold
+        # Convert threshold from percentage (0-100) to original scale (1-10)
+        # Formula: 10 - (threshold * 9/100)
+        # This maps:
+        # 100% -> 1
+        # 50% -> 5.5
+        # 0% -> 10
+        threshold_original = 10 - (threshold * 9/100)
+        return min(scores_list) <= threshold_original
     except:
         return False
 
-def get_min_score(scores_str):
+def get_best_score(scores_str):
     """
-    Get the minimum score from a list of scores.
+    Get the best score from a list of scores.
     
     Args:
         scores_str: String representation of scores list
     
     Returns:
-        float: Minimum score, or 0 if invalid
+        float: Best score, or 0 if invalid
     """
     try:
         scores_list = eval(scores_str)
         if not scores_list:
             return 0
-        return min(scores_list)
+        return min(scores_list)  # Still using min since lower is better in original scale
     except:
         return 0
 
-def calculate_success_stats(data, threshold=1.0):
+def convert_score_to_percentage(score):
     """
-    Calculate success rate, confidence interval, and sample size for a group.
-    Uses the new success metric based on minimum score threshold.
+    Convert a score from 1-10 range (where 1 is best) to 0-100 range (where 100 is best).
+    
+    Args:
+        score: Score in 1-10 range
+    
+    Returns:
+        float: Score in 0-100 range
+    """
+    # Formula: (10 - score) * (100/9)
+    # This maps:
+    # 1 -> 100%
+    # 5.5 -> 50%
+    # 10 -> 0%
+    return (10 - score) * (100/9)
+
+def calculate_success_stats(data, threshold=100.0, metric='success_rate'):
+    """
+    Calculate statistics for a group of scores using either success rate or best score.
     
     Args:
         data: Series of score lists
-        threshold: Score threshold for success determination
+        threshold: Score threshold in percentage (0-100) for success determination
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     
     Returns:
-        tuple: (success_rate, margin, n)
+        tuple: (rate, margin, n)
+            - For success_rate: (success_rate, confidence_margin, n)
+            - For best_score: (best_score_percentage, std_error, n)
     """
     n = len(data)
     if n == 0:
         return 0, 0, 0
     
-    success_rate = np.mean([is_successful(s, threshold) for s in data]) * 100
-    
-    # Calculate 95% confidence interval using normal approximation
-    if n > 1:
-        se = np.sqrt((success_rate/100) * (1 - success_rate/100) / n)
-        margin = 1.96 * se * 100
-    else:
-        margin = 0
+    if metric == 'success_rate':
+        # Calculate binary success rate based on threshold
+        rate = np.mean([is_successful(s, threshold) for s in data]) * 100
         
-    return success_rate, margin, n
+        # Calculate 95% confidence interval using normal approximation
+        if n > 1:
+            se = np.sqrt((rate/100) * (1 - rate/100) / n)
+            margin = 1.96 * se * 100
+        else:
+            margin = 0
+            
+        return rate, margin, n
+    
+    elif metric == 'best_score':
+        # Calculate best score converted to percentage
+        best_scores = [get_best_score(s) for s in data]
+        best_scores_percentages = [convert_score_to_percentage(score) for score in best_scores]
+        rate = np.mean(best_scores_percentages)
+        
+        # Calculate standard error of the mean for 95% confidence interval
+        if n > 1:
+            se = np.std(best_scores_percentages) / np.sqrt(n)
+            margin = 1.96 * se  # 95% confidence interval
+        else:
+            margin = 0
+            
+        return rate, margin, n
+    
+    else:
+        raise ValueError(f"Unknown metric: {metric}. Must be 'success_rate' or 'best_score'")
 
 # Define model sizes (in billions of parameters)
 MODEL_SIZES = {
@@ -87,9 +133,17 @@ MODEL_SIZES = {
 
 
 
-def create_min_score_split_cell_heatmap(df, output_dir, output_filename, threshold=1.0, target_model=None):
+def create_best_score_split_cell_heatmap(df, output_dir, output_filename, threshold=100.0, target_model=None, metric='success_rate'):
     """
-    Create a heatmap showing minimum score achieved by tactic and test case.
+    Create a heatmap showing best score achieved by tactic and test case.
+    
+    Args:
+        df: DataFrame containing the data
+        output_dir: Directory to save the output file
+        output_filename: Name of the output file
+        threshold: Score threshold in percentage (0-100) for success determination
+        target_model: Optional target model to filter data
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     """
     # Filter by target_model if specified
     if target_model is not None:
@@ -106,23 +160,23 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     multi_turn_df = df[df['turn_type'] == 'multi']
     single_turn_df = df[df['turn_type'] == 'single']
     
-    # Add min_score column to each dataframe
+    # Add best_score column to each dataframe and convert to percentage
     multi_turn_df = multi_turn_df.copy()
     single_turn_df = single_turn_df.copy()
     
-    multi_turn_df['min_score'] = multi_turn_df['scores'].apply(get_min_score)
-    single_turn_df['min_score'] = single_turn_df['scores'].apply(get_min_score)
+    multi_turn_df['best_score'] = multi_turn_df['scores'].apply(lambda x: convert_score_to_percentage(get_best_score(x)))
+    single_turn_df['best_score'] = single_turn_df['scores'].apply(lambda x: convert_score_to_percentage(get_best_score(x)))
     
-    # Calculate mean min_scores for each turn type
-    multi_min_score_means = multi_turn_df.pivot_table(
-        values='min_score',
+    # Calculate mean best_scores for each turn type
+    multi_best_score_means = multi_turn_df.pivot_table(
+        values='best_score',
         index='test_case',
         columns='jailbreak_tactic',
         aggfunc='mean'
     )
     
-    single_min_score_means = single_turn_df.pivot_table(
-        values='min_score',
+    single_best_score_means = single_turn_df.pivot_table(
+        values='best_score',
         index='test_case',
         columns='jailbreak_tactic',
         aggfunc='mean'
@@ -130,16 +184,16 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     
     # Find tactics that have both multi and single turn data
     valid_combinations = []
-    for test_case in multi_min_score_means.index:
-        for tactic in multi_min_score_means.columns:
+    for test_case in multi_best_score_means.index:
+        for tactic in multi_best_score_means.columns:
             # Check if this combination exists in both multi and single turn data
-            has_multi = (test_case in multi_min_score_means.index and 
-                        tactic in multi_min_score_means.columns and 
-                        not pd.isna(multi_min_score_means.loc[test_case, tactic]))
+            has_multi = (test_case in multi_best_score_means.index and 
+                        tactic in multi_best_score_means.columns and 
+                        not pd.isna(multi_best_score_means.loc[test_case, tactic]))
             
-            has_single = (test_case in single_min_score_means.index and 
-                         tactic in single_min_score_means.columns and 
-                         not pd.isna(single_min_score_means.loc[test_case, tactic]))
+            has_single = (test_case in single_best_score_means.index and 
+                         tactic in single_best_score_means.columns and 
+                         not pd.isna(single_best_score_means.loc[test_case, tactic]))
             
             if has_multi and has_single:
                 valid_combinations.append((test_case, tactic))
@@ -159,35 +213,35 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
         (df['jailbreak_tactic'].isin(valid_tactics))
     ]
     
-    # Create filtered dataframes with min_score
+    # Create filtered dataframes with best_score
     filtered_multi_df = filtered_df[filtered_df['turn_type'] == 'multi'].copy()
     filtered_single_df = filtered_df[filtered_df['turn_type'] == 'single'].copy()
     
-    filtered_multi_df['min_score'] = filtered_multi_df['scores'].apply(get_min_score)
-    filtered_single_df['min_score'] = filtered_single_df['scores'].apply(get_min_score)
+    filtered_multi_df['best_score'] = filtered_multi_df['scores'].apply(lambda x: convert_score_to_percentage(get_best_score(x)))
+    filtered_single_df['best_score'] = filtered_single_df['scores'].apply(lambda x: convert_score_to_percentage(get_best_score(x)))
     
     # Recalculate means with filtered data
-    multi_min_score_means = filtered_multi_df.pivot_table(
-        values='min_score',
+    multi_best_score_means = filtered_multi_df.pivot_table(
+        values='best_score',
         index='test_case',
         columns='jailbreak_tactic',
         aggfunc='mean'
     )
     
-    single_min_score_means = filtered_single_df.pivot_table(
-        values='min_score',
+    single_best_score_means = filtered_single_df.pivot_table(
+        values='best_score',
         index='test_case',
         columns='jailbreak_tactic',
         aggfunc='mean'
     )
     
-    # Calculate average min_scores across all test cases for each turn type
-    multi_tactic_averages = multi_min_score_means.mean(axis=0)
-    single_tactic_averages = single_min_score_means.mean(axis=0)
+    # Calculate average best_scores across all test cases for each turn type
+    multi_tactic_averages = multi_best_score_means.mean(axis=0)
+    single_tactic_averages = single_best_score_means.mean(axis=0)
     
-    # Calculate average min_scores for each test case
-    multi_testcase_averages = multi_min_score_means.mean(axis=1)
-    single_testcase_averages = single_min_score_means.mean(axis=1)
+    # Calculate average best_scores for each test case
+    multi_testcase_averages = multi_best_score_means.mean(axis=1)
+    single_testcase_averages = single_best_score_means.mean(axis=1)
     
     # Create the figure with extra space for averages
     plt.figure(figsize=(14, 12))
@@ -200,8 +254,8 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     ax_main = plt.subplot(gs[0, 1])
     
     # Create an empty canvas for our custom heatmap
-    all_test_cases = list(multi_min_score_means.index)
-    all_tactics = list(multi_min_score_means.columns)
+    all_test_cases = list(multi_best_score_means.index)
+    all_tactics = list(multi_best_score_means.columns)
     
     ax_main.set_xlim(0, len(all_tactics))
     ax_main.set_ylim(0, len(all_test_cases))
@@ -210,16 +264,16 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     for i, test_case in enumerate(all_test_cases):
         for j, tactic in enumerate(all_tactics):
             # Get values for this cell
-            multi_value = multi_min_score_means.loc[test_case, tactic]
-            single_value = single_min_score_means.loc[test_case, tactic]
+            multi_value = multi_best_score_means.loc[test_case, tactic]
+            single_value = single_best_score_means.loc[test_case, tactic]
             
             # Skip if we somehow have NaN values
             if np.isnan(multi_value) or np.isnan(single_value):
                 continue
                 
-            # Using a blue-based colormap since we're dealing with scores 0-10
-            cmap = plt.cm.YlGnBu
-            norm = plt.Normalize(0, 10)  # Score range is 0-10
+            # Using a blue-based colormap since we're dealing with percentages
+            cmap = plt.cm.YlOrRd
+            norm = plt.Normalize(0, 100)  # Score range is 0-100%
             
             # Create coordinates for the diagonal line
             diag_line = np.array([[j, i], [j+1, i+1]])
@@ -245,8 +299,11 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
             # Add text annotations for multi-turn (top) with M: prefix
             text_multi = f'M: {multi_value:.1f}'
             
-            # Text color based on background (adjust thresholds for 0-10 scale)
-            text_color_multi = 'white' if multi_value > 5 else 'black'
+            # Text color based on threshold for success_rate metric
+            if metric == 'success_rate':
+                text_color_multi = 'white' if multi_value >= threshold else 'black'
+            else:
+                text_color_multi = 'black'  # Always black for best_score
             
             # Position text in upper left triangle
             ax_main.text(j + 0.25, i + 0.75, text_multi,
@@ -255,8 +312,11 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
             # Add text annotations for single-turn (bottom) with S: prefix
             text_single = f'S: {single_value:.1f}'
             
-            # Text color based on background (adjust thresholds for 0-10 scale)
-            text_color_single = 'white' if single_value > 5 else 'black'
+            # Text color based on threshold for success_rate metric
+            if metric == 'success_rate':
+                text_color_single = 'white' if single_value >= threshold else 'black'
+            else:
+                text_color_single = 'black'  # Always black for best_score
             
             # Position text in lower right triangle
             ax_main.text(j + 0.75, i + 0.25, text_single,
@@ -289,13 +349,13 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
         # Multi-turn bar (left position)
         bar_pos_multi = x_pos[i] - bar_width/2
         ax_tactic_avg.bar(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
-        ax_tactic_avg.text(bar_pos_multi, multi_val + 0.2, f'{multi_val:.1f}', 
+        ax_tactic_avg.text(bar_pos_multi, multi_val + 2, f'{multi_val:.1f}', 
                      ha='center', va='bottom', fontsize=10)
         
         # Single-turn bar (right position)
         bar_pos_single = x_pos[i] + bar_width/2
         ax_tactic_avg.bar(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
-        ax_tactic_avg.text(bar_pos_single, single_val + 0.2, f'{single_val:.1f}', 
+        ax_tactic_avg.text(bar_pos_single, single_val + 2, f'{single_val:.1f}', 
                      ha='center', va='bottom', fontsize=10)
     
     # Create legend for bottom average bars
@@ -306,8 +366,8 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     labels = ['Multi', 'Single']
     ax_tactic_avg.legend(handles, labels, loc='upper left', fontsize=10)
     
-    ax_tactic_avg.set_ylim(0, 12)  # Set y limit to 12 for 0-10 scale scores with some padding
-    ax_tactic_avg.set_ylabel('Avg Min Score', fontsize=12)
+    ax_tactic_avg.set_ylim(0, 120)  # Set y limit to 120 for 0-100 scale scores with some padding
+    ax_tactic_avg.set_ylabel('Best Score (%)', fontsize=12)
     ax_tactic_avg.set_yticks([])
     
     ax_tactic_avg.set_xticklabels(all_tactics, fontsize=14)  # Increased font size
@@ -326,13 +386,13 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
         # Multi-turn bar (top position)
         bar_pos_multi = y_pos[i] + bar_width/2
         ax_testcase_avg.barh(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
-        ax_testcase_avg.text(multi_val + 0.2, bar_pos_multi, f'{multi_val:.1f}', 
+        ax_testcase_avg.text(multi_val + 2, bar_pos_multi, f'{multi_val:.1f}', 
                        ha='left', va='center', fontsize=10)
         
         # Single-turn bar (bottom position)
         bar_pos_single = y_pos[i] - bar_width/2
         ax_testcase_avg.barh(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
-        ax_testcase_avg.text(single_val + 0.2, bar_pos_single, f'{single_val:.1f}', 
+        ax_testcase_avg.text(single_val + 2, bar_pos_single, f'{single_val:.1f}', 
                        ha='left', va='center', fontsize=10)
     
     # Create legend for left average bars
@@ -343,8 +403,8 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     labels = ['Multi', 'Single']
     ax_testcase_avg.legend(handles, labels, loc='upper left', bbox_to_anchor=(0, 1.06), fontsize=10)
     
-    ax_testcase_avg.set_xlim(0, 15)  # Set x limit to 15 for 0-10 scale scores with some padding
-    ax_testcase_avg.set_xlabel('Avg Min Score', fontsize=12)
+    ax_testcase_avg.set_xlim(0, 150)  # Set x limit to 150 for 0-100 scale scores with some padding
+    ax_testcase_avg.set_xlabel('Best Score (%)', fontsize=12)
     ax_testcase_avg.set_xticks([])
     
     # Set test case labels only on the left side
@@ -359,7 +419,7 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, cax=cbar_ax)
-    cbar.set_label('Minimum Score (0-10)', fontsize=12)
+    cbar.set_label('Best Score (%)', fontsize=12)
     
     # CRITICAL: Explicitly remove ticks and labels from main heatmap again
     ax_main.set_xticklabels([])
@@ -373,9 +433,15 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     
     # Add title
     if target_model is not None:
-        plt.suptitle(f'Split-Cell Minimum Score by Tactic and Test Case for {target_model}\n(threshold ≤ {threshold})', fontsize=16)
+        if metric == 'success_rate':
+            plt.suptitle(f'Split-Cell Success Rate by Tactic and Test Case for {target_model}\n(threshold ≥ {threshold}%)', fontsize=16)
+        else:
+            plt.suptitle(f'Split-Cell Best Score by Tactic and Test Case for {target_model}', fontsize=16)
     else:
-        plt.suptitle(f'Split-Cell Minimum Score by Tactic and Test Case\n(threshold ≤ {threshold})', fontsize=16)
+        if metric == 'success_rate':
+            plt.suptitle(f'Split-Cell Success Rate by Tactic and Test Case\n(threshold ≥ {threshold}%)', fontsize=16)
+        else:
+            plt.suptitle(f'Split-Cell Best Score by Tactic and Test Case', fontsize=16)
     
     # For tactic averages (bottom plot)
     ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
@@ -398,17 +464,25 @@ def create_min_score_split_cell_heatmap(df, output_dir, output_filename, thresho
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
     
-    print(f"Saved minimum score split-cell heatmap to {output_filename}")
+    print(f"Saved best score split-cell heatmap to {output_filename}")
     print(f"Included {len(valid_tactics)} tactics and {len(valid_test_cases)} test cases with data from both turn types")
 
 
 
 
-def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold=1.0, target_model=None):
+def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold=100.0, target_model=None, metric='success_rate'):
     """
     Create a refined heatmap that only includes tactics and test cases
     where both multi-turn and single-turn data are available.
-    Success is determined by whether the minimum score is less than or equal to the threshold.
+    Can use either success rate (binary threshold) or best score.
+    
+    Args:
+        df: DataFrame containing the data
+        output_dir: Directory to save the output file
+        output_filename: Name of the output file
+        threshold: Score threshold in percentage (0-100) for success determination
+        target_model: Optional target model to filter data
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     """
     # Filter by target_model if specified
     if target_model is not None:
@@ -425,20 +499,35 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     multi_turn_df = df[df['turn_type'] == 'multi']
     single_turn_df = df[df['turn_type'] == 'single']
     
-    # Calculate mean success rates for each turn type using the new metric
-    multi_success_means = multi_turn_df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
-    )
-    
-    single_success_means = single_turn_df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
-    )
+    # Calculate means for each turn type using the specified metric
+    if metric == 'success_rate':
+        multi_success_means = multi_turn_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
+        )
+        
+        single_success_means = single_turn_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
+        )
+    else:  # best_score
+        multi_success_means = multi_turn_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
+        
+        single_success_means = single_turn_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
     
     # Find tactics that have both multi and single turn data
     valid_combinations = []
@@ -475,19 +564,34 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     filtered_multi_df = filtered_df[filtered_df['turn_type'] == 'multi']
     filtered_single_df = filtered_df[filtered_df['turn_type'] == 'single']
     
-    multi_success_means = filtered_multi_df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
-    )
-    
-    single_success_means = filtered_single_df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
-    )
+    if metric == 'success_rate':
+        multi_success_means = filtered_multi_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
+        )
+        
+        single_success_means = filtered_single_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
+        )
+    else:  # best_score
+        multi_success_means = filtered_multi_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
+        
+        single_success_means = filtered_single_df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
     
     # Calculate average success rates across all test cases for each turn type
     multi_tactic_averages = multi_success_means.mean(axis=0)
@@ -514,8 +618,7 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     ax_main.set_xlim(0, len(all_tactics))
     ax_main.set_ylim(0, len(all_test_cases))
     
-    # For each cell, create a split-cell since we've filtered to only include
-    # combinations with both data types
+    # For each cell, create a split-cell for visualization
     for i, test_case in enumerate(all_test_cases):
         for j, tactic in enumerate(all_tactics):
             # Get values for this cell
@@ -554,8 +657,11 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
             # Add text annotations for multi-turn (top) with M: prefix
             text_multi = f'M: {multi_value:.1f}'
             
-            # Text color based on background
-            text_color_multi = 'white' if multi_value > 50 else 'black'
+            # Text color based on threshold for success_rate metric
+            if metric == 'success_rate':
+                text_color_multi = 'white' if multi_value >= threshold else 'black'
+            else:
+                text_color_multi = 'black'  # Always black for best_score
             
             # Position text in upper left triangle
             ax_main.text(j + 0.25, i + 0.75, text_multi,
@@ -564,8 +670,11 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
             # Add text annotations for single-turn (bottom) with S: prefix
             text_single = f'S: {single_value:.1f}'
             
-            # Text color based on background
-            text_color_single = 'white' if single_value > 50 else 'black'
+            # Text color based on threshold for success_rate metric
+            if metric == 'success_rate':
+                text_color_single = 'white' if single_value >= threshold else 'black'
+            else:
+                text_color_single = 'black'  # Always black for best_score
             
             # Position text in lower right triangle
             ax_main.text(j + 0.75, i + 0.25, text_single,
@@ -636,13 +745,13 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
         bar_pos_multi = y_pos[i] + bar_width/2
         ax_testcase_avg.barh(bar_pos_multi, multi_val, bar_width, color='#ff7f0e', alpha=0.7)
         ax_testcase_avg.text(multi_val + 2, bar_pos_multi, f'{multi_val:.1f}', 
-                       ha='left', va='center', fontsize=9)
+                       ha='left', va='center', fontsize=10)
         
         # Single-turn bar (bottom position)
         bar_pos_single = y_pos[i] - bar_width/2
         ax_testcase_avg.barh(bar_pos_single, single_val, bar_width, color='#1f77b4', alpha=0.7)
         ax_testcase_avg.text(single_val + 2, bar_pos_single, f'{single_val:.1f}', 
-                       ha='left', va='center', fontsize=9)
+                       ha='left', va='center', fontsize=10)
     
     # Create legend for left average bars
     handles = [
@@ -668,7 +777,9 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, cax=cbar_ax)
-    cbar.set_label('Success Rate (%)', fontsize=12)
+    metric_label = "Success Rate (%) if threshold ≥ 50%" if metric == 'success_rate' else "Best Score (%)"
+    cbar.set_label(metric_label, fontsize=12)
+    cbar.ax.tick_params(labelsize=14)
     
     # CRITICAL: Explicitly remove ticks and labels from main heatmap again
     ax_main.set_xticklabels([])
@@ -680,11 +791,16 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     plt.setp(ax_tactic_avg.get_xticklabels(), visible=True)
     plt.setp(ax_testcase_avg.get_yticklabels(), visible=True)
     
-    # Add title
-    if target_model is not None:
-        plt.suptitle(f'Split-Cell Success Rate (%) by Tactic and Test Case for {target_model}\n(threshold ≤ {threshold})', fontsize=16)
+    # Add title with threshold information when using success_rate metric
+    if metric == 'success_rate':
+        title = f'Split-Cell Success Rate by Tactic and Test Case\n(threshold ≥ {threshold}%)'
     else:
-        plt.suptitle(f'Split-Cell Success Rate (%) by Tactic and Test Case\n(threshold ≤ {threshold})', fontsize=16)
+        title = 'Split-Cell Best Score by Tactic and Test Case'
+    
+    if target_model is not None:
+        title = f'{title} for {target_model}'
+    
+    plt.suptitle(title, fontsize=16)
     
     # For tactic averages (bottom plot)
     ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
@@ -700,7 +816,7 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
     ax_main.tick_params(axis='both', which='both', labelbottom=False, labelleft=False)
 
     # Add a bit more padding to ensure labels aren't cut off
-    plt.tight_layout(rect=[0, 0.05, 0.95, 0.95])
+    plt.tight_layout(rect=[0, 0, 0.95, 0.95])  # Leave space for the title
     
     # Save the figure
     output_path = output_dir/output_filename
@@ -712,13 +828,23 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, threshold
 
 
 
-def create_success_heatmap(df, output_dir, output_filename, turn_type, target_model=None, version=1, threshold=1.0):
+def create_success_heatmap(df, output_dir, output_filename, turn_type, target_model=None, version=1, threshold=100.0, metric='success_rate'):
     """
-    Create a heatmap showing success rate by jailbreak tactic and test case
-    with average success rates for each tactic and test case
+    Create a heatmap showing success rate or best score by jailbreak tactic and test case
+    with averages for each tactic and test case
+    
+    Args:
+        df: DataFrame containing the data
+        output_dir: Directory to save the output file
+        output_filename: Name of the output file
+        turn_type: Type of turn ('single' or 'multi')
+        target_model: Optional target model to filter data
+        version: Version of the plot (1 or 2)
+        threshold: Score threshold in percentage (0-100) for success determination
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     """
     # Filter by target_model if specified
-    if target_model is not None:
+    if target_model is not None and isinstance(target_model, str):
         df = df[df['target_model'] == target_model]
         if df.empty:
             print(f"Warning: No data found for target model '{target_model}'")
@@ -728,21 +854,37 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
             name_parts = output_filename.split('.')
             output_filename = f"{name_parts[0]}_{target_model.split('/')[-1]}.{name_parts[1]}"
             
-    # Calculate mean success rates using the new threshold-based metric
-    success_means = df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
-    )
-    
-    # Calculate standard deviations
-    success_stds = df.pivot_table(
-        values='scores',
-        index='test_case',
-        columns='jailbreak_tactic',
-        aggfunc=lambda x: np.std([is_successful(s, threshold) for s in x]) * 100
-    )
+    # Calculate mean success rates using the specified metric
+    if metric == 'success_rate':
+        success_means = df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([is_successful(s, threshold) for s in x]) * 100
+        )
+        
+        # Calculate standard deviations
+        success_stds = df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.std([is_successful(s, threshold) for s in x]) * 100
+        )
+    else:  # best_score
+        success_means = df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.mean([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
+        
+        # Calculate standard deviations
+        success_stds = df.pivot_table(
+            values='scores',
+            index='test_case',
+            columns='jailbreak_tactic',
+            aggfunc=lambda x: np.std([convert_score_to_percentage(get_best_score(s)) for s in x])
+        )
     
     # Calculate sample sizes
     sample_sizes = df.pivot_table(
@@ -870,7 +1012,8 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
         ax_tactic_avg.set_ylim(0, ylimit)  # Increased height to prevent number cutoff
         
         ax_tactic_avg.set_xlabel('Jailbreak Tactic', fontsize=label_size)
-        ax_tactic_avg.set_ylabel('ASR(%)', fontsize=label_size)
+        metric_label = "ASR(%)" if metric == 'success_rate' else "Best Score (%)"
+        ax_tactic_avg.set_ylabel(metric_label, fontsize=label_size)
         ax_tactic_avg.set_yticks([])
         
         ax_tactic_avg.set_xticklabels(all_tactics, fontsize=content_label_size, rotation=45, ha='right')
@@ -913,7 +1056,8 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
                         ha='left', va='center', fontsize=graph_label_size)
         
         ax_testcase_avg.set_xlim(0, ylimit)  # Increased width to prevent number cutoff
-        ax_testcase_avg.set_xlabel('ASR(%)', fontsize=label_size)
+        metric_label = "ASR(%)" if metric == 'success_rate' else "Best Score (%)"
+        ax_testcase_avg.set_xlabel(metric_label, fontsize=label_size)
         ax_testcase_avg.set_ylabel('Test Case', fontsize=label_size)
         ax_testcase_avg.set_xticks([])
         
@@ -928,32 +1072,32 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     # Add colorbar to the main heatmap
     cbar_ax = plt.subplot(gs[0, 2])
     cbar = plt.colorbar(hm.get_children()[0], cax=cbar_ax)
-    cbar.set_label('Success Rate (%)', fontsize=label_size)
+    metric_label = "Success Rate (%)" if metric == 'success_rate' else "Best Score (%)"
+    cbar.set_label(metric_label, fontsize=label_size)
     cbar.ax.tick_params(labelsize=content_label_size)
     
     # Add title and labels for main plot
     if version == 1:
-        if target_model is not None:
-            plt.suptitle(f'Success Rate (%) by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
+        metric_title = "Success Rate (%)" if metric == 'success_rate' else "Best Score (%)"
+        if target_model is not None and isinstance(target_model, str):
+            if metric == 'success_rate':
+                plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})\n(threshold ≥ {threshold}%)', fontsize=16)
+            else:
+                plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
         else:
-            plt.suptitle(f'Success Rate (%) by Tactic and Test Case ({turn_type})', fontsize=16)
+            if metric == 'success_rate':
+                plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})\n(threshold ≥ {threshold}%)', fontsize=16)
+            else:
+                plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})', fontsize=16)
     ax_main.set_xlabel('')
     ax_main.set_ylabel('')  # Remove duplicate y-axis label
     
-    # Set the y-axis label only on the averages plot since it's on the left now
-    # ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
-    # ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
-    # Rotate x-axis labels for better readability
-    # plt.setp(ax_main.get_xticklabels(), rotation=45, ha='right')
-    
     # Fix the duplicate axis labels
     plt.setp(ax_testcase_avg.get_yticklabels(), visible=True)  # Keep left labels visible
-    # plt.setp(ax_main.get_yticklabels(), visible=False)  # Hide main heatmap y labels
     plt.setp(ax_tactic_avg.get_yticklabels(), visible=False)  # Hide bottom avg y labels
     
     # Fix the duplicate x-axis labels
     plt.setp(ax_tactic_avg.get_xticklabels(), visible=True)  # Keep bottom x labels visible
-    # plt.setp(ax_main.get_xticklabels(), visible=False)  # Hide main heatmap x labels
     
     ax_main.set_xticklabels([])
     ax_main.set_yticklabels([])
@@ -980,9 +1124,16 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     
     print(f"Saved enhanced heatmap with averages to {output_filename}")
 
-def create_model_size_plot(df, output_dir, output_filename, threshold=1.0):
+def create_model_size_plot(df, output_dir, output_filename, threshold=100.0, metric='success_rate'):
     """
-    Create a plot showing success rate vs model size by turn type
+    Create a plot showing success rate or best score vs model size by turn type
+    
+    Args:
+        df: DataFrame containing the data
+        output_dir: Directory to save the output file
+        output_filename: Name of the output file
+        threshold: Score threshold in percentage (0-100) for success determination
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     """
     # Add model size column
     df['model_size'] = df['target_model'].map(MODEL_SIZES)
@@ -1000,7 +1151,7 @@ def create_model_size_plot(df, output_dir, output_filename, threshold=1.0):
                         (~df['is_gpt4o_mini'])]
             
             if not subset.empty:
-                success_rate, margin, n = calculate_success_stats(subset['scores'], threshold)
+                success_rate, margin, n = calculate_success_stats(subset['scores'], threshold, metric)
                 results.append({
                     'turn_type': turn_type,
                     'model_size': model_size,
@@ -1016,7 +1167,7 @@ def create_model_size_plot(df, output_dir, output_filename, threshold=1.0):
                               (df['is_gpt4o_mini'])]
             
             if not gpt4o_subset.empty:
-                success_rate, margin, n = calculate_success_stats(gpt4o_subset['scores'], threshold)
+                success_rate, margin, n = calculate_success_stats(gpt4o_subset['scores'], threshold, metric)
                 results.append({
                     'turn_type': turn_type,
                     'model_size': model_size,
@@ -1107,8 +1258,12 @@ def create_model_size_plot(df, output_dir, output_filename, threshold=1.0):
     ax.set_ylim(0, 100)
     ax.set_xlim(0.8, 700)
     ax.set_xlabel('Model Size (B parameters)', fontsize=12)
-    ax.set_ylabel('Success Rate (%)', fontsize=12)
-    ax.set_title('Attack Success Rate vs Model Size by Turn Type', fontsize=14)
+    metric_label = "Success Rate (%)" if metric == 'success_rate' else "Best Score (%)"
+    ax.set_ylabel(metric_label, fontsize=12)
+    if metric == 'success_rate':
+        ax.set_title(f'Attack {metric_label} vs Model Size by Turn Type\n(threshold ≥ {threshold}%)', fontsize=14)
+    else:
+        ax.set_title(f'Attack {metric_label} vs Model Size by Turn Type', fontsize=14)
     
     # Format x-axis ticks
     ax.xaxis.set_major_formatter(ScalarFormatter())
@@ -1129,9 +1284,16 @@ def create_model_size_plot(df, output_dir, output_filename, threshold=1.0):
     
     print(f"Saved model size plot to {output_filename}")
 
-def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model_name.png', threshold=1.0):
+def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model_name.png', threshold=100.0, metric='success_rate'):
     """
-    Create a bar plot showing success rate by model name (ordered by model size) and turn type
+    Create a bar plot showing success rate or best score by model name (ordered by model size) and turn type
+    
+    Args:
+        df: DataFrame containing the data
+        output_dir: Directory to save the output file
+        output_filename: Name of the output file
+        threshold: Score threshold in percentage (0-100) for success determination
+        metric: Either 'success_rate' (binary threshold) or 'best_score' (best score)
     """
     # Add model size column
     df['model_size'] = df['target_model'].map(MODEL_SIZES)
@@ -1143,7 +1305,7 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             subset = df[(df['turn_type'] == turn_type) & (df['target_model'] == model_name)]
             
             if not subset.empty:
-                success_rate, margin, n = calculate_success_stats(subset['scores'], threshold)
+                success_rate, margin, n = calculate_success_stats(subset['scores'], threshold, metric)
                 model_size = MODEL_SIZES.get(model_name, 0)  # Get model size for ordering
                 results.append({
                     'turn_type': turn_type,
@@ -1231,18 +1393,6 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             color='black',
             capsize=5
         )
-        
-        # # Add sample size annotations
-        # for j, (rate, n) in enumerate(zip(success_rates, sample_sizes)):
-        #     if n > 0:
-        #         ax.annotate(
-        #             f'n={n}',
-        #             xy=(indices[j] + (i * bar_width - bar_width/2), rate + 3),
-        #             ha='center',
-        #             va='bottom',
-        #             fontsize=8,
-        #             color='black'
-        #         )
     
     # Set x-axis labels
     ax.set_xticks(indices)
@@ -1266,15 +1416,21 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
     # Set limits and labels
     ax.set_ylim(0, 100)
     ax.set_xlabel('Model Name (Parameter Size)', fontsize=25)
-    ax.set_ylabel('Success Rate (%)', fontsize=25)
+    metric_label = "Success Rate (%)" if metric == 'success_rate' else "Best Score (%)"
+    ax.set_ylabel(metric_label, fontsize=25)
     ax.tick_params(axis='y', labelsize=20)  # Set y-tick label size to 20
-    # ax.set_title('Attack Success Rate by Model and Turn Type', fontsize=14)
     
     # Add legend
     ax.legend(loc='upper right', fontsize=20)
     
     # Add grid for better readability
     ax.grid(True, linestyle='--', alpha=0.7, axis='y')
+    
+    # Add title with threshold information when using success_rate metric
+    if metric == 'success_rate':
+        plt.title(f'Attack {metric_label} by Model Name and Turn Type\n(threshold ≥ {threshold}%)', fontsize=20, pad=20)
+    else:
+        plt.title(f'Attack {metric_label} by Model Name and Turn Type', fontsize=20, pad=20)
     
     # Save and show
     plt.subplots_adjust(bottom=0.25)
@@ -1289,7 +1445,12 @@ def main():
     parser = argparse.ArgumentParser(description='Create plots from CSV data')
     parser.add_argument('--csv', type=str, required=True, help='Path to CSV file')
     parser.add_argument('--version', type=int, default=1, help='Version of the plot (1 or 2)')
-    parser.add_argument('--threshold', type=float, default=1.0, help='Score threshold for success determination')
+    parser.add_argument('--threshold', type=float, default=100.0, help='Score threshold in percentage (0-100) for success determination')
+    parser.add_argument('--metric', type=str, default='success_rate', 
+                      choices=['success_rate', 'best_score'],
+                      help='Metric to use: success_rate (binary threshold) or best_score (best score)')
+    parser.add_argument('--target-model', type=str, default=None,
+                      help='Optional target model to filter data (e.g., "meta-llama/llama-3.1-70b-instruct")')
     args = parser.parse_args()
     root_dir = Path(__file__).resolve().parent.parent
     csv_file = root_dir/'csv_results'/args.csv
@@ -1307,36 +1468,37 @@ def main():
     multi_turn_df = df[df['turn_type'] == 'multi']
     single_turn_df = df[df['turn_type'] == 'single']
     
-    # Create output filenames based on CSV basename
-    min_score_filename = f"min_score_heatmap_from_{csv_basename}.png"
-    heatmap_filename = f"success_by_tactic_test_from_{csv_basename}.png"
-    multi_heatmap_filename = f"success_by_tactic_test(multi)_from_{csv_basename}_v{args.version}.png"
-    single_heatmap_filename = f"success_by_tactic_test(single)_from_{csv_basename}_v{args.version}.png"
-    model_size_filename = f"success_rate_by_model_size_from_{csv_basename}.png"
-    model_name_filename = f"success_rate_by_model_name_from_{csv_basename}.png"
+    # Create output filenames based on CSV basename and metric
+    metric_suffix = '_success_rate' if args.metric == 'success_rate' else '_best_score'
+    best_score_filename = f"best_score_heatmap_from_{csv_basename}.png"
+    heatmap_filename = f"success_by_tactic_test_from_{csv_basename}{metric_suffix}.png"
+    multi_heatmap_filename = f"success_by_tactic_test(multi)_from_{csv_basename}_v{args.version}{metric_suffix}.png"
+    single_heatmap_filename = f"success_by_tactic_test(single)_from_{csv_basename}_v{args.version}{metric_suffix}.png"
+    model_size_filename = f"success_rate_by_model_size_from_{csv_basename}{metric_suffix}.png"
+    model_name_filename = f"success_rate_by_model_name_from_{csv_basename}{metric_suffix}.png"
     
     plot_outputs_folder = root_dir/"plot_outputs"
     plot_outputs_folder.mkdir(exist_ok=True)
     
-    print(f"Creating plots from {args.csv}...")
+    print(f"Creating plots from {args.csv} using {args.metric} metric...")
     
-    print("Creating minimum score heatmap...")
-    create_min_score_split_cell_heatmap(df, plot_outputs_folder, min_score_filename, args.threshold)
+    print("Creating best score heatmap...")
+    create_best_score_split_cell_heatmap(df, plot_outputs_folder, best_score_filename, args.threshold, target_model=args.target_model, metric=args.metric)
     
     print("Creating success rate heatmap (both)...")
-    create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename, args.threshold)
+    create_refined_split_cell_heatmap(df, plot_outputs_folder, heatmap_filename, args.threshold, target_model=args.target_model, metric=args.metric)
     
     print("Creating success rate heatmap (multi)...")
-    create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', args.threshold, version=args.version)
+    create_success_heatmap(multi_turn_df, plot_outputs_folder, multi_heatmap_filename, 'multi', target_model=args.target_model, version=args.version, threshold=args.threshold, metric=args.metric)
     
     print("Creating success rate heatmap (single)...")
-    create_success_heatmap(single_turn_df, plot_outputs_folder, single_heatmap_filename, 'single', args.threshold, version=args.version)
+    create_success_heatmap(single_turn_df, plot_outputs_folder, single_heatmap_filename, 'single', target_model=args.target_model, version=args.version, threshold=args.threshold, metric=args.metric)
     
     print("Creating model size line plot...")
-    create_model_size_plot(df, plot_outputs_folder, model_size_filename, args.threshold)
+    create_model_size_plot(df, plot_outputs_folder, model_size_filename, args.threshold, metric=args.metric)
     
     print("Creating model name bar plot...")
-    create_model_bar_plot(df, plot_outputs_folder, model_name_filename, args.threshold)
+    create_model_bar_plot(df, plot_outputs_folder, model_name_filename, args.threshold, metric=args.metric)
     
     print("Done!")
 
