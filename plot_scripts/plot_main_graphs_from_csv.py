@@ -638,12 +638,12 @@ def create_refined_split_cell_heatmap(df, output_dir, output_filename, target_mo
     # For tactic averages (bottom plot)
     ax_tactic_avg.tick_params(axis='x', which='both', labelbottom=True)
     ax_tactic_avg.set_xticks(np.arange(len(all_tactics)) + 0.5)
-    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=11)
+    ax_tactic_avg.set_xticklabels(all_tactics, fontsize=14)
 
     # For test case averages (left plot)
     ax_testcase_avg.tick_params(axis='y', which='both', labelleft=True)
     ax_testcase_avg.set_yticks(np.arange(len(all_test_cases)) + 0.5)
-    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=11)
+    ax_testcase_avg.set_yticklabels(all_test_cases, fontsize=14)
 
     # Explicitly turn off ticks on other axes to prevent override
     ax_main.tick_params(axis='both', which='both', labelbottom=False, labelleft=False)
@@ -734,13 +734,17 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     if version == 1:
         gs = plt.GridSpec(2, 3, width_ratios=[2, 20, 0.5], height_ratios=[20, 1], 
                      wspace=0.05, hspace=0.05)
+        content_label_size = 14
+        label_size = 12
+        graph_label_size = 14
+        ylimit = 100
     elif version == 2:
         gs = plt.GridSpec(2, 3, width_ratios=[5, 15, 1], height_ratios=[15, 5], 
                         wspace=0.1, hspace=0.1)
         content_label_size = 45
         label_size = 48
         graph_label_size = 30
-        ylimit=120
+        ylimit = 120
     
     # Main heatmap
     ax_main = plt.subplot(gs[0, 1])
