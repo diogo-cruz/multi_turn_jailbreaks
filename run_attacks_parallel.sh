@@ -21,9 +21,9 @@ test_cases=(
     "deoderant_flamethrower"
     "disarm_police"
     "hate_speech"
-    "leak_photos"
-    "steal_info"
-    "women_drivers"
+    # "leak_photos"
+    # "steal_info"
+    # "women_drivers"
 
     ### OLD TEST CASES ###
     # "old/academic_integrity"
