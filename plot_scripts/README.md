@@ -81,14 +81,14 @@ python plot_main_graphs_from_csv.py --csv <csv_filename> [--version <1|2>] [--th
 Arguments:
 - `--csv`: (Required) Name of the CSV file in the csv_results directory
 - `--version`: (Optional) Version of the plot style (1 or 2, default=1)
-- `--threshold`: (Optional) Score threshold in percentage (0-100) for success determination (default=100.0). Only used when metric='success_rate'
+- `--threshold`: (Optional) Score threshold (0-1.0) for success determination (default=1.0). Only used when metric='success_rate'
 - `--metric`: (Optional) Metric to use for analysis: 'success_rate' (binary threshold) or 'best_score' (best score achieved). Default='success_rate'
 - `--target-model`: (Optional) Target model to filter data (e.g., "meta-llama/llama-3.1-70b-instruct")
 
 Example:
 ```bash
 # Using success rate metric with threshold
-python plot_main_graphs_from_csv.py --csv results_2024_03_20.csv --version 2 --threshold 50.0 --metric success_rate
+python plot_main_graphs_from_csv.py --csv results_2024_03_20.csv --version 2 --threshold 0.5 --metric success_rate
 
 # Using best score metric (threshold not used)
 python plot_main_graphs_from_csv.py --csv results_2024_03_20.csv --version 2 --metric best_score
@@ -114,7 +114,7 @@ The scripts will create a `plot_outputs` directory in the project root if it doe
   - Llama 3.2 1B: 1B parameters
   - Llama 3.2 3B: 3B parameters
   - Llama 3.3 70B: 70B parameters
-- When using the 'success_rate' metric, success is determined by whether the minimum score is less than or equal to the threshold (in percentage)
+- When using the 'success_rate' metric, success is determined by whether the minimum score is less than or equal to the threshold (0-1.0)
 - When using the 'best_score' metric, the actual best score achieved is shown (threshold is ignored)
-- The threshold is now specified as a percentage (0-100) where higher is better
+- The threshold is specified as a value between 0 and 1.0 where higher is better
 - All plots include error bars and sample sizes where applicable 
