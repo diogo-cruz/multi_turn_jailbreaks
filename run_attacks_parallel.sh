@@ -56,8 +56,8 @@ temperatures=(
     # "1.0"
 )
 turn_types=(
-    # "single_turn"
-    "multi_turn"
+    "single_turn"
+    # "multi_turn"
 )
 
 attacker_models=(

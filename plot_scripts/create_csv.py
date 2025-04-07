@@ -52,11 +52,11 @@ def get_results(filepath: Path) -> tuple:
         if "score" in entry:
             score = entry.get("score")
             if score != "refused":
-                # check if score is an integer
-                if isinstance(score, int):
+                # check if score is a float between 0 and 1
+                if isinstance(score, float) and 0 <= score <= 1:
                     scores.append(score)
                 else:
-                    raise ValueError(f"Score is not an integer: {score}")
+                    raise ValueError(f"Score is not a float between 0 and 1: {score}")
             else:
                 refused += 1
 
