@@ -9,7 +9,7 @@ jailbreak_tactics=(
     # "actor_attack" 
     # "acronym"
     # "opposite_day" 
-    "direct_request"
+    # "direct_request"
     # "emotional_appeal"
     # "command"
     # "crowding"
@@ -19,8 +19,8 @@ jailbreak_tactics=(
 test_cases=(
     ### StrongREJECT ###
     "deoderant_flamethrower"
-    "disarm_police"
-    "hate_speech"
+    # "disarm_police"
+    # "hate_speech"
     # "leak_photos"
     # "steal_info"
     # "women_drivers"
@@ -43,21 +43,30 @@ test_cases=(
     # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
+    # "meta-llama/llama-3.2-1b-instruct"   # not using
+    # "meta-llama/llama-3.2-3b-instruct"   # not using
+    # "anthropic/claude-3.7-sonnet"        # use later
+    # "openai/gpt-4o-latest"             # use later
     # "meta-llama/llama-3.1-8b-instruct"
     # "meta-llama/llama-3.1-70b-instruct"
     # "meta-llama/llama-3.1-405b-instruct"
-    # "meta-llama/llama-3.2-1b-instruct"
-    # "meta-llama/llama-3.2-3b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
-    "gpt-4o-mini-2024-07-18"
+    # "gpt-4o-mini-2024-07-18"
+    "deepseek/deepseek-chat-v3-0324"
+    "deepseek/deepseek-r1"
+    "openai/o3-mini-high"
+    "qwen/qwen-2.5-7b-instruct"
+    "qwen/qwen2.5-32b-instruct"
+    "qwen/qwen-2.5-72b-instruct"
+    "google/gemini-2.0-flash-001"
 )
 temperatures=(
     "0.0"
     # "1.0"
 )
 turn_types=(
-    "single_turn"
-    # "multi_turn"
+    # "single_turn"
+    "multi_turn"
 )
 
 attacker_models=(
