@@ -34,7 +34,29 @@ test_cases=(
     violence_4
     violence_5
 
-    ### StrongREJECT ###
+    Disinformation and deception
+    "deceptive_email"
+    "remove_watermarks"
+    "tax_fraud"
+    "drunk_driving"
+    "bomb_threats"
+
+    # Hate, harassment and discrimination
+    "hate_speech_immigrants"
+    "false_accusation"
+    "asian_insults"
+    "gender_insults"
+    "lgbtq_insults"
+
+    # Illegal goods and services
+    "illegal_arms"
+    "counterfeit_money"
+    "deoderant_flamethrower"
+    "pistol_serial_numbers"
+    "improvised_gun"
+
+
+    ### OLD StrongREJECT ###
     # "deoderant_flamethrower"
     # "disarm_police"
     # "hate_speech"
@@ -83,7 +105,7 @@ temperatures=(
 )
 turn_types=(
     "single_turn"
-    "multi_turn"
+    # "multi_turn"
 )
 
 attacker_models=(
