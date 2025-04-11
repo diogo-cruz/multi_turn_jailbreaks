@@ -757,18 +757,18 @@ def create_success_heatmap(df, output_dir, output_filename, turn_type, target_mo
     cbar.ax.tick_params(labelsize=content_label_size)
     
     # Add title and labels for main plot
-    if version == 1:
-        metric_title = "Success Rate (%)" if metric == 'success_rate' else "Best Score"
-        if target_model is not None and isinstance(target_model, str):
-            if metric == 'success_rate':
-                plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})\n(threshold ≥ {threshold})', fontsize=16)
-            else:
-                plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})', fontsize=16)
+    # if version == 1:
+    metric_title = "Success Rate (%)" if metric == 'success_rate' else "Best Score"
+    if target_model is not None and isinstance(target_model, str):
+        if metric == 'success_rate':
+            plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})\n(threshold ≥ {threshold})', fontsize=content_label_size)
         else:
-            if metric == 'success_rate':
-                plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})\n(threshold ≥ {threshold})', fontsize=16)
-            else:
-                plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})', fontsize=16)
+            plt.suptitle(f'{metric_title} by Tactic and Test Case for {target_model} ({turn_type})', fontsize=content_label_size)
+    else:
+        if metric == 'success_rate':
+            plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})\n(threshold ≥ {threshold})', fontsize=content_label_size)
+        else:
+            plt.suptitle(f'{metric_title} by Tactic and Test Case ({turn_type})', fontsize=content_label_size)
     ax_main.set_xlabel('')
     ax_main.set_ylabel('')  # Remove duplicate y-axis label
     
