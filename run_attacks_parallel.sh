@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Number of parallel processes to run
-THREAD_COUNT=8
+THREAD_COUNT=128
 
 # Define the values for each parameter
 jailbreak_tactics=(
     "crescendomation" 
     "actor_attack" 
-    "acronym"
+    # "acronym"
     "opposite_day" 
     "direct_request"
     "emotional_appeal"
@@ -18,42 +18,49 @@ jailbreak_tactics=(
 )
 test_cases=(
     ### filtered StrongREJECT ###
-    non_violent_crimes_1
-    non_violent_crimes_2
-    non_violent_crimes_3
-    non_violent_crimes_4
-    non_violent_crimes_5
-    sexual_content_1
-    sexual_content_2
-    sexual_content_3
-    sexual_content_4
-    sexual_content_5
-    violence_1
-    violence_2
-    violence_3
-    violence_4
-    violence_5
+    # non_violent_crimes_1
+    # non_violent_crimes_2
+    non_violent_crimes_2_alt1
+    non_violent_crimes_2_alt2
+    # non_violent_crimes_3
+    # non_violent_crimes_4
+    non_violent_crimes_4_alt1
+    # non_violent_crimes_5
+    # sexual_content_1
+    sexual_content_1_alt1
+    # sexual_content_2
+    # sexual_content_3
+    sexual_content_3_alt1
+    # sexual_content_4
+    sexual_content_4_alt1
+    sexual_content_4_alt2
+    # sexual_content_5
+    # violence_1
+    # violence_2
+    # violence_3
+    # violence_4
+    # violence_5
 
-    Disinformation and deception
-    "deceptive_email"
-    "remove_watermarks"
-    "tax_fraud"
-    "drunk_driving"
-    "bomb_threats"
+    # Disinformation and deception
+    # "deceptive_email"
+    # "remove_watermarks"
+    # "tax_fraud"
+    # "drunk_driving"
+    # "bomb_threats"
 
     # Hate, harassment and discrimination
-    "hate_speech_immigrants"
-    "false_accusation"
-    "asian_insults"
-    "gender_insults"
-    "lgbtq_insults"
+    # "hate_speech_immigrants"
+    # "false_accusation"
+    # "asian_insults"
+    # "gender_insults"
+    # "lgbtq_insults"
 
     # Illegal goods and services
-    "illegal_arms"
-    "counterfeit_money"
-    "deoderant_flamethrower"
-    "pistol_serial_numbers"
-    "improvised_gun"
+    # "illegal_arms"
+    # "counterfeit_money"
+    # "deoderant_flamethrower"
+    # "pistol_serial_numbers"
+    # "improvised_gun"
 
 
     ### OLD StrongREJECT ###
