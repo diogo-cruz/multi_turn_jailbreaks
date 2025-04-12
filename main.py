@@ -145,7 +145,7 @@ timestamp = {"timestamp": current_time}
 
 target_model_name = args.target_model.split("/")[-1]
 output_file_path = (
-    f"./clean_results/strongreject_results/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_{current_time}.jsonl"
+    f"./results/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_{current_time}.jsonl"
 )
 os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 print("Generated Output file path:", output_file_path)
