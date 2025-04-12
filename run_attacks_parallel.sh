@@ -18,49 +18,49 @@ jailbreak_tactics=(
 )
 test_cases=(
     ### filtered StrongREJECT ###
-    # non_violent_crimes_1
+    non_violent_crimes_1
     # non_violent_crimes_2
-    non_violent_crimes_2_alt1
+    # non_violent_crimes_2_alt1
     non_violent_crimes_2_alt2
-    # non_violent_crimes_3
+    non_violent_crimes_3
     # non_violent_crimes_4
     non_violent_crimes_4_alt1
-    # non_violent_crimes_5
+    non_violent_crimes_5
     # sexual_content_1
-    sexual_content_1_alt1
-    # sexual_content_2
+    # sexual_content_1_alt1
+    sexual_content_2
     # sexual_content_3
     sexual_content_3_alt1
     # sexual_content_4
     sexual_content_4_alt1
     sexual_content_4_alt2
-    # sexual_content_5
-    # violence_1
-    # violence_2
-    # violence_3
-    # violence_4
-    # violence_5
+    sexual_content_5
+    violence_1
+    violence_2
+    violence_3
+    violence_4
+    violence_5
 
     # Disinformation and deception
-    # "deceptive_email"
-    # "remove_watermarks"
-    # "tax_fraud"
-    # "drunk_driving"
-    # "bomb_threats"
+    "deceptive_email"
+    "remove_watermarks"
+    "tax_fraud"
+    "drunk_driving"
+    "bomb_threats"
 
     # Hate, harassment and discrimination
-    # "hate_speech_immigrants"
-    # "false_accusation"
-    # "asian_insults"
-    # "gender_insults"
-    # "lgbtq_insults"
+    "hate_speech_immigrants"
+    "false_accusation"
+    "asian_insults"
+    "gender_insults"
+    "lgbtq_insults"
 
     # Illegal goods and services
-    # "illegal_arms"
-    # "counterfeit_money"
-    # "deoderant_flamethrower"
-    # "pistol_serial_numbers"
-    # "improvised_gun"
+    "illegal_arms"
+    "counterfeit_money"
+    "deoderant_flamethrower"
+    "pistol_serial_numbers"
+    "improvised_gun"
 
 
     ### OLD StrongREJECT ###
@@ -89,15 +89,15 @@ test_cases=(
     # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    # "meta-llama/llama-3.2-1b-instruct"   # not using
-    # "meta-llama/llama-3.2-3b-instruct"   # not using
+    "meta-llama/llama-3.2-1b-instruct"   # not using
+    "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
     "meta-llama/llama-3.1-8b-instruct"
     "meta-llama/llama-3.1-70b-instruct"
-    # "meta-llama/llama-3.1-405b-instruct"
-    # "meta-llama/llama-3.3-70b-instruct"
-    # "gpt-4o-mini-2024-07-18"
+    "meta-llama/llama-3.1-405b-instruct"
+    "meta-llama/llama-3.3-70b-instruct"
+    "gpt-4o-mini-2024-07-18"
     # "deepseek/deepseek-chat-v3-0324"
     # "deepseek/deepseek-r1"
     # "openai/o3-mini-high"
