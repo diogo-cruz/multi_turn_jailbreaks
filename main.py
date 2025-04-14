@@ -4,6 +4,7 @@ import argparse
 import openai
 import json
 import importlib
+import asyncio
 from dotenv import load_dotenv
 from utils import generate, run, generate_score_rubric
 
@@ -84,6 +85,12 @@ parser.add_argument(
     default=None,
     help="List of test cases to generate rubric for (space-separated), or None for all",
 )
+parser.add_argument(
+    "--samples",
+    type=int,
+    default=1,
+    help="Number of parallel samples to run",
+)
 args = parser.parse_args()
 
 if not run.has_single_turn(args.jailbreak_tactic) and args.turn_type == 'single_turn':
@@ -144,24 +151,60 @@ current_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 timestamp = {"timestamp": current_time}
 
 target_model_name = args.target_model.split("/")[-1]
-output_file_path = (
-    f"./results/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_{current_time}.jsonl"
-)
-os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
-print("Generated Output file path:", output_file_path)
 
-# save all parameters to the output file
-with open(output_file_path, "w") as f:
-    f.write(json.dumps(args.__dict__ | test_case | timestamp) + "\n")
+# Function to run a single sample
+async def run_sample(sample_num):
+    # Create a unique output file path for each sample
+    output_file_path = (
+        f"./results/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
+    )
+    os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+    print(f"Generated Output file path for sample {sample_num}:", output_file_path)
 
-# Dynamically import and run the selected jailbreak tactic
-try:
-    run_function = run.get_custom_run(args.jailbreak_tactic)
-    if run_function is None:
-        print("No custom run file found, using default.")
-        run.run_attack(test_case, output_file_path, target_generate, attacker_generate, args.jailbreak_tactic)
-    else:
-        print("Custom run file found, using it.")
-        run_function(test_case, output_file_path, target_generate, attacker_generate)
-except (ImportError, AttributeError) as e:
-    raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}': {str(e)}")
+    # save all parameters to the output file
+    with open(output_file_path, "w") as f:
+        f.write(json.dumps(args.__dict__ | test_case | timestamp) + "\n")
+
+    # Dynamically import and run the selected jailbreak tactic
+    try:
+        run_function = run.get_custom_run(args.jailbreak_tactic)
+        if run_function is None:
+            print(f"No custom run file found, using default for sample {sample_num}.")
+            # Run the attack in a thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, 
+                run.run_attack, 
+                test_case, 
+                output_file_path, 
+                target_generate, 
+                attacker_generate, 
+                args.jailbreak_tactic
+            )
+        else:
+            print(f"Custom run file found, using it for sample {sample_num}.")
+            # Run the custom function in a thread pool
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                run_function,
+                test_case,
+                output_file_path,
+                target_generate,
+                attacker_generate
+            )
+    except (ImportError, AttributeError) as e:
+        raise ValueError(f"Failed to run jailbreak tactic '{args.jailbreak_tactic}' for sample {sample_num}: {str(e)}")
+
+# Main async function to run all samples in parallel
+async def run_all_samples():
+    tasks = []
+    for i in range(args.samples):
+        tasks.append(run_sample(i+1))
+    
+    await asyncio.gather(*tasks)
+    print(f"Completed all {args.samples} samples")
+
+# Run the async function
+if __name__ == "__main__":
+    asyncio.run(run_all_samples())
