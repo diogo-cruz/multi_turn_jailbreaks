@@ -8,10 +8,10 @@ SAMPLES=1
 
 # Define the values for each parameter
 jailbreak_tactics=(
-    "crescendomation" 
-    "actor_attack" 
+    # "crescendomation" 
+    # "actor_attack" 
     # "acronym"
-    "opposite_day" 
+    # "opposite_day" 
     "direct_request"
     "emotional_appeal"
     "command"
@@ -92,15 +92,15 @@ test_cases=(
     # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
-    "meta-llama/llama-3.2-1b-instruct"   # not using
-    "meta-llama/llama-3.2-3b-instruct"   # not using
+    # "meta-llama/llama-3.2-1b-instruct"   # not using
+    # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
     "meta-llama/llama-3.1-8b-instruct"
     "meta-llama/llama-3.1-70b-instruct"
-    "meta-llama/llama-3.1-405b-instruct"
-    "meta-llama/llama-3.3-70b-instruct"
-    "gpt-4o-mini-2024-07-18"
+    # "meta-llama/llama-3.1-405b-instruct"
+    # "meta-llama/llama-3.3-70b-instruct"
+    # "gpt-4o-mini-2024-07-18"
     # "deepseek/deepseek-chat-v3-0324"
     # "deepseek/deepseek-r1"
     # "openai/o3-mini-high"
@@ -119,7 +119,8 @@ turn_types=(
 )
 
 attacker_models=(
-    "gpt-4o-mini-2024-07-18"
+    "openai/gpt-4.1-nano"
+    # "gpt-4o-mini-2024-07-18"
     # "cognitivecomputations/dolphin-mixtral-8x7b"
     #"cohere/command-r-plus"
     #"nousresearch/nous-hermes-2-mixtral-8x7b-dpo"
