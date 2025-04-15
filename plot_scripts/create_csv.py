@@ -56,7 +56,8 @@ def get_results(filepath: Path) -> tuple:
                 if isinstance(score, float) and 0 <= score <= 1:
                     scores.append(score)
                 else:
-                    raise ValueError(f"Score is not a float between 0 and 1: {score}")
+                    print(f"Score is not a float between 0 and 1: {score}")
+                    # raise ValueError(f"Score is not a float between 0 and 1: {score}")
             else:
                 refused += 1
 

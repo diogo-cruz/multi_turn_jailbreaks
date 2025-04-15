@@ -134,8 +134,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             refused_prompt = prompt
             target_refusal_response = response
             prompt, response_summary = generate_step(
-                round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate, regenerate_prompt=True, refused_prompt=refused_prompt, target_refusal_response=target_refusal_response
-            )
+                round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate, regenerate_prompt=True, refused_prompt=refused_prompt, target_refusal_response=target_refusal_response)
 
             if prompt is None:
                 print("Attacker refused to generate prompt")

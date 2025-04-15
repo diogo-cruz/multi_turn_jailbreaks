@@ -141,7 +141,7 @@ target_base_url="https://openrouter.ai/api/v1"
 attacker_base_url="https://openrouter.ai/api/v1"
 
 # Evaluator
-evaluator_model="anthropic/claude-3.5-haiku-20241022"
+evaluator_model="openai/gpt-4.1-mini"
 evaluator_temp="0.0"
 
 # Function to count total combinations
