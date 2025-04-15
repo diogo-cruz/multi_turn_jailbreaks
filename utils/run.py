@@ -60,7 +60,11 @@ def get_custom_run(jailbreak_tactic):
     except ModuleNotFoundError:
         return None
 
-def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
+def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic, evaluator_generate=None):
+    
+    if evaluator_generate is None:
+        raise ValueError("Evaluator generate function is required for the attack.")
+    
     goal = test_case["task"]
     # target_system = test_case["target_system"]
     # success_condition = test_case.get("success_condition", None)
@@ -162,7 +166,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
 
         history_t.append({"role": "assistant", "content": response})
         # score = evaluate_with_rubric(response, goal, criteria, attacker_generate)
-        score = evaluate_with_strongreject(response, goal, attacker_generate)
+        score = evaluate_with_strongreject(response, goal, evaluator_generate)
         history_a["score"].append(score)
 
         print(f"Round {round_number} - Loss: {score}")
