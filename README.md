@@ -160,6 +160,91 @@ Please let us know if the implementation is wrong or if you have improvement ide
 Feel frue to add new attack methods.
 
 
+## Using Free API Models
+
+This project includes scripts for running automated jailbreak tests using free models from OpenRouter. These scripts help manage API rate limits and enable efficient parallel execution of multiple test combinations.
+
+### Available Scripts
+
+#### 1. Run Attacks with Rate Limiting (Parallel Execution)
+
+`run_attacks_parallel_free_ratelimit_fixed.sh` allows you to run multiple test combinations in parallel while respecting API rate limits:
+
+```bash
+./run_attacks_parallel_free_ratelimit_fixed.sh
+```
+
+Key features:
+- Automatically runs tests across multiple models, jailbreak tactics, and test cases
+- Handles rate limiting with exponential backoff
+- Skips combinations that already have results
+- Sanitizes filenames for proper log storage
+- Uses configurable parallel execution (default: 8 threads)
+
+The script runs tests on these free models:
+- Google Gemma models (1B, 4B, 12B, 27B)
+- Nvidia Nemotron models (8B, 49B, 253B)
+- Meta Llama 4 models (Maverick, Scout)
+- DeepSeek models (v3-base, chat-v3)
+- Mistral models (Small 24B, Mixtral 8x7B)
+
+#### 2. Check Completed Runs
+
+`check_completed_runs.sh` helps you track the progress of your test runs:
+
+```bash
+./check_completed_runs.sh
+```
+
+This script provides:
+- Total number of completed runs
+- Breakdown by jailbreak tactic
+- Breakdown by model
+- Breakdown by test case
+- Breakdown by turn type (single vs multi)
+- List of most recent runs
+
+#### 3. Rate-Limited API Client
+
+`main_ratelimit.py` is a modified version of the main script that includes rate limiting and error handling specifically for free API models:
+
+```bash
+python main_ratelimit.py --jailbreak-tactic "crescendomation" --test-case "how_to_make_meth" --target-model "google/gemma-3-1b-it:free" --attacker-model "mistralai/mixtral-8x7b-instruct:free"
+```
+
+This script handles common API errors including:
+- Rate limiting (429 errors)
+- Authentication issues
+- Temporary service outages
+- Content policy violations
+
+### Setting Up
+
+1. Create a `.env` file with your OpenRouter API key:
+```
+OPENROUTER_API_KEY=your_api_key_here
+```
+
+2. Make the scripts executable:
+```bash
+chmod +x run_attacks_parallel_free_ratelimit_fixed.sh
+chmod +x check_completed_runs.sh
+```
+
+3. Run the parallel execution script to start testing:
+```bash
+./run_attacks_parallel_free_ratelimit_fixed.sh
+```
+
+### Results Storage
+
+Results are stored in JSON files with this structure:
+```
+./clean_results/strongreject_results/{jailbreak_tactic}/{jailbreak_tactic}_{test_case}_{model_name}_{turn_type}_{timestamp}.jsonl
+```
+
+Each file contains the complete conversation history and model responses for the test combination.
+
 ## Plotting Results
 
 The `plot_results.py` script provides visualization capabilities for analyzing model evaluation results stored in JSONL files. The script offers flexible options for creating both interactive and static plots to compare model performance across different configurations.

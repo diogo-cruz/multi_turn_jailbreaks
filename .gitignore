@@ -25,3 +25,7 @@ logs/
 
 # jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Node modules and dist directories
+interactive_analysis/node_modules/
+interactive_analysis/dist/
