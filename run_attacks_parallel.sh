@@ -3,6 +3,9 @@
 # Number of parallel processes to run
 THREAD_COUNT=128
 
+# If you need multiple samples of the same combination, set that here
+SAMPLES=1
+
 # Define the values for each parameter
 jailbreak_tactics=(
     "crescendomation" 
@@ -162,7 +165,8 @@ generate_commands() {
                                 --attacker-base-url \"$attacker_base_url\" \
                                 --target-temp $temp \
                                 --attacker-temp $temp \
-                                --turn-type \"$turn_type\""
+                                --turn-type \"$turn_type\"" \
+                                --samples $SAMPLES
                         done
                     done
                 done
