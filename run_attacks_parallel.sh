@@ -12,7 +12,10 @@ SAMPLES=1
 jailbreak_tactics=(
     # "crescendomation" 
     # "actor_attack" 
+    # "crescendomation" 
+    # "actor_attack" 
     # "acronym"
+    # "opposite_day" 
     # "opposite_day" 
     "direct_request"
     "emotional_appeal"
@@ -89,10 +92,15 @@ test_cases=(
 target_models=(
     # "meta-llama/llama-3.2-1b-instruct"   # not using
     # "meta-llama/llama-3.2-3b-instruct"   # not using
+    # "meta-llama/llama-3.2-1b-instruct"   # not using
+    # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
     "meta-llama/llama-3.1-8b-instruct"
     "meta-llama/llama-3.1-70b-instruct"
+    # "meta-llama/llama-3.1-405b-instruct"
+    # "meta-llama/llama-3.3-70b-instruct"
+    # "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
@@ -127,7 +135,8 @@ turn_types=(
 )
 
 attacker_models=(
-    "gpt-4o-mini-2024-07-18"
+    "openai/gpt-4.1-nano"
+    # "gpt-4o-mini-2024-07-18"
     # "anthropic/claude-3-haiku"
     # "google/gemini-2.0-flash-lite-001"
     # "google/gemini-2.0-flash-001"
