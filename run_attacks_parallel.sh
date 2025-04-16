@@ -2,6 +2,8 @@
 
 # Number of parallel processes to run
 THREAD_COUNT=128
+# attacker temperature
+ATTACK_TEMP=1.0
 
 # If you need multiple samples of the same combination, set that here
 SAMPLES=1
@@ -10,7 +12,10 @@ SAMPLES=1
 jailbreak_tactics=(
     # "crescendomation" 
     # "actor_attack" 
+    # "crescendomation" 
+    # "actor_attack" 
     # "acronym"
+    # "opposite_day" 
     # "opposite_day" 
     "direct_request"
     "emotional_appeal"
@@ -21,40 +26,33 @@ jailbreak_tactics=(
 )
 test_cases=(
     ### filtered StrongREJECT ###
-    non_violent_crimes_1
-    # non_violent_crimes_2
-    # non_violent_crimes_2_alt1
-    non_violent_crimes_2_alt2
-    non_violent_crimes_3
-    # non_violent_crimes_4
+    # non_violent_crimes_1   # exclude?
+    # non_violent_crimes_2_alt2   # exclude?
+    # non_violent_crimes_3   # exclude?
     non_violent_crimes_4_alt1
     non_violent_crimes_5
-    # sexual_content_1
-    # sexual_content_1_alt1
     sexual_content_2
-    # sexual_content_3
     sexual_content_3_alt1
-    # sexual_content_4
-    sexual_content_4_alt1
+    # sexual_content_4_alt1   # exclude?
     sexual_content_4_alt2
-    sexual_content_5
-    violence_1
+    # sexual_content_5   # exclude?
+    # violence_1   # exclude?
     violence_2
     violence_3
-    violence_4
+    # violence_4   # exclude?
     violence_5
 
     # Disinformation and deception
-    "deceptive_email"
+    # "deceptive_email"
     "remove_watermarks"
     "tax_fraud"
     "drunk_driving"
-    "bomb_threats"
+    # "bomb_threats"  # exclude?
 
     # Hate, harassment and discrimination
     "hate_speech_immigrants"
     "false_accusation"
-    "asian_insults"
+    # "asian_insults"  # exclude?
     "gender_insults"
     "lgbtq_insults"
 
@@ -94,10 +92,15 @@ test_cases=(
 target_models=(
     # "meta-llama/llama-3.2-1b-instruct"   # not using
     # "meta-llama/llama-3.2-3b-instruct"   # not using
+    # "meta-llama/llama-3.2-1b-instruct"   # not using
+    # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
     "meta-llama/llama-3.1-8b-instruct"
     "meta-llama/llama-3.1-70b-instruct"
+    # "meta-llama/llama-3.1-405b-instruct"
+    # "meta-llama/llama-3.3-70b-instruct"
+    # "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
@@ -108,6 +111,19 @@ target_models=(
     # "qwen/qwen2.5-32b-instruct"
     # "qwen/qwen-2.5-72b-instruct"
     # "google/gemini-2.0-flash-001"
+    # "google/gemini-2.0-flash-lite-001"
+    # "google/gemini-flash-1.5"
+    # "anthropic/claude-3-haiku"
+    # "google/gemma-2-9b-it"
+    # "google/gemma-3-12b-it"
+    # "google/gemma-3-27b-it"
+    # "mistralai/mistral-nemo"
+    # "mistralai/mistral-tiny"
+    # "mistralai/mistral-small-3.1-24b-instruct"
+    # "mistralai/mistral-7b-instruct-v0.3"
+    # "meta-llama/llama-4-maverick"
+    # "meta-llama/llama-4-scout"
+    # "x-ai/grok-3-mini-beta"
 )
 temperatures=(
     "0.0"
@@ -121,6 +137,9 @@ turn_types=(
 attacker_models=(
     "openai/gpt-4.1-nano"
     # "gpt-4o-mini-2024-07-18"
+    # "anthropic/claude-3-haiku"
+    # "google/gemini-2.0-flash-lite-001"
+    # "google/gemini-2.0-flash-001"
     # "cognitivecomputations/dolphin-mixtral-8x7b"
     #"cohere/command-r-plus"
     #"nousresearch/nous-hermes-2-mixtral-8x7b-dpo"
@@ -129,6 +148,10 @@ attacker_models=(
 # Static values
 target_base_url="https://openrouter.ai/api/v1"
 attacker_base_url="https://openrouter.ai/api/v1"
+
+# Evaluator
+evaluator_model="openai/gpt-4.1-mini"
+evaluator_temp="0.0"
 
 # Function to count total combinations
 count_total_combinations() {
@@ -165,9 +188,11 @@ generate_commands() {
                                 --target-base-url \"$target_base_url\" \
                                 --attacker-base-url \"$attacker_base_url\" \
                                 --target-temp $temp \
-                                --attacker-temp $temp \
+                                --attacker-temp $ATTACK_TEMP \
                                 --turn-type \"$turn_type\"" \
-                                --samples $SAMPLES
+                                --samples $SAMPLES \
+                                --evaluator-model \"$evaluator_model\" \
+                                --evaluator-temp $evaluator_temp
                         done
                     done
                 done

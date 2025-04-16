@@ -54,6 +54,12 @@ parser.add_argument(
     "--attacker-temp", type=float, help="The temperature to use for the attacker model", default=0.0
 )
 parser.add_argument(
+    "--evaluator-model", type=str, help="The evaluator model name", default="gpt-4o"
+)
+parser.add_argument(
+    "--evaluator-temp", type=float, help="The temperature to use for the evaluator model", default=0.0
+)
+parser.add_argument(
     "--test-case", 
     type=str, 
     help="Name of the test case to run", 
@@ -111,9 +117,17 @@ attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
 attacker_model = args.attacker_model
 attacker_temp = args.attacker_temp
 
+evaluator_client = openai.OpenAI(base_url=args.attacker_base_url)
+evaluator_model = args.evaluator_model
+evaluator_temp = args.evaluator_temp
+
 
 def attacker_generate(messages, temperature=attacker_temp, **kwargs):
     return generate(messages, client=attacker_client, model=attacker_model, 
+    temperature=temperature, **kwargs)
+    
+def evaluator_generate(messages, temperature=evaluator_temp, **kwargs):
+    return generate(messages, client=evaluator_client, model=evaluator_model, 
     temperature=temperature, **kwargs)
 
 
@@ -156,7 +170,7 @@ target_model_name = args.target_model.split("/")[-1]
 async def run_sample(sample_num):
     # Create a unique output file path for each sample
     output_file_path = (
-        f"./clean_results/final_runs/batch2C/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
+        f"./clean_results/final_runs/batch2D_2/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
     )
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     print(f"Generated Output file path for sample {sample_num}:", output_file_path)
@@ -179,7 +193,8 @@ async def run_sample(sample_num):
                 output_file_path, 
                 target_generate, 
                 attacker_generate, 
-                args.jailbreak_tactic
+                args.jailbreak_tactic,
+                evaluator_generate 
             )
         else:
             print(f"Custom run file found, using it for sample {sample_num}.")

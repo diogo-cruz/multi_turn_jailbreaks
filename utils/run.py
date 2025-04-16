@@ -60,7 +60,11 @@ def get_custom_run(jailbreak_tactic):
     except ModuleNotFoundError:
         return None
 
-def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic):
+def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic, evaluator_generate=None):
+    
+    if evaluator_generate is None:
+        raise ValueError("Evaluator generate function is required for the attack.")
+    
     goal = test_case["task"]
     # target_system = test_case["target_system"]
     # success_condition = test_case.get("success_condition", None)
@@ -130,8 +134,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             refused_prompt = prompt
             target_refusal_response = response
             prompt, response_summary = generate_step(
-                round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate, regenerate_prompt=True, refused_prompt=refused_prompt, target_refusal_response=target_refusal_response
-            )
+                round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate, regenerate_prompt=True, refused_prompt=refused_prompt, target_refusal_response=target_refusal_response)
 
             if prompt is None:
                 print("Attacker refused to generate prompt")
@@ -162,7 +165,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
 
         history_t.append({"role": "assistant", "content": response})
         # score = evaluate_with_rubric(response, goal, criteria, attacker_generate)
-        score = evaluate_with_strongreject(response, goal, attacker_generate)
+        score = evaluate_with_strongreject(response, goal, evaluator_generate)
         history_a["score"].append(score)
 
         print(f"Round {round_number} - Loss: {score}")
