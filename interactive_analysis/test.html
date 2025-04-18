@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Jailbreak Visualization Test</title>
+    <!-- React -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts@2.1.8/umd/Recharts.min.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 24px;
+        }
+        .error {
+            color: red;
+            padding: 20px;
+            border: 1px solid red;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Import React components from visualization.jsx
+        const {
+            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+            Cell, LabelList, LineChart, Line, ScatterChart, Scatter, ZAxis, ErrorBar
+        } = Recharts;
+
+        // Use a simplified version for testing
+        const App = () => {
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
+            const [enhancedData, setEnhancedData] = React.useState([]);
+            const [modelComparisonData, setModelComparisonData] = React.useState([]);
+
+            React.useEffect(() => {
+                const loadData = async () => {
+                    try {
+                        console.log("Starting to load data...");
+                        
+                        // Load enhanced_master_data.csv
+                        const enhancedResponse = await fetch('./public/enhanced_master_data.csv');
+                        if (!enhancedResponse.ok) {
+                            throw new Error(`Failed to fetch enhanced_master_data.csv: ${enhancedResponse.status} ${enhancedResponse.statusText}`);
+                        }
+                        
+                        const enhancedContent = await enhancedResponse.text();
+                        console.log(`Enhanced data content length: ${enhancedContent.length} bytes`);
+                        
+                        const enhancedResult = Papa.parse(enhancedContent, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true
+                        });
+                        
+                        console.log(`Parsed ${enhancedResult.data.length} rows from enhanced data`);
+                        console.log("Sample row:", enhancedResult.data.length > 0 ? enhancedResult.data[0] : "No data");
+                        
+                        setEnhancedData(enhancedResult.data);
+                        
+                        // Load model_comparison.csv
+                        const comparisonResponse = await fetch('./public/model_comparison.csv');
+                        if (!comparisonResponse.ok) {
+                            throw new Error(`Failed to fetch model_comparison.csv: ${comparisonResponse.status} ${comparisonResponse.statusText}`);
+                        }
+                        
+                        const comparisonContent = await comparisonResponse.text();
+                        console.log(`Model comparison content length: ${comparisonContent.length} bytes`);
+                        
+                        const comparisonResult = Papa.parse(comparisonContent, {
+                            header: true,
+                            dynamicTyping: true,
+                            skipEmptyLines: true
+                        });
+                        
+                        console.log(`Parsed ${comparisonResult.data.length} rows from comparison data`);
+                        console.log("Sample row:", comparisonResult.data.length > 0 ? comparisonResult.data[0] : "No data");
+                        
+                        setModelComparisonData(comparisonResult.data);
+                        
+                        setLoading(false);
+                    } catch (err) {
+                        console.error("Error loading data:", err);
+                        setError(err.message);
+                        setLoading(false);
+                    }
+                };
+                
+                loadData();
+            }, []);
+
+            // Display a basic scatter plot for testing
+            const renderScatterPlot = () => {
+                // Color mapping for companies
+                const companyColors = {
+                    "DeepSeek": "#FF6B6B",
+                    "Anthropic": "#4ECDC4",
+                    "Google": "#45B7D1",
+                    "Meta": "#7400B8", 
+                    "Mistral AI": "#FF9F1C",
+                    "Alibaba": "#FE5F55",
+                    "xAI": "#66FF66"
+                };
+                
+                // Prepare basic data for chart
+                const chartData = enhancedData.map(row => {
+                    // Get model name
+                    const modelName = row.target_model;
+                    if (!modelName) return null;
+                    
+                    // Find matching model in comparison data
+                    const modelInfo = modelComparisonData.find(model => 
+                        model.Model && modelName.toLowerCase().includes(model.Model.toLowerCase())
+                    );
+                    
+                    // Parse scores
+                    let asr = 0;
+                    if (row.scores) {
+                        try {
+                            let scores;
+                            if (typeof row.scores === 'string') {
+                                try {
+                                    scores = JSON.parse(row.scores.replace(/'/g, '"'));
+                                } catch {
+                                    scores = row.scores.split(',').map(s => {
+                                        const num = parseFloat(s.trim());
+                                        return isNaN(num) ? 0 : num;
+                                    });
+                                }
+                            } else if (Array.isArray(row.scores)) {
+                                scores = row.scores;
+                            }
+                            
+                            if (Array.isArray(scores)) {
+                                asr = scores.filter(score => score === 1).length / scores.length * 100;
+                            }
+                        } catch (e) {
+                            console.error("Error parsing scores:", e, row.scores);
+                        }
+                    }
+                    
+                    // Get model size
+                    let size = 0;
+                    if (modelInfo && modelInfo.Parameters) {
+                        const parsedSize = parseFloat(modelInfo.Parameters);
+                        size = isNaN(parsedSize) ? 0 : parsedSize;
+                    }
+                    
+                    return {
+                        model: modelName,
+                        company: modelInfo ? modelInfo.Company : "Unknown",
+                        size: size,
+                        asr: asr
+                    };
+                }).filter(item => item && item.size > 0);
+                
+                // Group by company
+                const dataByCompany = chartData.reduce((acc, item) => {
+                    if (!acc[item.company]) acc[item.company] = [];
+                    acc[item.company].push(item);
+                    return acc;
+                }, {});
+                
+                return (
+                    <div className="h-80 w-full border p-4 my-4">
+                        <h2 className="text-xl font-bold mb-4">ASR vs Model Size</h2>
+                        <ResponsiveContainer width="100%" height="80%">
+                            <ScatterChart
+                                margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
+                            >
+                                <CartesianGrid />
+                                <XAxis 
+                                    type="number" 
+                                    dataKey="size" 
+                                    name="Size (B)" 
+                                    label={{ value: 'Model Size (B)', position: 'bottom' }}
+                                    domain={['auto', 'auto']}
+                                    scale="log"
+                                />
+                                <YAxis 
+                                    type="number" 
+                                    dataKey="asr" 
+                                    name="ASR" 
+                                    label={{ value: 'ASR (%)', angle: -90, position: 'left' }}
+                                    domain={[0, 100]}
+                                />
+                                <Tooltip />
+                                <Legend />
+                                {
+                                    Object.entries(dataByCompany).map(([company, items]) => (
+                                        <Scatter 
+                                            key={company}
+                                            name={company} 
+                                            data={items} 
+                                            fill={companyColors[company] || "#8884d8"} 
+                                        />
+                                    ))
+                                }
+                            </ScatterChart>
+                        </ResponsiveContainer>
+                    </div>
+                );
+            };
+
+            if (loading) {
+                return <div className="loading">Loading data...</div>;
+            }
+            
+            if (error) {
+                return <div className="error">Error: {error}</div>;
+            }
+
+            return (
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-2xl font-bold mb-6">Interactive Jailbreak Visualization Test</h1>
+                    
+                    <div className="mb-4">
+                        <p>Enhanced data: {enhancedData.length} rows</p>
+                        <p>Model comparison data: {modelComparisonData.length} rows</p>
+                    </div>
+                    
+                    {enhancedData.length > 0 && modelComparisonData.length > 0 ? (
+                        renderScatterPlot()
+                    ) : (
+                        <div className="p-4 border border-red-500">
+                            No data available for visualization
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

@@ -13,6 +13,8 @@ interactive_analysis/
 ├── visualization.jsx  # Main React component with visualizations
 ├── analysis.js       # Command-line analysis script
 ├── public/           # Static files directory
+├── model_comparison.csv  # Model metadata (size, company, release date)
+├── enhanced_master_data.csv # Enhanced data for additional visualizations
 └── results_*.csv     # Data files with test results
 ```
 
@@ -22,7 +24,7 @@ The visualization includes several interactive views:
 
 1. **Dataset Selection**
    - Choose between different CSV datasets for analysis
-   - Currently supports: results_test_runs.csv, results_2D.csv, results_2B.csv, results_final_3samples.csv
+   - Supports: results_test_runs.csv, results_2D.csv, results_2D_2.csv, results_2B.csv, results_final_3samples.csv, enhanced_master_data.csv
 
 2. **Model Analysis**
    - Test case success rates per model
@@ -44,6 +46,22 @@ The visualization includes several interactive views:
    - Refusal count heatmaps
    - Round count heatmaps
    - Separate views for multi-turn and single-turn approaches
+
+6. **Enhanced Master Data Visualization**
+   - ASR vs Model Size scatter plot (color-coded by company)
+   - ASR vs Release Date scatter plot (color-coded by company)
+   - Interactive tooltips showing detailed model information
+
+## Data Sources
+
+The tool supports multiple data sources with different evaluator models:
+
+- **results_2D.csv**: Evaluated using Anthropic Claude 3 Haiku
+- **results_2D_2.csv**: Evaluated using OpenAI GPT-4.1-mini 
+- **results_2B.csv**: Evaluated using GPT-4o-mini-2024-07-18
+- **results_test_runs.csv**: Evaluated using GPT-4o-mini-2024-07-18
+- **results_final_3samples.csv**: Evaluated using GPT-4o-mini-2024-07-18
+- **enhanced_master_data.csv**: Merged dataset created from all source files, preserving the original evaluator model for each dataset
 
 ## Setup Instructions
 
@@ -104,6 +122,23 @@ The visualization expects CSV files with the following columns:
 - `scores`: Array of success scores (0-1)
 - `refused`: Number of times the model refused
 - `max_round`: Number of rounds in the conversation
+- `attacker_model`: Model used to generate attack prompts
+- `evaluator_model`: Model used to evaluate success (varies by dataset)
+
+For enhanced_master_data.csv, the visualization provides:
+- Scatter plots of ASR vs model size and release date
+- Models grouped and colored by company
+- Information from model_comparison.csv metadata (size, company, release date)
+
+## Merging Data
+
+The enhanced_master_data.csv file is created by the `enhanced_merge_csv.py` script, which:
+- Merges all CSV files in the directory (except excluded files)
+- Adds appropriate `attacker_model` and `evaluator_model` columns based on source file
+- Preserves the correct evaluator model for each dataset:
+  - results_2D.csv: anthropic/claude-3-haiku
+  - results_2D_2.csv: openai/gpt-4.1-mini
+  - Other files: gpt-4o-mini-2024-07-18
 
 ## Development
 

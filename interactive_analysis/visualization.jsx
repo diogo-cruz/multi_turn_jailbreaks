@@ -1,9 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Cell, LabelList, LineChart, Line, ScatterChart, Scatter, ZAxis, ErrorBar
 } from 'recharts';
 import Papa from 'papaparse';
+import TestCaseModelSizeHeatmap from './test_case_model_size_heatmap';
+
+// CSS styles for tabs
+const styles = {
+  tab: {
+    padding: '0.5rem 1rem',
+    fontWeight: '500',
+    cursor: 'pointer',
+    borderBottom: '2px solid transparent',
+  },
+  activeTab: {
+    color: '#3B82F6',
+    borderBottomColor: '#3B82F6',
+  },
+  inactiveTab: {
+    color: '#6B7280',
+    borderBottomColor: 'transparent',
+    ':hover': {
+      color: '#374151',
+    }
+  }
+};
 
 // The main component
 const InteractiveJailbreakViz = () => {
@@ -15,19 +37,31 @@ const InteractiveJailbreakViz = () => {
   const [selectedTactic, setSelectedTactic] = useState('');
   const [activeTab, setActiveTab] = useState("model");
   // Add state for CSV file selection
-  const [selectedFile, setSelectedFile] = useState('results_test_runs.csv');
+  const [selectedFile, setSelectedFile] = useState('enhanced_master_data.csv');
   const [availableFiles, setAvailableFiles] = useState([
+    'enhanced_master_data.csv',
     'results_test_runs.csv',
     'results_2D.csv',
+    'results_2D_2.csv',
     'results_2B.csv',
     'results_final_3samples.csv'
   ]);
+  // State for enhanced master data
+  const [enhancedMasterData, setEnhancedMasterData] = useState([]);
+  const [modelComparisonData, setModelComparisonData] = useState([]);
   
   // Load and process the data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
+        
+        // Special case for enhanced_master_data.csv
+        if (selectedFile === 'enhanced_master_data.csv') {
+          await loadEnhancedMasterData();
+          setLoading(false);
+          return;
+        }
         
         // Read and parse the selected CSV file
         const response = await fetch(`/${selectedFile}`);
@@ -71,6 +105,144 @@ const InteractiveJailbreakViz = () => {
     
     loadData();
   }, [selectedFile]); // Add selectedFile as dependency to reload when file changes
+  
+  // Function to load enhanced master data and model comparison data
+  const loadEnhancedMasterData = async () => {
+    try {
+      console.log("Starting to load enhanced master data...");
+      
+      // Load enhanced_master_data.csv - changing path from ./public/ to ./
+      const enhancedResponse = await fetch('./enhanced_master_data.csv');
+      if (!enhancedResponse.ok) {
+        throw new Error(`Failed to fetch enhanced_master_data.csv: ${enhancedResponse.status} ${enhancedResponse.statusText}`);
+      }
+      console.log("Enhanced master data fetch successful");
+      
+      const enhancedContent = await enhancedResponse.text();
+      console.log(`Enhanced master data content length: ${enhancedContent.length} bytes`);
+      
+      const enhancedData = Papa.parse(enhancedContent, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true
+      }).data;
+      
+      console.log(`Parsed ${enhancedData.length} rows from enhanced master data`);
+      console.log("Sample row:", enhancedData.length > 0 ? enhancedData[0] : "No data");
+      
+      setEnhancedMasterData(enhancedData);
+      
+      // Also load model_comparison.csv for additional model metadata - changing path from ./public/ to ./
+      console.log("Starting to load model comparison data...");
+      const comparisonResponse = await fetch('./model_comparison.csv');
+      if (!comparisonResponse.ok) {
+        throw new Error(`Failed to fetch model_comparison.csv: ${comparisonResponse.status} ${comparisonResponse.statusText}`);
+      }
+      console.log("Model comparison data fetch successful");
+      
+      const comparisonContent = await comparisonResponse.text();
+      console.log(`Model comparison content length: ${comparisonContent.length} bytes`);
+      
+      const comparisonData = Papa.parse(comparisonContent, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true
+      }).data;
+      
+      console.log(`Parsed ${comparisonData.length} rows from model comparison data`);
+      console.log("Sample row:", comparisonData.length > 0 ? comparisonData[0] : "No data");
+      
+      setModelComparisonData(comparisonData);
+      console.log("Both datasets loaded successfully");
+      
+      // Debug the loaded data
+      debugDataLoading(enhancedData, comparisonData);
+      
+    } catch (err) {
+      console.error("Error loading enhanced data:", err);
+      setError(`Failed to load enhanced data: ${err.message}`);
+    }
+  };
+  
+  // Add debugging function to help troubleshoot
+  const debugDataLoading = (enhancedData, modelComparisonData) => {
+    console.log("========== DATA DEBUGGING INFO ==========");
+    
+    // Check enhanced data
+    if (!enhancedData || enhancedData.length === 0) {
+      console.error("Enhanced data is empty or null");
+    } else {
+      console.log(`Enhanced data has ${enhancedData.length} rows`);
+      console.log("Enhanced data first row keys:", Object.keys(enhancedData[0]));
+      console.log("Enhanced data first row:", enhancedData[0]);
+      
+      // Check for scores format
+      if (enhancedData[0].scores) {
+        console.log("Scores data type:", typeof enhancedData[0].scores);
+        if (typeof enhancedData[0].scores === 'string') {
+          console.log("Trying to parse scores:", enhancedData[0].scores);
+          try {
+            const parsedScores = JSON.parse(enhancedData[0].scores.replace(/'/g, '"'));
+            console.log("Parsed scores:", parsedScores);
+          } catch (e) {
+            console.error("Error parsing scores:", e);
+          }
+        }
+      }
+      
+      // Count unique models
+      const uniqueModels = [...new Set(enhancedData.map(row => row.target_model))];
+      console.log(`Found ${uniqueModels.length} unique models in enhanced data`);
+      console.log("Sample models:", uniqueModels.slice(0, 5));
+    }
+    
+    // Check model comparison data
+    if (!modelComparisonData || modelComparisonData.length === 0) {
+      console.error("Model comparison data is empty or null");
+    } else {
+      console.log(`Model comparison data has ${modelComparisonData.length} rows`);
+      console.log("Model comparison first row keys:", Object.keys(modelComparisonData[0]));
+      console.log("Model comparison first row:", modelComparisonData[0]);
+      
+      // Sample release dates
+      const releaseDates = modelComparisonData.map(model => model["Release Date"]).filter(Boolean);
+      console.log("Sample release dates:", releaseDates.slice(0, 5));
+      
+      // Sample parameters
+      const parameters = modelComparisonData.map(model => model.Parameters).filter(Boolean);
+      console.log("Sample parameters:", parameters.slice(0, 5));
+    }
+    
+    // Test model matching
+    if (enhancedData && enhancedData.length > 0 && modelComparisonData && modelComparisonData.length > 0) {
+      console.log("Testing model matching...");
+      const testModels = enhancedData.slice(0, 3).map(row => row.target_model);
+      
+      testModels.forEach(modelName => {
+        console.log(`Looking for match for ${modelName}`);
+        
+        // Try direct Model field match
+        let modelInfo = modelComparisonData.find(model => 
+          model.Model && modelName.toLowerCase().includes(model.Model.toLowerCase())
+        );
+        
+        // If no match, try reverse match
+        if (!modelInfo) {
+          modelInfo = modelComparisonData.find(model => 
+            model.Model && model.Model.toLowerCase().includes(modelName.toLowerCase())
+          );
+        }
+        
+        if (modelInfo) {
+          console.log(`✓ Found match: ${modelInfo.Model} (${modelInfo.Company}, ${modelInfo.Parameters}B)`);
+        } else {
+          console.error(`✗ No match found for ${modelName}`);
+        }
+      });
+    }
+    
+    console.log("========== END DEBUGGING INFO ==========");
+  };
   
   // Function to process the jailbreak test data
   function processJailbreakData(data) {
@@ -277,12 +449,22 @@ const InteractiveJailbreakViz = () => {
     }, models[0].tactics.multi.map(t => t.name));
   };
   
-  // Get the current model data
-  const model = models[selectedModel] || null;
-  const commonTactics = getCommonTactics();
+  // Helper function to calculate standard error
+  const calculateStandardError = (values) => {
+    if (!values.length) return 0;
+    
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+    
+    return stdDev / Math.sqrt(values.length);
+  };
   
   // Generate test case size data
   const generateTestCaseSizeData = (testCase) => {
+    const commonTactics = getCommonTactics();
+    
     return models.map(model => {
       // Find the test case data
       const testCaseData = model.testCases.find(tc => tc.name === testCase);
@@ -369,18 +551,10 @@ const InteractiveJailbreakViz = () => {
       };
     }).filter(Boolean).sort((a, b) => a.paramSize - b.paramSize);
   };
-  
-  // Helper function to calculate standard error
-  const calculateStandardError = (values) => {
-    if (!values.length) return 0;
-    
-    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-    const stdDev = Math.sqrt(variance);
-    
-    return stdDev / Math.sqrt(values.length);
-  };
+
+  // Get current model object safely
+  const model = models[selectedModel] || null;
+  const commonTactics = getCommonTactics();
   
   // Get data for current selections
   const testCaseSizeData = selectedTestCase ? generateTestCaseSizeData(selectedTestCase) : [];
@@ -394,12 +568,30 @@ const InteractiveJailbreakViz = () => {
     return <div className="text-red-600 p-4">{error}</div>;
   }
   
-  if (!models.length) {
-    return <div className="p-4">No data available.</div>;
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* File selector */}
+      <div className="mb-6 bg-gray-100 p-4 rounded-lg">
+        <h2 className="text-xl font-bold mb-3">Dataset Selection</h2>
+        <div className="flex items-center">
+          <label htmlFor="fileSelect" className="mr-2 font-medium">Choose dataset:</label>
+          <select 
+            id="fileSelect" 
+            value={selectedFile} 
+            onChange={(e) => setSelectedFile(e.target.value)}
+            className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {availableFiles.map(file => (
+              <option key={file} value={file}>{file}</option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-2 text-sm text-gray-600">
+          Currently analyzing: <span className="font-medium">{selectedFile}</span>
+          {selectedFile !== 'enhanced_master_data.csv' && models.length > 0 && ` (${models.length} models)`}
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <div className="text-xl">Loading data...</div>
@@ -408,52 +600,51 @@ const InteractiveJailbreakViz = () => {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
           {error}
         </div>
+      ) : selectedFile === 'enhanced_master_data.csv' ? (
+        /* Enhanced Master Data Visualization */
+        <EnhancedMasterDataViz 
+          enhancedData={enhancedMasterData}
+          modelComparisonData={modelComparisonData}
+        />
+      ) : models.length === 0 ? (
+        <div className="p-4">No data available for the selected file.</div>
       ) : (
+        /* Standard Jailbreak Test Analysis */
         <>
-          {/* Add file selector */}
-          <div className="mb-6 bg-gray-100 p-4 rounded-lg">
-            <h2 className="text-xl font-bold mb-3">Dataset Selection</h2>
-            <div className="flex items-center">
-              <label htmlFor="fileSelect" className="mr-2 font-medium">Choose dataset:</label>
-              <select 
-                id="fileSelect" 
-                value={selectedFile} 
-                onChange={(e) => setSelectedFile(e.target.value)}
-                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {availableFiles.map(file => (
-                  <option key={file} value={file}>{file}</option>
-                ))}
-              </select>
-            </div>
-            <div className="mt-2 text-sm text-gray-600">
-              Currently analyzing: <span className="font-medium">{selectedFile}</span>
-              {models.length > 0 && ` (${models.length} models)`}
-            </div>
-          </div>
-
-          {/* Rest of the UI */}
-          <div className="tabs mb-6">
+          {/* Tabs for standard analysis */}
+          <div className="flex border-b mb-6">
             <button 
-              className={`tab ${activeTab === "model" ? "active" : ""}`}
+              style={{
+                ...styles.tab,
+                ...(activeTab === "model" ? styles.activeTab : styles.inactiveTab)
+              }}
               onClick={() => setActiveTab("model")}
             >
               Model Analysis
             </button>
             <button 
-              className={`tab ${activeTab === "testCase" ? "active" : ""}`}
+              style={{
+                ...styles.tab,
+                ...(activeTab === "testCase" ? styles.activeTab : styles.inactiveTab)
+              }}
               onClick={() => setActiveTab("testCase")}
             >
               Test Case vs Size
             </button>
             <button 
-              className={`tab ${activeTab === "tactic" ? "active" : ""}`}
+              style={{
+                ...styles.tab,
+                ...(activeTab === "tactic" ? styles.activeTab : styles.inactiveTab)
+              }}
               onClick={() => setActiveTab("tactic")}
             >
               Tactic vs Size
             </button>
             <button 
-              className={`tab ${activeTab === "heatmap" ? "active" : ""}`}
+              style={{
+                ...styles.tab,
+                ...(activeTab === "heatmap" ? styles.activeTab : styles.inactiveTab)
+              }}
               onClick={() => setActiveTab("heatmap")}
             >
               Heatmaps
@@ -1060,6 +1251,930 @@ const CountHeatMap = ({ data, testCases, tactics, title, colorRamp }) => {
           ))}
         </div>
       </div>
+    </div>
+  );
+};
+
+// Component to render enhanced master data visualizations
+const EnhancedMasterDataViz = ({ enhancedData, modelComparisonData }) => {
+  console.log("EnhancedMasterDataViz render attempt", {
+    enhancedDataExists: Boolean(enhancedData) && enhancedData.length > 0,
+    modelComparisonDataExists: Boolean(modelComparisonData) && modelComparisonData.length > 0
+  });
+  
+  // Add a new state for the active tab
+  const [activeTab, setActiveTab] = useState("models");
+  
+  // Function to process the real data in a more comprehensive way
+  const processRealData = () => {
+    if (!enhancedData || enhancedData.length === 0) {
+      console.log("No enhanced data available");
+      return { 
+        models: [], 
+        successRates: [],
+        testCaseData: [],
+        tacticData: [],
+        modelSizeData: [],
+        modelDateData: [],
+        heatmapData: null,
+        testCases: [],
+        tactics: []
+      };
+    }
+    
+    console.log("Processing real data, sample:", enhancedData[0]);
+    
+    // Get the model field name
+    const modelField = enhancedData[0] && 'target_model' in enhancedData[0] 
+      ? 'target_model' 
+      : 'model';
+    
+    // Model parameter sizes (in billions)
+    const modelSizes = {
+      'meta-llama/llama-3.1-70b-instruct': 70,
+      'meta-llama/llama-3.1-8b-instruct': 8,
+      'meta-llama/llama-3.2-1b-instruct': 1,
+      'meta-llama/llama-3.2-3b-instruct': 3,
+      'meta-llama/llama-3.3-70b-instruct': 70,
+      'gpt-4o-mini-2024-07-18': 25,
+      'google/gemini-2.0-flash-001': 35,
+      'google/gemini-2.0-flash-lite-001': 15,
+      'google/gemini-flash-1.5': 10,
+      'google/gemma-2-9b-it': 9,
+      'google/gemma-3-12b-it': 12,
+      'google/gemma-3-27b-it': 27,
+      'anthropic/claude-3-haiku': 8,
+      'qwen/qwen-2.5-7b-instruct': 7,
+      'qwen/qwen-2.5-72b-instruct': 72,
+      'mistralai/mistral-7b-instruct-v0.3': 7,
+      'mistralai/mistral-small-3.1-24b-instruct': 24,
+      'mistralai/mistral-tiny': 3,
+      'mistralai/mistral-nemo': 12,
+      'deepseek/deepseek-chat-v3-0324': 16
+    };
+    
+    // Extract unique models, test cases, and tactics
+    const allModels = [...new Set(enhancedData.map(row => row[modelField]))];
+    const testCases = [...new Set(enhancedData.map(row => row.test_case))].sort();
+    const tactics = [...new Set(enhancedData.map(row => row.jailbreak_tactic))].sort();
+    
+    // Helper function to get success rate
+    const getSuccessRate = (subset) => {
+      if (!subset || subset.length === 0) return 0;
+      
+      const successCount = subset.filter(row => {
+        if (row.goal_achieved !== undefined) {
+          return typeof row.goal_achieved === 'string' 
+            ? row.goal_achieved.toLowerCase() === 'true'
+            : Boolean(row.goal_achieved);
+        }
+        return false;
+      }).length;
+      
+      return (successCount / subset.length) * 100;
+    };
+    
+    // Count models and success rates
+    const modelCounts = {};
+    const successCounts = {};
+    const totalCounts = {};
+    
+    enhancedData.forEach(row => {
+      const model = row[modelField];
+      if (!model) return;
+      
+      // Use full model name for accurate grouping, but create a shorter version for display
+      const shortModel = model.split('/').pop();
+      const displayModel = shortModel.length > 25 ? shortModel.substring(0, 22) + '...' : shortModel;
+      
+      // Count model occurrences
+      if (!modelCounts[model]) {
+        modelCounts[model] = {
+          fullName: model,
+          displayName: displayModel, 
+          count: 1
+        };
+      } else {
+        modelCounts[model].count++;
+      }
+      
+      // Count successes based on goal_achieved field
+      if (row.goal_achieved !== undefined) {
+        const success = typeof row.goal_achieved === 'string' 
+          ? row.goal_achieved.toLowerCase() === 'true'
+          : Boolean(row.goal_achieved);
+        
+        totalCounts[model] = (totalCounts[model] || 0) + 1;
+        if (success) {
+          successCounts[model] = (successCounts[model] || 0) + 1;
+        }
+      }
+    });
+    
+    // Convert to arrays for charts
+    const modelData = Object.values(modelCounts)
+      .map(item => ({ 
+        model: item.displayName,
+        fullName: item.fullName,
+        count: item.count 
+      }))
+      .filter(item => item.count >= 5) // Only include models with at least 5 samples
+      .sort((a, b) => b.count - a.count);
+    
+    // Calculate success rates by model
+    const successRates = Object.keys(totalCounts).map(model => {
+      const total = totalCounts[model] || 0;
+      const successes = successCounts[model] || 0;
+      const rate = total > 0 ? (successes / total) * 100 : 0;
+      const shortModel = model.split('/').pop();
+      const displayModel = shortModel.length > 25 ? shortModel.substring(0, 22) + '...' : shortModel;
+      
+      return {
+        model: displayModel,
+        fullName: model,
+        successRate: Math.round(rate * 10) / 10, // Round to 1 decimal
+        totalSamples: total
+      };
+    })
+    .filter(item => item.totalSamples >= 5) // Only include models with sufficient samples
+    .sort((a, b) => b.successRate - a.successRate);
+    
+    // Helper function to find model info in comparison data
+    const findModelInfo = (model) => {
+      if (!modelComparisonData || modelComparisonData.length === 0) return null;
+      
+      // Try direct match first
+      let modelInfo = modelComparisonData.find(m => 
+        m.Model && model.toLowerCase().includes(m.Model.toLowerCase())
+      );
+      
+      // If no match, try partial match in reverse direction
+      if (!modelInfo) {
+        modelInfo = modelComparisonData.find(m => 
+          m.Model && m.Model.toLowerCase().includes(model.split('/').pop().toLowerCase())
+        );
+      }
+      
+      return modelInfo;
+    };
+    
+    // Helper function to parse release date
+    const parseReleaseDate = (dateStr) => {
+      if (!dateStr) return null;
+      
+      // Try to parse various date formats
+      // Format 1: "May 2023"
+      const monthYearPattern = /^(\w+)\s+(\d{4})$/;
+      // Format 2: "2023-08-15", "2023/08/15"
+      const isoDatePattern = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/;
+      
+      let timestamp = null;
+      
+      const monthYearMatch = dateStr.match(monthYearPattern);
+      if (monthYearMatch) {
+        const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        const month = monthNames.indexOf(monthYearMatch[1].toLowerCase());
+        const year = parseInt(monthYearMatch[2]);
+        
+        if (month !== -1 && !isNaN(year)) {
+          timestamp = new Date(year, month, 1).getTime();
+        }
+      }
+      
+      const isoMatch = dateStr.match(isoDatePattern);
+      if (isoMatch) {
+        const year = parseInt(isoMatch[1]);
+        const month = parseInt(isoMatch[2]) - 1;
+        const day = parseInt(isoMatch[3]);
+        
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          timestamp = new Date(year, month, day).getTime();
+        }
+      }
+      
+      // If no pattern matched, try general Date parsing
+      if (!timestamp) {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          timestamp = date.getTime();
+        }
+      }
+      
+      return timestamp;
+    };
+    
+    // Model Size vs Success Rate data
+    const modelSizeData = allModels.map(model => {
+      const subset = enhancedData.filter(row => row[modelField] === model);
+      const shortName = model.split('/').pop();
+      const successRate = getSuccessRate(subset);
+      const size = modelSizes[model] || 0;
+      
+      // Get company from model comparison data if available
+      const modelInfo = findModelInfo(model);
+      const company = modelInfo ? modelInfo.Company : "Unknown";
+      
+      return {
+        model: shortName,
+        fullName: model,
+        size,
+        successRate: Math.round(successRate * 10) / 10,
+        company,
+        sampleCount: subset.length
+      };
+    })
+    .filter(item => item.size > 0 && item.sampleCount >= 5)
+    .sort((a, b) => b.sampleCount - a.sampleCount);
+    
+    // Release Date vs Success Rate data
+    const modelDateData = allModels.map(model => {
+      const subset = enhancedData.filter(row => row[modelField] === model);
+      const shortName = model.split('/').pop();
+      const successRate = getSuccessRate(subset);
+      
+      // Get model info from comparison data
+      const modelInfo = findModelInfo(model);
+      
+      // Skip if no model info or no release date
+      if (!modelInfo || !modelInfo["Release Date"]) return null;
+      
+      // Parse the release date
+      const releaseTimestamp = parseReleaseDate(modelInfo["Release Date"]);
+      if (!releaseTimestamp) return null;
+      
+      const company = modelInfo.Company || "Unknown";
+      const size = modelSizes[model] || (modelInfo.Parameters ? parseFloat(modelInfo.Parameters) : 0);
+      
+      return {
+        model: shortName,
+        fullName: model,
+        releaseDate: modelInfo["Release Date"],
+        releaseTimestamp,
+        successRate: Math.round(successRate * 10) / 10,
+        company,
+        size,
+        sampleCount: subset.length
+      };
+    })
+    .filter(Boolean) // Remove null entries
+    .filter(item => item.sampleCount >= 5)
+    .sort((a, b) => a.releaseTimestamp - b.releaseTimestamp);
+    
+    // Test case success rates
+    const testCaseData = testCases.map(testCase => {
+      const subset = enhancedData.filter(row => row.test_case === testCase);
+      return {
+        name: testCase,
+        successRate: Math.round(getSuccessRate(subset) * 10) / 10,
+        count: subset.length
+      };
+    })
+    .filter(item => item.count >= 5)
+    .sort((a, b) => b.successRate - a.successRate);
+    
+    // Tactic success rates
+    const tacticData = tactics.map(tactic => {
+      const subset = enhancedData.filter(row => row.jailbreak_tactic === tactic);
+      return {
+        name: tactic,
+        successRate: Math.round(getSuccessRate(subset) * 10) / 10,
+        count: subset.length
+      };
+    })
+    .filter(item => item.count >= 5)
+    .sort((a, b) => b.successRate - a.successRate);
+    
+    // Create heatmap data - test case × tactic
+    const heatmapData = testCases.map((testCase, i) => {
+      return tactics.map((tactic, j) => {
+        const subset = enhancedData.filter(row => 
+          row.test_case === testCase && 
+          row.jailbreak_tactic === tactic
+        );
+        
+        if (subset.length < 5) return 0; // Require minimum samples
+        
+        return Math.round(getSuccessRate(subset));
+      });
+    });
+    
+    console.log("Processed model data:", modelData);
+    console.log("Processed success rate data:", successRates);
+    console.log("Processed model size data:", modelSizeData);
+    console.log("Processed model date data:", modelDateData);
+    console.log("Processed test case data:", testCaseData);
+    console.log("Processed tactic data:", tacticData);
+    
+    return { 
+      models: modelData, 
+      successRates,
+      testCaseData,
+      tacticData,
+      modelSizeData,
+      modelDateData,
+      heatmapData,
+      testCases,
+      tactics
+    };
+  };
+  
+  const { 
+    models, 
+    successRates, 
+    testCaseData, 
+    tacticData, 
+    modelSizeData,
+    modelDateData,
+    heatmapData,
+    testCases,
+    tactics
+  } = processRealData();
+  
+  // Fallback dummy data in case processing fails
+  const dummyModels = [
+    { model: "llama-3.1-70b-instruct", count: 1000 },
+    { model: "llama-3.1-8b-instruct", count: 800 },
+    { model: "gemini-2.0-flash-001", count: 600 },
+    { model: "claude-3-haiku", count: 400 },
+    { model: "gemma-2-9b-it", count: 200 }
+  ];
+  
+  const dummySuccessRates = [
+    { model: "llama-3.1-70b-instruct", successRate: 85 },
+    { model: "llama-3.1-8b-instruct", successRate: 70 },
+    { model: "gemini-2.0-flash-001", successRate: 65 },
+    { model: "claude-3-haiku", successRate: 45 },
+    { model: "gemma-2-9b-it", successRate: 30 }
+  ];
+  
+  // Color mapping for companies
+  const companyColors = {
+    "DeepSeek": "#FF6B6B",
+    "Anthropic": "#4ECDC4",
+    "Google": "#45B7D1",
+    "Meta": "#7400B8", 
+    "Mistral AI": "#FF9F1C",
+    "Alibaba": "#FE5F55",
+    "xAI": "#66FF66",
+    "Unknown": "#CCCCCC"
+  };
+  
+  // Use real data if available, otherwise fallback to dummy data
+  const displayModels = models.length > 0 ? models : dummyModels;
+  const displaySuccessRates = successRates.length > 0 ? successRates : dummySuccessRates;
+  
+  // Pre-render data availability checks
+  const hasModels = displayModels.length > 0;
+  const hasSuccessRates = displaySuccessRates.length > 0;
+  const hasModelSizeData = modelSizeData.length > 0;
+  const hasModelDateData = modelDateData && modelDateData.length > 0;
+  const hasTestCaseData = testCaseData.length > 0;
+  const hasTacticData = tacticData.length > 0;
+  const hasHeatmapData = heatmapData && heatmapData.some(row => row.some(val => val > 0));
+  
+  // Create simple HTML version as backup in case charts fail to render
+  const renderBackupTable = (data, valueKey, valueName) => (
+    <table className="min-w-full border border-gray-300 text-sm">
+      <thead>
+        <tr className="bg-gray-100">
+          <th className="border px-4 py-2 text-left">Name</th>
+          <th className="border px-4 py-2 text-right">{valueName}</th>
+          <th className="border px-4 py-2 text-right">Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((item, index) => (
+          <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+            <td className="border px-4 py-2 text-left">{item.name}</td>
+            <td className="border px-4 py-2 text-right">{item[valueKey]}</td>
+            <td className="border px-4 py-2 text-right">{item.count}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+  
+  return (
+    <div style={{ padding: '20px' }}>
+      <h1>Enhanced Jailbreak Analysis Dashboard</h1>
+      
+      {/* Tabs navigation */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px' }}>
+        <div 
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'models' ? styles.activeTab : styles.inactiveTab)
+          }}
+          onClick={() => setActiveTab('models')}
+        >
+          Model Analysis
+        </div>
+        <div 
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'testCases' ? styles.activeTab : styles.inactiveTab)
+          }}
+          onClick={() => setActiveTab('testCases')}
+        >
+          Test Cases
+        </div>
+        <div 
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'tactics' ? styles.activeTab : styles.inactiveTab)
+          }}
+          onClick={() => setActiveTab('tactics')}
+        >
+          Tactics
+        </div>
+        <div 
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'heatmap' ? styles.activeTab : styles.inactiveTab)
+          }}
+          onClick={() => setActiveTab('heatmap')}
+        >
+          Heatmap
+        </div>
+        <div 
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'sizeAnalysis' ? styles.activeTab : styles.inactiveTab)
+          }}
+          onClick={() => setActiveTab('sizeAnalysis')}
+        >
+          Size vs ASR Analysis
+        </div>
+      </div>
+      
+      {/* Tab content */}
+      {activeTab === 'models' && (
+        <div>
+          {/* Models tab content */}
+          <h2>Models by Sample Count</h2>
+          <p>Shows the distribution of samples across different models (with at least 5 samples)</p>
+          
+          {/* Model Count Chart */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Top Models by Sample Count</h3>
+            {!hasModels ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: Math.max(300, displayModels.length * 25) }} className="border border-gray-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={displayModels}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 150, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis
+                        type="category"
+                        dataKey="model"
+                        width={150}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 border border-gray-300 shadow-md">
+                                <p className="font-bold">{payload[0].payload.model}</p>
+                                <p>Samples: {payload[0].payload.count}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="count" name="Sample Count" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(displayModels, "count", "Sample Count")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Success Rate Chart */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Models by Success Rate</h3>
+            {!hasSuccessRates ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: Math.max(300, displaySuccessRates.length * 25) }} className="border border-gray-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={displaySuccessRates}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 150, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="model"
+                        width={150}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip 
+                        formatter={(value) => [`${value}%`, 'Success Rate']}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 border border-gray-300 shadow-md">
+                                <p className="font-bold">{payload[0].payload.model}</p>
+                                <p>Success Rate: {payload[0].payload.successRate}%</p>
+                                <p>Total Samples: {payload[0].payload.totalSamples}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="successRate" name="Success Rate (%)" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(displaySuccessRates, "successRate", "Success Rate (%)")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Model Size vs Success Rate Scatter Plot */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Model Size vs Success Rate</h3>
+            {!hasModelSizeData ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: 400 }} className="border border-gray-300">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart
+                      margin={{ top: 20, right: 30, bottom: 20, left: 20 }}
+                  >
+                    <CartesianGrid />
+                    <XAxis 
+                      type="number" 
+                      dataKey="size" 
+                      name="Size (B)" 
+                      label={{ value: 'Model Size (Billions of Parameters)', position: 'bottom' }}
+                      domain={['auto', 'auto']}
+                      scale="log"
+                    />
+                    <YAxis 
+                      type="number" 
+                        dataKey="successRate" 
+                        name="Success Rate" 
+                        label={{ value: 'Success Rate (%)', angle: -90, position: 'left' }}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => {
+                          if (name === 'Size (B)') return [`${value}B`, 'Model Size'];
+                          if (name === 'Success Rate') return [`${value}%`, name];
+                        return [value, name];
+                      }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-2 border border-gray-300 shadow-md">
+                              <p className="font-bold">{payload[0].payload.model}</p>
+                                <p>Size: {payload[0].payload.size}B parameters</p>
+                                <p>Success Rate: {payload[0].payload.successRate}%</p>
+                                <p>Samples: {payload[0].payload.sampleCount}</p>
+                              <p>Company: {payload[0].payload.company}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                      {Object.keys(companyColors).map(company => {
+                        const companyData = modelSizeData.filter(model => model.company === company);
+                        if (companyData.length === 0) return null;
+                        
+                        return (
+                        <Scatter 
+                          key={company}
+                          name={company} 
+                            data={companyData} 
+                            fill={companyColors[company]}
+                        />
+                        );
+                      })}
+                  </ScatterChart>
+                </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(modelSizeData, "size", "Model Size (Billion Parameters)")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Release Date vs Success Rate Scatter Plot */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Release Date vs Success Rate</h3>
+            {!hasModelDateData ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart. This may be due to missing release dates in the model comparison data.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: 400 }} className="border border-gray-300">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart
+                      margin={{ top: 20, right: 30, bottom: 50, left: 20 }}
+                  >
+                    <CartesianGrid />
+                    <XAxis 
+                      type="number" 
+                      dataKey="releaseTimestamp" 
+                      name="Release Date" 
+                      domain={['auto', 'auto']}
+                      tickFormatter={(timestamp) => {
+                        return new Date(timestamp).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short'
+                        });
+                      }}
+                      label={{ 
+                        value: 'Model Release Date', 
+                        position: 'bottom', 
+                        offset: 20
+                      }}
+                    />
+                    <YAxis 
+                      type="number" 
+                      dataKey="successRate" 
+                      name="Success Rate" 
+                      label={{ value: 'Success Rate (%)', angle: -90, position: 'left' }}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        if (name === 'Release Date') {
+                          return [new Date(value).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long',
+                            day: 'numeric'
+                          }), 'Release Date'];
+                        }
+                        if (name === 'Success Rate') return [`${value}%`, name];
+                        return [value, name];
+                      }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-2 border border-gray-300 shadow-md">
+                              <p className="font-bold">{payload[0].payload.model}</p>
+                              <p>Release Date: {payload[0].payload.releaseDate}</p>
+                              <p>Success Rate: {payload[0].payload.successRate}%</p>
+                              <p>Size: {payload[0].payload.size}B parameters</p>
+                              <p>Samples: {payload[0].payload.sampleCount}</p>
+                              <p>Company: {payload[0].payload.company}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    {Object.keys(companyColors).map(company => {
+                      const companyData = modelDateData.filter(model => model.company === company);
+                      if (companyData.length === 0) return null;
+                      
+                      return (
+                        <Scatter 
+                          key={company}
+                          name={company} 
+                          data={companyData} 
+                          fill={companyColors[company]}
+                        />
+                      );
+                    })}
+                  </ScatterChart>
+                </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(modelDateData, "successRate", "Success Rate (%)")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'testCases' && (
+        <div>
+          {/* Test cases tab content */}
+          <h2>Test Cases by Success Rate</h2>
+          <p>Shows which test cases (harmful scenarios) have the highest success rates</p>
+          
+          {/* Test Case Success Rate Chart */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Test Cases by Success Rate</h3>
+            {!hasTestCaseData ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: 300 }} className="border border-gray-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={testCaseData}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 150, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={150}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip formatter={(value) => [`${value}%`, 'Success Rate']} />
+                      <Legend />
+                      <Bar dataKey="successRate" name="Success Rate (%)" fill="#FF8042" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(testCaseData, "successRate", "Success Rate (%)")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'tactics' && (
+        <div>
+          {/* Tactics tab content */}
+          <h2>Tactics by Success Rate</h2>
+          <p>Shows which jailbreak tactics have the highest success rates</p>
+          
+          {/* Tactic Success Rate Chart */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Tactics by Success Rate</h3>
+            {!hasTacticData ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div style={{ width: '100%', height: 300 }} className="border border-gray-300">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={tacticData}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 150, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={150}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip formatter={(value) => [`${value}%`, 'Success Rate']} />
+                      <Legend />
+                      <Bar dataKey="successRate" name="Success Rate (%)" fill="#4BC0C0" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Backup table in case chart doesn't render */}
+                <div className="mt-4 max-w-lg mx-auto">
+                  <details>
+                    <summary className="cursor-pointer text-blue-600 mb-2">Show as table</summary>
+                    {renderBackupTable(tacticData, "successRate", "Success Rate (%)")}
+                  </details>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'heatmap' && (
+        <div>
+          {/* Heatmap tab content */}
+          <h2>Success Rate Heatmap: Test Case × Tactic</h2>
+          <p>Shows the success rate for each combination of test case and tactic</p>
+          
+          {/* Heatmap: Test Case × Tactic */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-2">Success Rate Heatmap: Test Case × Tactic</h3>
+            {!hasHeatmapData ? (
+              <div className="h-60 w-full flex items-center justify-center bg-gray-100">
+                <div className="text-gray-500 text-center p-4">
+                  <p>No data available for this chart</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-auto" style={{ maxHeight: '600px' }}>
+                <HeatMap 
+                  data={heatmapData} 
+                  testCases={testCases} 
+                  tactics={tactics} 
+                  title="Success Rate (%)" 
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Data Summary */}
+          <div className="mb-8 p-4 bg-gray-50 rounded-md">
+            <h3 className="text-lg font-semibold mb-2">Data Summary</h3>
+            <ul className="list-disc ml-5">
+              <li>Total samples: {enhancedData?.length || 0}</li>
+              <li>Unique models: {Object.keys(models.reduce((acc, item) => ({...acc, [item.model]: true}), {})).length}</li>
+              <li>Test cases: {testCases.length}</li>
+              <li>Tactics: {tactics.length}</li>
+              <li>Models with success rate data: {successRates.length}</li>
+            </ul>
+          </div>
+          
+          <div className="text-sm text-gray-500 mt-4">
+            <p>Note: This visualization uses data from enhanced_master_data.csv, which combines data from multiple sources.</p>
+            <p>Only showing models and test cases with sufficient samples for reliable analysis.</p>
+          </div>
+        </div>
+      )}
+      
+      {activeTab === 'sizeAnalysis' && (
+        <div>
+          {/* New Size Analysis tab content */}
+          <TestCaseModelSizeHeatmap />
+        </div>
+      )}
     </div>
   );
 };

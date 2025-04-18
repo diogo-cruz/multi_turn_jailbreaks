@@ -19,6 +19,12 @@ async function analyzeCSV(csvFilename) {
       dynamicTyping: true,
       skipEmptyLines: true
     });
+    
+    // Special case for enhanced_master_data.csv
+    if (csvFilename === 'enhanced_master_data.csv') {
+      await analyzeEnhancedData(parsedData.data);
+      return [];
+    }
 
     // Process the data
     const models = processJailbreakData(parsedData.data);
@@ -72,6 +78,122 @@ async function analyzeCSV(csvFilename) {
   } catch (error) {
     console.error("Error analyzing CSV file:", error);
     return [];
+  }
+}
+
+// Function to analyze enhanced master data with model comparison information
+async function analyzeEnhancedData(enhancedData) {
+  try {
+    console.log("Analyzing enhanced master data with model comparison information...");
+    
+    // Try to load the model_comparison.csv file for additional metadata
+    let modelComparisonData = [];
+    try {
+      const comparisonContent = await fs.promises.readFile('model_comparison.csv', { encoding: 'utf8' });
+      modelComparisonData = Papa.parse(comparisonContent, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true
+      }).data;
+      console.log(`Loaded model comparison data: ${modelComparisonData.length} models`);
+    } catch (err) {
+      console.warn("Could not load model_comparison.csv. Analysis will be limited.");
+    }
+    
+    // Get unique models
+    const modelNames = [...new Set(enhancedData.map(row => row.target_model))];
+    console.log(`Found ${modelNames.length} unique models in the dataset`);
+    
+    // Calculate ASR for each model
+    const modelASRs = modelNames.map(modelName => {
+      const modelRows = enhancedData.filter(row => row.target_model === modelName);
+      
+      // Calculate average ASR
+      let totalASR = 0;
+      let validRows = 0;
+      
+      modelRows.forEach(row => {
+        let asr = row.asr;
+        if (typeof asr !== 'number' && row.scores) {
+          // Parse scores and calculate ASR
+          try {
+            const scores = typeof row.scores === 'string' 
+              ? JSON.parse(row.scores.replace(/'/g, '"')) 
+              : row.scores;
+              
+            if (Array.isArray(scores)) {
+              asr = scores.filter(score => score === 1).length / scores.length * 100;
+              totalASR += asr;
+              validRows++;
+            }
+          } catch (e) {
+            console.warn(`Could not parse scores for ${modelName}`);
+          }
+        } else if (typeof asr === 'number') {
+          totalASR += asr;
+          validRows++;
+        }
+      });
+      
+      const avgASR = validRows > 0 ? totalASR / validRows : 0;
+      
+      // Find model in comparison data
+      const modelInfo = modelComparisonData.find(model => 
+        model.Model && modelName.includes(model.Model.toLowerCase())
+      );
+      
+      return {
+        name: modelName,
+        asr: avgASR.toFixed(1),
+        company: modelInfo ? modelInfo.Company : "Unknown",
+        size: modelInfo ? modelInfo.Parameters : "Unknown",
+        releaseDate: modelInfo ? modelInfo["Release Date"] : "Unknown"
+      };
+    });
+    
+    // Output by company
+    console.log("\nASR by Company:");
+    const companies = [...new Set(modelASRs.filter(m => m.company !== "Unknown").map(m => m.company))];
+    companies.forEach(company => {
+      const companyModels = modelASRs.filter(m => m.company === company);
+      console.log(`\n${company}:`);
+      companyModels.forEach(model => {
+        console.log(`  - ${model.name}: ASR=${model.asr}%, Size=${model.size}B, Released: ${model.releaseDate}`);
+      });
+    });
+    
+    // Output by size range
+    console.log("\nASR by Model Size:");
+    const sizeRanges = [
+      { name: "Small (<10B)", min: 0, max: 10 },
+      { name: "Medium (10-30B)", min: 10, max: 30 },
+      { name: "Large (30-100B)", min: 30, max: 100 },
+      { name: "X-Large (>100B)", min: 100, max: Infinity }
+    ];
+    
+    sizeRanges.forEach(range => {
+      const rangeModels = modelASRs.filter(m => {
+        const size = parseFloat(m.size);
+        return !isNaN(size) && size >= range.min && size < range.max;
+      });
+      
+      if (rangeModels.length > 0) {
+        console.log(`\n${range.name}:`);
+        rangeModels.forEach(model => {
+          console.log(`  - ${model.name}: ASR=${model.asr}%, Company=${model.company}`);
+        });
+      }
+    });
+    
+    // Output sorted by ASR
+    console.log("\nModels Sorted by ASR (highest to lowest):");
+    modelASRs
+      .sort((a, b) => parseFloat(b.asr) - parseFloat(a.asr))
+      .forEach((model, index) => {
+        console.log(`${index + 1}. ${model.name} (${model.company}): ${model.asr}%`);
+      });
+  } catch (error) {
+    console.error("Error analyzing enhanced data:", error);
   }
 }
 
@@ -266,10 +388,11 @@ function processJailbreakData(data) {
   });
 }
 
-// Run the analysis if this script is called directly
-if (process.argv[1] === path.fileURLToPath(import.meta.url)) {
-  analyzeCSV(csvFilename);
-}
+// Run the analysis
+analyzeCSV(csvFilename).catch(error => {
+  console.error("Fatal error:", error);
+  process.exit(1);
+});
 
 // Export the analysis function for potential use by other modules
 export { analyzeCSV };
