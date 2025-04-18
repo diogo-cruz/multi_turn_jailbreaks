@@ -11,6 +11,10 @@ results/
 results_direct/
 new_results/
 clean_results_free/
+6tc_analysis_results/
+clean_results/strongreject_results/
+parallel_logs/
+
 
 # Ignore .env
 .env
