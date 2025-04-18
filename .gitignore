@@ -10,6 +10,7 @@ __pycache__/
 results/
 results_direct/
 new_results/
+clean_results_free/
 
 # Ignore .env
 .env
