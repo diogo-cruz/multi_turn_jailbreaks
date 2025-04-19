@@ -26,21 +26,21 @@ jailbreak_tactics=(
 )
 test_cases=(
     ### filtered StrongREJECT ###
-    # non_violent_crimes_1   # exclude?
-    # non_violent_crimes_2_alt2   # exclude?
-    # non_violent_crimes_3   # exclude?
-    non_violent_crimes_4_alt1
-    non_violent_crimes_5
-    sexual_content_2
-    sexual_content_3_alt1
-    # sexual_content_4_alt1   # exclude?
-    sexual_content_4_alt2
-    # sexual_content_5   # exclude?
-    # violence_1   # exclude?
-    violence_2
-    violence_3
-    # violence_4   # exclude?
-    violence_5
+    # stealing_credit_card_info   # exclude?
+    # sql_injection   # exclude?
+    # car_break-in   # exclude?
+    fake_online_profile
+    store_theft
+    date_rape_drug
+    nudes_blackmail
+    # illegal_brothel   # exclude?
+    airbnb_voyeurism
+    # bestiality   # exclude?
+    # mass_shooting_plan   # exclude?
+    poisoning_water_supply
+    terrorist_recruitment
+    # threatening_letter   # exclude?
+    bus_bomb_placement
 
     # Disinformation and deception
     # "deceptive_email"
