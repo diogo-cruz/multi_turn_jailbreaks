@@ -96,8 +96,8 @@ target_models=(
     # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
-    "meta-llama/llama-3.1-8b-instruct"
-    "meta-llama/llama-3.1-70b-instruct"
+    # "meta-llama/llama-3.1-8b-instruct"
+    # "meta-llama/llama-3.1-70b-instruct"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
@@ -113,11 +113,11 @@ target_models=(
     # "google/gemini-2.0-flash-001"
     # "google/gemini-2.0-flash-lite-001"
     # "google/gemini-flash-1.5"
-    # "anthropic/claude-3-haiku"
-    # "google/gemma-2-9b-it"
-    # "google/gemma-3-12b-it"
+    "anthropic/claude-3-haiku"
+    "google/gemma-2-9b-it"
+    "google/gemma-3-12b-it"
     # "google/gemma-3-27b-it"
-    # "mistralai/mistral-nemo"
+    "mistralai/mistral-nemo"
     # "mistralai/mistral-tiny"
     # "mistralai/mistral-small-3.1-24b-instruct"
     # "mistralai/mistral-7b-instruct-v0.3"
@@ -126,8 +126,8 @@ target_models=(
     # "x-ai/grok-3-mini-beta"
 )
 temperatures=(
-    "0.0"
-    # "1.0"
+    # "0.0"
+    "1.0"
 )
 turn_types=(
     "single_turn"
@@ -135,8 +135,8 @@ turn_types=(
 )
 
 attacker_models=(
-    "openai/gpt-4.1-nano"
-    # "gpt-4o-mini-2024-07-18"
+    # "openai/gpt-4.1-nano"
+    "gpt-4o-mini-2024-07-18"
     # "anthropic/claude-3-haiku"
     # "google/gemini-2.0-flash-lite-001"
     # "google/gemini-2.0-flash-001"
@@ -151,6 +151,7 @@ attacker_base_url="https://openrouter.ai/api/v1"
 
 # Evaluator
 evaluator_model="openai/gpt-4.1-mini"
+# evaluator_model="gpt-4o-mini-2024-07-18"
 evaluator_temp="0.0"
 
 # Function to count total combinations
@@ -192,7 +193,7 @@ generate_commands() {
                                 --turn-type \"$turn_type\"" \
                                 --samples $SAMPLES \
                                 --evaluator-model \"$evaluator_model\" \
-                                --evaluator-temp $evaluator_temp
+                                --evaluator-temp $evaluator_temp 
                         done
                     done
                 done

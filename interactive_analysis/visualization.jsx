@@ -20,6 +20,7 @@ const InteractiveJailbreakViz = () => {
     'results_test_runs.csv',
     'results_2D.csv',
     'results_2B.csv',
+    'results_batch2D_2.csv',
     'results_final_3samples.csv'
   ]);
   
