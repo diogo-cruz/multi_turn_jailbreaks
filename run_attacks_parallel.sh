@@ -126,8 +126,8 @@ target_models=(
     # "x-ai/grok-3-mini-beta"
 )
 temperatures=(
-    # "0.0"
-    "1.0"
+    "0.0"
+    # "1.0"
 )
 turn_types=(
     "single_turn"
