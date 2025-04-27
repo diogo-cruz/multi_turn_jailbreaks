@@ -3,6 +3,43 @@ import pandas as pd
 import subprocess
 import os
 import sys
+import re
+
+def extract_evaluator_model(filename, batch_name):
+    # Check if "eval" is in the filename
+    eval_match = re.search(r'_eval_([^\.]+)', filename)
+    if eval_match:
+        # Get the model name after "eval_"
+        evaluator = eval_match.group(1)
+        
+        # Fix issue with "eval_gpt-4.1-nano"
+        if "gpt-4.1-nano" in evaluator:
+            return "openai/gpt-4.1-nano"
+        # Handle specific evaluator models
+        elif evaluator == "gpt-4o-mini":
+            return "openai/gpt-4o-mini-2024-07-18"
+        elif evaluator.startswith("gpt-"):
+            return f"openai/{evaluator}"
+        elif any(prefix in evaluator for prefix in ["claude-", "llama-", "deepseek-", "gemini-"]):
+            # These models likely have vendors that should be preserved
+            if evaluator.startswith("claude-"):
+                return f"anthropic/{evaluator}"
+            elif evaluator.startswith("llama-"):
+                return f"meta-llama/{evaluator}"
+            elif evaluator.startswith("deepseek-"):
+                return f"deepseek/{evaluator}"
+            elif evaluator.startswith("gemini-"):
+                return f"google/{evaluator}"
+            return evaluator
+        else:
+            # Default to openai/ prefix for unknown models
+            return f"openai/{evaluator}"
+    
+    # For batch3A, use gpt-4.1-mini as default
+    if batch_name == "batch3A":
+        return "openai/gpt-4.1-mini"
+    # For other batches, use gpt-4o-mini-2024-07-18
+    return "openai/gpt-4o-mini-2024-07-18"
 
 def main():
     # Define paths
@@ -39,12 +76,89 @@ def main():
                 # Add batch column
                 df['batch'] = batch_name
                 
+                # Collect original JSONL filenames
+                jsonl_files = list(subfolder.glob('**/*.jsonl'))
+                
+                # Create a mapping of test case + model + turn type to filename
+                file_mapping = {}
+                for file_path in jsonl_files:
+                    file_name = file_path.name
+                    components = file_name.split('_')
+                    
+                    # Skip if the filename doesn't have enough components
+                    if len(components) < 4:
+                        continue
+                    
+                    # Extract components from filename
+                    tactic = components[0]
+                    test_case = components[1]
+                    
+                    # Find the model part (could be in different positions)
+                    model_idx = -1
+                    for i, part in enumerate(components):
+                        if any(model_prefix in part for model_prefix in ["gpt", "claude", "llama", "deepseek", "gemini"]):
+                            model_idx = i
+                            break
+                    
+                    if model_idx == -1:
+                        continue
+                        
+                    model = components[model_idx]
+                    
+                    # Find turn type (single or multi)
+                    turn_type = "single" if "single" in file_name else "multi" if "multi" in file_name else None
+                    if not turn_type:
+                        continue
+                    
+                    key = (tactic, test_case, model, turn_type)
+                    file_mapping[key] = file_path
+                
+                # Add source_file, attacker_model, and evaluator_model columns
+                source_files = []
+                attacker_models = []
+                evaluator_models = []
+                
+                for _, row in df.iterrows():
+                    tactic = row.get('jailbreak_tactic', '')
+                    test_case = row.get('test_case', '')
+                    model = row.get('target_model', '').split('/')[-1] if '/' in row.get('target_model', '') else row.get('target_model', '')
+                    turn_type = row.get('turn_type', '')
+                    
+                    key = (tactic, test_case, model, turn_type)
+                    
+                    # Find matching file
+                    matched_file = None
+                    for file_key, file_path in file_mapping.items():
+                        if all(k in str(file_path) for k in [tactic, test_case, model.replace('/', '-'), turn_type]):
+                            matched_file = file_path
+                            break
+                    
+                    # Set source_file
+                    if matched_file:
+                        source_files.append(matched_file.name)
+                        evaluator_models.append(extract_evaluator_model(matched_file.name, batch_name))
+                    else:
+                        source_files.append(None)
+                        # Default evaluator model based on batch
+                        if batch_name == "batch3A":
+                            evaluator_models.append("openai/gpt-4.1-mini")
+                        else:
+                            evaluator_models.append("openai/gpt-4o-mini-2024-07-18")
+                    
+                    # Set attacker_model (default to gpt-4o-mini-2024-07-18)
+                    attacker_models.append("openai/gpt-4o-mini-2024-07-18")
+                
+                # Add the columns to the DataFrame
+                df['source_file'] = source_files
+                df['attacker_model'] = attacker_models
+                df['evaluator_model'] = evaluator_models
+                
                 # Ensure the DataFrame has the required columns
                 # Based on enhanced_master_data.csv structure
                 required_columns = [
                     "jailbreak_tactic", "test_case", "turn_type", "target_model",
                     "target_temp", "max_round", "goal_achieved", "scores", 
-                    "refused", "timestamp", "batch"
+                    "refused", "timestamp", "batch", "source_file", "attacker_model", "evaluator_model"
                 ]
                 
                 # Add missing columns with None values
@@ -61,15 +175,6 @@ def main():
     if all_dfs:
         # Combine all DataFrames
         master_df = pd.concat(all_dfs, ignore_index=True)
-        
-        # Add empty columns for attacker_model, evaluator_model, and source_file if not present
-        required_enhanced_columns = [
-            "attacker_model", "evaluator_model", "source_file"
-        ]
-        
-        for col in required_enhanced_columns:
-            if col not in master_df.columns:
-                master_df[col] = None
         
         # Save the master CSV
         master_csv_path = csv_results_dir / "master_results.csv"
