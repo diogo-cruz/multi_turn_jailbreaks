@@ -1,3 +1,29 @@
+"""
+Master CSV Generator for Jailbreak Attack Analysis
+
+This script aggregates evaluation results from multiple jailbreak attack runs into
+a consolidated master CSV file. It processes evaluation data from various models,
+tactics, and test cases, organizing them into a standardized format for easier
+analysis and visualization.
+
+Features:
+- Recursive scanning of evaluation result directories
+- Extraction of key metrics from evaluation JSON files
+- Consolidation of results by model, tactic, test case, and other dimensions
+- Calculation of aggregate statistics (success rates, average scores, etc.)
+- Export to CSV format for compatibility with analysis tools and dashboards
+- Support for filtering and transformation of result data
+
+The generated master CSV serves as the primary dataset for subsequent analysis
+scripts, visualization tools, and correlation studies. It provides a comprehensive
+view of jailbreak attack effectiveness across different experimental conditions.
+
+Usage:
+    python create_master_csv.py [options]
+
+Output files are saved to the csv_results directory by default.
+"""
+
 from pathlib import Path
 import pandas as pd
 import subprocess

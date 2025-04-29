@@ -1,3 +1,22 @@
+"""
+Multi-Turn Jailbreak Attack Framework
+
+This script serves as the main entry point for executing automated jailbreak attacks against 
+target language models. It orchestrates the process of loading test cases, configuring models,
+and executing various jailbreak tactics in either single-turn or multi-turn conversation modes.
+
+The framework supports:
+- Multiple jailbreak tactics (crescendomation, actor_attack, opposite_day, etc.)
+- Configuration of both target and attacker models with custom temperature settings
+- Parallel execution of multiple samples of the same test configuration
+- Comprehensive logging of attack results for analysis
+
+Usage:
+    python main.py --jailbreak-tactic TACTIC --test-case CASE --target-model MODEL [options]
+
+See README.md for detailed documentation on the framework and supported tactics.
+"""
+
 import os
 import datetime
 import argparse
@@ -48,13 +67,13 @@ parser.add_argument(
     default="https://openrouter.ai/api/v1",
 )
 parser.add_argument(
-    "--attacker-model", type=str, help="The attacker model name", default="gpt-4o"
+    "--attacker-model", type=str, help="The attacker model name", default="gpt-4o-mini"
 )
 parser.add_argument(
     "--attacker-temp", type=float, help="The temperature to use for the attacker model", default=0.0
 )
 parser.add_argument(
-    "--evaluator-model", type=str, help="The evaluator model name", default="gpt-4o"
+    "--evaluator-model", type=str, help="The evaluator model name", default="gpt-4o-mini"
 )
 parser.add_argument(
     "--evaluator-temp", type=float, help="The temperature to use for the evaluator model", default=0.0
@@ -81,6 +100,12 @@ parser.add_argument(
     default="crescendomation",
 )
 parser.add_argument(
+    "--output-folder",
+    type=str,
+    help="The folder name to save results in (under ./clean_results/final_runs/)",
+    default="batch2D_2",
+)
+parser.add_argument(
     "--gen-score-rubric",
     action="store_true",
     help="If set, generate the score rubric",
@@ -97,6 +122,12 @@ parser.add_argument(
     default=1,
     help="Number of parallel samples to run",
 )
+parser.add_argument(
+    "--reasoning",
+    type=bool,
+    default=None,
+    help="If set, use reasoning",
+)
 args = parser.parse_args()
 
 if not run.has_single_turn(args.jailbreak_tactic) and args.turn_type == 'single_turn':
@@ -107,10 +138,11 @@ if not run.has_single_turn(args.jailbreak_tactic) and args.turn_type == 'single_
 target_client = openai.OpenAI(base_url=args.target_base_url)
 target_model = args.target_model
 target_temp = args.target_temp
+reasoning = args.reasoning
 
 
 def target_generate(messages, **kwargs):
-    return generate(messages, client=target_client, model=target_model, temperature=target_temp, **kwargs)
+    return generate(messages, client=target_client, model=target_model, temperature=target_temp, reasoning=reasoning, **kwargs)
 
 
 attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
@@ -170,7 +202,7 @@ target_model_name = args.target_model.split("/")[-1]
 async def run_sample(sample_num):
     # Create a unique output file path for each sample
     output_file_path = (
-        f"./clean_results/final_runs/batch2D_2/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
+        f"./clean_results/final_runs/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
     )
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     print(f"Generated Output file path for sample {sample_num}:", output_file_path)
