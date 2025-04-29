@@ -1,3 +1,29 @@
+"""
+Interactive Jailbreak Attack Results Visualization Generator
+
+This script generates interactive visualizations of jailbreak attack results for analysis
+and interpretation. It focuses on creating plots that help researchers understand attack
+success rates, model vulnerabilities, and comparative performance across different dimensions.
+
+Key features:
+- Generation of interactive heatmaps showing attack success rates by various dimensions
+- Comparative visualization of model performance across different attack tactics
+- Statistical visualization of correlations between model size and attack resistance
+- Analysis of attack success patterns across different test categories
+- Support for various plot types and customization options
+- Integration with the broader interactive analysis framework
+
+This visualization tool provides researchers with the means to explore complex patterns
+in jailbreak attack data through intuitive visual representations. It's designed to support
+data-driven insights into language model vulnerabilities and defense effectiveness.
+
+Usage:
+    python generate_plots.py [options]
+
+The generated plots can be viewed in the interactive analysis frontend or exported as
+standalone visualization files.
+"""
+
 import os
 import pandas as pd
 import numpy as np

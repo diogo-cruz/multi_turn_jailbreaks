@@ -1,5 +1,32 @@
 #!/bin/bash
 
+# =============================================================================
+# Comprehensive Jailbreak Analysis Pipeline
+# =============================================================================
+#
+# This script orchestrates the execution of the entire interactive analysis
+# pipeline for jailbreak attack results. It runs all the necessary data processing,
+# analysis, and visualization steps in the correct sequence to generate a complete
+# set of analysis outputs.
+#
+# Key features:
+# - Sequential execution of all analysis steps in the correct order
+# - Verification of input data and required dependencies
+# - Generation of merged datasets for comprehensive analysis
+# - Production of visualization files and statistical outputs
+# - Creation of summary reports and insights
+#
+# This script serves as a one-stop solution for running the complete analysis
+# workflow, ensuring that all components of the analysis are executed with the
+# appropriate dependencies and in the right order.
+#
+# Usage:
+#   ./analyze_all.sh
+#
+# =============================================================================
+
+echo "Starting interactive analysis pipeline..."
+
 # Make the script executable
 chmod +x analyze_all.sh
 

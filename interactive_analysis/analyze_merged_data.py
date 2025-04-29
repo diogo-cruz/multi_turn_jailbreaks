@@ -1,3 +1,31 @@
+"""
+Jailbreak Attack Results Merged Data Analysis
+
+This script provides analytical capabilities for processing and deriving insights from
+merged jailbreak attack result datasets. It works with consolidated data that combines
+results from multiple attack runs, tactics, and model configurations to identify broader
+patterns and relationships.
+
+Key features:
+- Statistical analysis of merged attack result data
+- Identification of trends across multiple experiment dimensions
+- Calculation of aggregate metrics such as attack success rates
+- Correlation analysis between model properties and vulnerability
+- Generation of summary statistics for reporting
+- Support for filtering and grouping data by various dimensions
+
+This analysis tool helps researchers move beyond individual result examination to understand
+the bigger picture of language model vulnerabilities across different experimental conditions.
+It transforms raw merged data into actionable insights about model safety and jailbreak
+effectiveness.
+
+Usage:
+    python analyze_merged_data.py [options]
+
+The script outputs analysis results that can be used for reporting, visualization, or
+further statistical processing.
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np

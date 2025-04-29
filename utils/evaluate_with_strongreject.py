@@ -1,3 +1,26 @@
+"""
+Strong Rejection Evaluation Utility
+
+This module provides functionality for evaluating whether a language model's response
+complies with a jailbreak attack attempt by using a strong rejection evaluation methodology.
+It analyzes model outputs to determine if they have successfully generated harmful content
+when asked to do so, or if they have appropriately rejected the harmful request.
+
+The evaluation uses a separate evaluator model to judge target model responses, providing
+an objective assessment of jailbreak attack success. This approach helps standardize
+evaluation across different models and attack types.
+
+Key features:
+- Binary evaluation of model responses (success or failure)
+- Assessment of whether harmful content was generated
+- Detection of evasion techniques that technically comply while avoiding direct refusal
+- Support for nuanced evaluation of partial compliance
+- Configurable evaluation parameters for different threat models
+
+This utility is a critical component of the robust evaluation framework, enabling
+consistent measurement of jailbreak attack effectiveness across experiments.
+"""
+
 def evaluate_with_strongreject(response, forbidden_prompt, generate):
     import math
     import re

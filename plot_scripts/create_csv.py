@@ -1,3 +1,29 @@
+"""
+Jailbreak Attack Results CSV Generator
+
+This script converts raw jailbreak attack result files into CSV format for easier analysis
+and visualization. It processes JSONL result files from attack runs and transforms them
+into a structured tabular format with consistent columns and data types.
+
+Key features:
+- Processing of JSONL result files from jailbreak attack runs
+- Extraction of key metrics and metadata into standardized columns
+- Standardization of model names and test case identifiers
+- Handling of various result file formats and structures
+- Aggregation of results by various dimensions (model, tactic, test case)
+- Export to CSV format for compatibility with analysis tools
+
+This utility forms an important bridge between the raw result files produced by attack
+runs and the analysis tools that require structured data. The CSV format enables easier
+integration with data analysis frameworks, spreadsheet applications, and visualization tools.
+
+Usage:
+    python create_csv.py --results-dir DIRECTORY --csv OUTPUT_FILE [options]
+
+The generated CSV serves as the input for many of the analysis and visualization
+scripts in the framework.
+"""
+
 from pathlib import Path
 from datetime import datetime
 import argparse

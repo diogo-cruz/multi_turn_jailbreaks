@@ -1,3 +1,30 @@
+"""
+Markov Chain Analysis for Jailbreak Attack Sequences
+
+This script implements Markov chain analysis to model the progression of jailbreak attacks
+through various states. It analyzes the sequential patterns in attack attempts to understand
+the probabilistic transitions between different stages of an attack, such as from initial
+probing questions to successful jailbreaks.
+
+Key features:
+- Construction of Markov transition matrices from attack sequence data
+- Probabilistic modeling of attack progression patterns
+- Analysis of common attack paths and their likelihood of success
+- Identification of critical transition points in successful attacks
+- Visualization of attack sequence transition networks
+- Statistical metrics on attack progression efficiency
+
+This analysis provides insights into the dynamic nature of multi-turn jailbreak attacks,
+helping researchers understand which attack sequences are most likely to progress toward
+successful jailbreaks and where defensive measures might be most effective.
+
+Usage:
+    python Markov.py [options]
+
+The script outputs transition matrices, visualizations, and statistical analyses that
+characterize the nature of successful attack progressions.
+"""
+
 import os
 import json
 import numpy as np
