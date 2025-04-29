@@ -1,7 +1,34 @@
+"""
+Jailbreak Attack Results Processing Pipeline
+
+This script is part of the analysis pipeline for processing jailbreak attack results.
+It handles the transformation of raw result files into structured data formats suitable
+for further analysis, visualization, and reporting.
+
+Key features:
+- Loading and parsing of raw attack result files
+- Extraction of key metrics and metadata
+- Standardization of result formats across different test configurations
+- Aggregation of results by model, tactic, test case, and other dimensions
+- Filtering and transformation of data for specific analysis needs
+- Export to structured formats (JSON, CSV) for downstream processing
+
+This processing pipeline forms the foundation of the analysis workflow, converting
+the raw outputs of jailbreak tests into clean, structured datasets that can be easily
+analyzed to evaluate model vulnerabilities and attack effectiveness.
+
+Usage:
+    python process_results.py [options]
+
+The processed output files serve as inputs to visualization tools and statistical
+analysis scripts in the broader framework.
+"""
+
 from pathlib import Path
 from datetime import datetime
 import json
 import pandas as pd
+import os
 
 # Constants
 METADATA = ["jailbreak_tactic", "test_case", "turn_type", "target_model", "target_temp"]

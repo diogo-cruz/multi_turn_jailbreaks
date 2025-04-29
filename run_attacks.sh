@@ -1,5 +1,32 @@
 #!/bin/bash
 
+# =============================================================================
+# Single-Instance Jailbreak Attack Runner
+# =============================================================================
+#
+# This script provides a simplified interface for running individual jailbreak 
+# attack tests against language models. Unlike the parallel versions, this script
+# executes a single attack configuration at a time, making it ideal for quick
+# testing, debugging specific configurations, or when resources are limited.
+#
+# Key features:
+# - Simple execution of a single jailbreak attack
+# - Support for all implemented jailbreak tactics
+# - Configurable target and attacker models
+# - Detailed logging of the attack process
+# - Compatibility with both single-turn and multi-turn attack modes
+#
+# This script is particularly useful when:
+# - Testing a new jailbreak tactic implementation
+# - Debugging issues with specific test cases
+# - Running manual evaluations of individual tactics
+# - Conserving API costs with targeted testing
+#
+# Usage:
+#   ./run_attacks.sh [TACTIC] [TEST_CASE] [TARGET_MODEL] [ATTACKER_MODEL]
+#
+# =============================================================================
+
 # Define the values for each parameter
 jailbreak_tactics=(
     "crescendomation" 

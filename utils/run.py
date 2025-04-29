@@ -1,3 +1,23 @@
+"""
+Jailbreak Attack Execution Engine
+
+This module serves as the core execution engine for running jailbreak attacks against
+target language models. It provides the orchestration logic for the multi-turn conversation
+flow between the attacker model, which generates jailbreak prompts, and the target model,
+which responds to those prompts.
+
+Key features:
+- Dynamic loading of jailbreak tactic implementations from the jailbreaks/ directory
+- Support for both single-turn and multi-turn attack strategies
+- Conversation management including tracking of message history
+- Standardized logging of attack attempts and model responses
+- Flexible extension system for custom attack implementations
+
+The module provides a common interface for executing different jailbreak tactics,
+allowing researchers to easily compare their effectiveness against various target models
+while maintaining a consistent evaluation methodology.
+"""
+
 # This is an template implementation for running jailbreaks which will be used for all
 # attack techniques unless they have a custom run.py file.
 import importlib

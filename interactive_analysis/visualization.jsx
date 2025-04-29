@@ -44,6 +44,8 @@ const InteractiveJailbreakViz = () => {
     'results_2D.csv',
     'results_2D_2.csv',
     'results_2B.csv',
+    'batch3A_results.csv',
+    'batch_4A_results.csv',
     'results_final_3samples.csv'
   ]);
   // State for enhanced master data
@@ -261,6 +263,14 @@ const InteractiveJailbreakViz = () => {
       'google/gemma-3-12b-it': 12,
       'google/gemma-3-27b-it': 27,
       'anthropic/claude-3-haiku': 8,
+      'anthropic/claude-3.5-sonnet': 18,
+      'anthropic/claude-3.7-sonnet': 45,
+      'openai/gpt-4o': 300,
+      'openai/gpt-4.1': 240,
+      'openai/gpt-4.1-mini': 24,
+      'openai/gpt-4.1-nano': 8,
+      'google/gemini-2.5-pro-preview-03-25': 120,
+      'google/gemini-2.5-flash-preview': 35,
       'qwen/qwen-2.5-7b-instruct': 7,
       'qwen/qwen-2.5-72b-instruct': 72,
       'mistralai/mistral-7b-instruct-v0.3': 7,
@@ -1304,12 +1314,22 @@ const EnhancedMasterDataViz = ({ enhancedData, modelComparisonData }) => {
       'google/gemma-3-12b-it': 12,
       'google/gemma-3-27b-it': 27,
       'anthropic/claude-3-haiku': 8,
+      'anthropic/claude-3.5-sonnet': 18,
+      'anthropic/claude-3.7-sonnet': 45,
+      'openai/gpt-4o': 300,
+      'openai/gpt-4.1': 240,
+      'openai/gpt-4.1-mini': 24,
+      'openai/gpt-4.1-nano': 8,
+      'google/gemini-2.5-pro-preview-03-25': 120,
+      'google/gemini-2.5-flash-preview': 35,
       'qwen/qwen-2.5-7b-instruct': 7,
       'qwen/qwen-2.5-72b-instruct': 72,
       'mistralai/mistral-7b-instruct-v0.3': 7,
       'mistralai/mistral-small-3.1-24b-instruct': 24,
       'mistralai/mistral-tiny': 3,
       'mistralai/mistral-nemo': 12,
+      'meta-llama/llama-4-scout': 8,
+      'meta-llama/llama-4-maverick': 44,
       'deepseek/deepseek-chat-v3-0324': 16
     };
     

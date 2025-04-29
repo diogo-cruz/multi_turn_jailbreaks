@@ -1,5 +1,35 @@
 #!/bin/bash
 
+# =============================================================================
+# Multi-Turn Jailbreak Parallel Attack Runner
+# =============================================================================
+#
+# This script automates the parallel execution of multiple jailbreak attack
+# configurations across various models, tactics, and test cases. It uses GNU
+# Parallel to efficiently distribute the workload across multiple processes.
+#
+# Key features:
+# - Configurable parallel execution with customizable thread count
+# - Support for running multiple jailbreak tactics
+# - Testing against multiple target models
+# - Various test case scenarios for comprehensive evaluation
+# - Temperature variation for both target and attacker models
+# - Optional multiple samples per configuration
+#
+# This script significantly speeds up the process of evaluating the effectiveness
+# of different jailbreak methods against various language models in a standardized
+# and reproducible way.
+#
+# Requirements:
+# - GNU Parallel must be installed
+# - OpenAI API key or other model API keys should be configured
+# - Python environment with required dependencies
+#
+# Usage:
+#   ./run_attacks_parallel.sh
+#
+# =============================================================================
+
 # Number of parallel processes to run
 THREAD_COUNT=128
 # attacker temperature
@@ -18,8 +48,8 @@ jailbreak_tactics=(
     # "opposite_day" 
     # "opposite_day" 
     "direct_request"
-    "emotional_appeal"
-    "command"
+    # "emotional_appeal"
+    # "command"
     "crowding"
     #"allegory"
     #"appeal_to_authority"
@@ -30,38 +60,38 @@ test_cases=(
     # sql_injection   # exclude?
     # car_break-in   # exclude?
     fake_online_profile
-    store_theft
+    # store_theft
     date_rape_drug
-    nudes_blackmail
+    # nudes_blackmail
     # illegal_brothel   # exclude?
     airbnb_voyeurism
     # bestiality   # exclude?
     # mass_shooting_plan   # exclude?
-    poisoning_water_supply
+    # poisoning_water_supply
     terrorist_recruitment
     # threatening_letter   # exclude?
-    bus_bomb_placement
+    # bus_bomb_placement
 
     # Disinformation and deception
     # "deceptive_email"
     "remove_watermarks"
-    "tax_fraud"
+    # "tax_fraud"
     "drunk_driving"
     # "bomb_threats"  # exclude?
 
     # Hate, harassment and discrimination
-    "hate_speech_immigrants"
+    # "hate_speech_immigrants"
     "false_accusation"
     # "asian_insults"  # exclude?
-    "gender_insults"
+    # "gender_insults"
     "lgbtq_insults"
 
     # Illegal goods and services
-    "illegal_arms"
+    # "illegal_arms"
     "counterfeit_money"
-    "deoderant_flamethrower"
+    # "deoderant_flamethrower"
     "pistol_serial_numbers"
-    "improvised_gun"
+    # "improvised_gun"
 
 
     ### OLD StrongREJECT ###
@@ -96,15 +126,15 @@ target_models=(
     # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
-    "meta-llama/llama-3.1-8b-instruct"
-    "meta-llama/llama-3.1-70b-instruct"
+    # "meta-llama/llama-3.1-8b-instruct"
+    # "meta-llama/llama-3.1-70b-instruct"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
-    # "deepseek/deepseek-chat-v3-0324"
+    "deepseek/deepseek-chat-v3-0324"
     # "deepseek/deepseek-r1"
     # "openai/o3-mini-high"
     # "qwen/qwen-2.5-7b-instruct"
@@ -124,6 +154,14 @@ target_models=(
     # "meta-llama/llama-4-maverick"
     # "meta-llama/llama-4-scout"
     # "x-ai/grok-3-mini-beta"
+    "google/gemini-2.5-pro-preview-03-25"
+    "google/gemini-2.5-flash-preview"
+    "anthropic/claude-3.5-sonnet"
+    "anthropic/claude-3.7-sonnet"
+    "openai/gpt-4o"
+    "openai/gpt-4.1"
+    "openai/gpt-4.1-mini"
+    "openai/gpt-4.1-nano"
 )
 temperatures=(
     "0.0"
@@ -135,7 +173,8 @@ turn_types=(
 )
 
 attacker_models=(
-    "openai/gpt-4.1-nano"
+    # "openai/gpt-4.1-nano"
+    "openai/gpt-4o-mini"
     # "gpt-4o-mini-2024-07-18"
     # "anthropic/claude-3-haiku"
     # "google/gemini-2.0-flash-lite-001"
