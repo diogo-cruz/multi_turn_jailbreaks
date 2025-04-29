@@ -120,9 +120,12 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         )
 
         if prompt is None:
-            print("Attacker refused to generate prompt")
+            error_message = "Attacker refused to generate prompt"
+            print(error_message)
+            if response_summary is not None and isinstance(response_summary, str):
+                error_message += ": " + response_summary
             with open(output_file_path, 'a') as f:
-                f.write(json.dumps({"round": round_number, "error": "Attacker refused to generate prompt: " + response_summary}) + '\n')
+                f.write(json.dumps({"round": round_number, "error": error_message}) + '\n')
             return
 
         history_t.append({"role": "user", "content": prompt})
