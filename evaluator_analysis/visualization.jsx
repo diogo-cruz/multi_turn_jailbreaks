@@ -649,7 +649,24 @@ const EvaluatorViz = () => {
     );
   };
 
-  // Calculate success rate by model
+  // Calculate standard error of the mean for bootstrap confidence intervals
+  const calculateStandardError = (values) => {
+    if (!values || values.length === 0) return 0;
+    
+    // Sample mean
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    
+    // Sum of squared differences from mean
+    const sumSquaredDiff = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0);
+    
+    // Sample variance
+    const variance = sumSquaredDiff / (values.length - 1);
+    
+    // Standard error of the mean
+    return Math.sqrt(variance / values.length);
+  };
+
+  // Calculate model success rates 
   const modelSuccessRates = useMemo(() => {
     if (!data || data.length === 0) return [];
     
@@ -689,19 +706,6 @@ const EvaluatorViz = () => {
       standardError: calculateStandardError([...Array(model.success).fill(1), ...Array(model.fail).fill(0)])
     }));
   }, [data]);
-
-  // Calculate standard error for a set of values
-  const calculateStandardError = (values) => {
-    if (!values || values.length <= 1) return 0;
-    
-    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / (values.length - 1);
-    const stdDev = Math.sqrt(variance);
-    const standardError = stdDev / Math.sqrt(values.length);
-    
-    return standardError * 100; // Convert to percentage
-  };
 
   // Calculate success rate by test case
   const testCaseSuccessRates = useMemo(() => {
