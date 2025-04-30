@@ -1,6 +1,18 @@
 import pandas as pd
 
 def verify_evaluator_models():
+    """
+    Verifies that the correct evaluator models were used for each source file in the analysis.
+    
+    This function loads the merged data file (enhanced_master_data.csv) and checks if each source
+    file has the expected evaluator model associated with it. It prints a report showing each source
+    file, the evaluator model used, and whether it matches the expected model.
+    
+    Expected evaluator model mappings:
+    - results_2D.csv: anthropic/claude-3-haiku
+    - results_2D_2.csv: openai/gpt-4.1-mini
+    - other sources: gpt-4o-mini-2024-07-18
+    """
     try:
         # Load the merged file
         df = pd.read_csv('enhanced_master_data.csv')
