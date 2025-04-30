@@ -953,7 +953,7 @@ const EvaluatorViz = () => {
         <>
           {/* Navigation Tabs */}
           <div className="tabs" style={{ display: 'flex', marginBottom: '1rem', borderBottom: '1px solid #e5e7eb' }}>
-            {['overview', 'models', 'testCases', 'prompts', 'tacticAnalysis'].map(tab => (
+            {['overview', 'models', 'testCases', 'prompts', 'tacticAnalysis', 'evaluatorAnalysis'].map(tab => (
               <div 
                 key={tab}
                 className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -971,6 +971,7 @@ const EvaluatorViz = () => {
                  tab === 'models' ? 'Models' :
                  tab === 'testCases' ? 'Test Cases' :
                  tab === 'tacticAnalysis' ? 'Tactic Analysis' :
+                 tab === 'evaluatorAnalysis' ? 'Evaluator Analysis' :
                  'Prompts'}
               </div>
             ))}
@@ -2443,6 +2444,462 @@ const EvaluatorViz = () => {
                           ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Evaluator Analysis Tab */}
+          {activeTab === 'evaluatorAnalysis' && (
+            <div style={{ marginTop: '20px' }}>
+              <h2>Evaluator Correlation Analysis</h2>
+              <p>This section analyzes how different evaluator models judge the same experiments.</p>
+              
+              {uniqueEvaluators.length < 2 ? (
+                <div style={{ 
+                  padding: '20px', 
+                  backgroundColor: '#fff9f0', 
+                  borderRadius: '5px', 
+                  borderLeft: '4px solid #ff9800',
+                  marginBottom: '20px'
+                }}>
+                  <h3>Insufficient Data</h3>
+                  <p>At least two different evaluator models are required for correlation analysis. The current dataset contains only {uniqueEvaluators.length} evaluator model(s).</p>
+                  <p>Available evaluator(s): {uniqueEvaluators.map(e => e || 'Unknown').join(', ')}</p>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ 
+                    margin: '20px 0', 
+                    padding: '20px', 
+                    backgroundColor: 'white', 
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    <h3>Evaluator Pairs Correlation Analysis</h3>
+                    <p>This analysis examines how different evaluator models assess the same prompts. Higher correlation values indicate similar judgments.</p>
+                    
+                    {(() => {
+                      // Find experiment runs that differ only by evaluator model
+                      const runsByParameters = {};
+                      
+                      data.forEach(row => {
+                        if (!row.evaluator_model) return;
+                        
+                        // Create a key based only on the specified parameters
+                        const key = `${row.jailbreak_tactic || ''}_${row.test_case || ''}_${row.turn_type || ''}_${row.target_model || ''}_${row.target_temp || ''}_${row.max_round || ''}_${row.attacker_model || ''}`;
+                        
+                        // Create a sub-key for the evaluator to handle duplicates
+                        const evalKey = row.evaluator_model || 'unknown';
+                        
+                        if (!runsByParameters[key]) {
+                          runsByParameters[key] = {};
+                        }
+                        
+                        // Only store the first row for each evaluator
+                        if (!runsByParameters[key][evalKey]) {
+                          runsByParameters[key][evalKey] = row;
+                        }
+                      });
+                      
+                      // Filter for parameter sets that have multiple evaluators
+                      const multiEvaluatorRuns = Object.entries(runsByParameters)
+                        .filter(([_, evaluatorMap]) => Object.keys(evaluatorMap).length > 1)
+                        .map(([_, evaluatorMap]) => Object.values(evaluatorMap));
+                      
+                      if (multiEvaluatorRuns.length === 0) {
+                        return (
+                          <div style={{ 
+                            padding: '15px', 
+                            backgroundColor: '#f0f4ff', 
+                            borderRadius: '5px', 
+                            borderLeft: '4px solid #4285f4',
+                            marginBottom: '20px'
+                          }}>
+                            <p>No matching experiment runs with different evaluators found in the dataset.</p>
+                          </div>
+                        );
+                      }
+                      
+                      // Calculate correlation data between pairs of evaluators
+                      const evaluatorPairs = {};
+                      const totalPairs = {};
+                      const agreementCounts = {};
+                      
+                      multiEvaluatorRuns.forEach(runs => {
+                        // Group by evaluator
+                        const evaluatorResults = {};
+                        runs.forEach(run => {
+                          evaluatorResults[run.evaluator_model] = run.goal_achieved === true || 
+                            run.goal_achieved === 'true' || run.goal_achieved === 1 || 
+                            run.success === true || run.success === 'true' || run.success === 1;
+                        });
+                        
+                        // Compare each pair of evaluators
+                        const evaluators = Object.keys(evaluatorResults);
+                        for (let i = 0; i < evaluators.length; i++) {
+                          for (let j = i + 1; j < evaluators.length; j++) {
+                            const evalA = evaluators[i];
+                            const evalB = evaluators[j];
+                            const pairKey = [evalA, evalB].sort().join('_vs_');
+                            
+                            if (!totalPairs[pairKey]) {
+                              totalPairs[pairKey] = 0;
+                              agreementCounts[pairKey] = 0;
+                              evaluatorPairs[pairKey] = { evalA, evalB };
+                            }
+                            
+                            totalPairs[pairKey]++;
+                            
+                            // Check if they agree
+                            if (evaluatorResults[evalA] === evaluatorResults[evalB]) {
+                              agreementCounts[pairKey]++;
+                            }
+                          }
+                        }
+                      });
+                      
+                      // Calculate correlation percentages
+                      const correlationData = Object.keys(totalPairs).map(pairKey => {
+                        const { evalA, evalB } = evaluatorPairs[pairKey];
+                        const total = totalPairs[pairKey];
+                        const agreements = agreementCounts[pairKey];
+                        const correlation = (agreements / total) * 100;
+                        
+                        return {
+                          pairKey,
+                          evalA: evalA || 'Unknown',
+                          evalB: evalB || 'Unknown',
+                          total,
+                          agreements,
+                          correlation,
+                          disagreements: total - agreements
+                        };
+                      }).sort((a, b) => b.correlation - a.correlation);
+                      
+                      return (
+                        <>
+                          <div style={{ 
+                            padding: '15px', 
+                            backgroundColor: '#e6f7ff', 
+                            borderRadius: '5px', 
+                            borderLeft: '4px solid #1890ff',
+                            marginBottom: '20px'
+                          }}>
+                            <p><strong>Parameters used for matching:</strong> jailbreak_tactic, test_case, turn_type, target_model, target_temp, max_round, attacker_model</p>
+                            <p>Found {multiEvaluatorRuns.length} experiment runs with multiple evaluators.</p>
+                          </div>
+                          
+                          {/* Show a sample of the data for transparency */}
+                          {multiEvaluatorRuns.length > 0 && (
+                            <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+                              <h4>Sample Matching Run:</h4>
+                              <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '5px', fontSize: '0.9em' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                  <tbody>
+                                    {['jailbreak_tactic', 'test_case', 'turn_type', 'target_model', 'target_temp', 'max_round', 'attacker_model'].map(key => (
+                                      <tr key={key}>
+                                        <td style={{ padding: '4px 10px', fontWeight: 'bold', width: '150px' }}>{key}:</td>
+                                        <td style={{ padding: '4px 10px' }}>{multiEvaluatorRuns[0][0][key] || "N/A"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              
+                              <h4 style={{ marginTop: '15px' }}>Evaluator Results:</h4>
+                              <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                  <thead>
+                                    <tr>
+                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'left' }}>Evaluator Model</th>
+                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Goal Achieved</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {multiEvaluatorRuns[0].map((run, index) => {
+                                      const isSuccess = run.goal_achieved === true || 
+                                        run.goal_achieved === 'true' || run.goal_achieved === 1 || 
+                                        run.success === true || run.success === 'true' || run.success === 1;
+                                      
+                                      return (
+                                        <tr key={index}>
+                                          <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
+                                            {run.evaluator_model || "Unknown"}
+                                          </td>
+                                          <td style={{ 
+                                            padding: '8px', 
+                                            borderBottom: '1px solid #ddd',
+                                            textAlign: 'center',
+                                            backgroundColor: isSuccess ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)',
+                                            color: isSuccess ? '#28a745' : '#dc3545',
+                                            fontWeight: 'bold'
+                                          }}>
+                                            {isSuccess ? 'Success' : 'Failure'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div style={{ overflowX: 'auto', marginTop: '20px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'left' }}>Evaluator Pair</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Correlation</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Agreements</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Disagreements</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Total Comparisons</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {correlationData.map((data, index) => (
+                                  <tr key={index}>
+                                    <td style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>
+                                      <strong>{data.evalA}</strong> vs <strong>{data.evalB}</strong>
+                                    </td>
+                                    <td style={{ 
+                                      padding: '10px', 
+                                      borderBottom: '1px solid #ddd', 
+                                      textAlign: 'center',
+                                      backgroundColor: `rgba(${255 - Math.round(data.correlation * 2.55)}, ${Math.round(data.correlation * 2.55)}, 100, 0.2)`,
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {data.correlation.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                                      {data.agreements}
+                                    </td>
+                                    <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                                      {data.disagreements}
+                                    </td>
+                                    <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                                      {data.total}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          <div style={{ marginTop: '30px' }}>
+                            <h3>Evaluator Correlation Visualization</h3>
+                            
+                            <ResponsiveContainer width="100%" height={400}>
+                              <BarChart
+                                data={correlationData}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                  dataKey="pairKey" 
+                                  angle={-45} 
+                                  textAnchor="end" 
+                                  height={100} 
+                                  interval={0}
+                                  tick={{ fontSize: 12 }}
+                                  tickFormatter={(value) => value.replace('_vs_', ' vs ')}
+                                />
+                                <YAxis 
+                                  label={{ value: 'Correlation (%)', angle: -90, position: 'insideLeft' }} 
+                                  domain={[0, 100]}
+                                />
+                                <Tooltip 
+                                  formatter={(value, name) => {
+                                    if (name === 'correlation') return [`${value.toFixed(1)}%`, 'Correlation'];
+                                    return [value, name];
+                                  }}
+                                />
+                                <Legend />
+                                <Bar dataKey="correlation" name="Correlation" fill="#8884d8" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          
+                          <div style={{ marginTop: '30px' }}>
+                            <h3>Agreements vs Disagreements</h3>
+                            
+                            <ResponsiveContainer width="100%" height={400}>
+                              <BarChart
+                                data={correlationData}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                                stackOffset="expand"
+                                layout="vertical"
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                  type="number" 
+                                  tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                                />
+                                <YAxis 
+                                  type="category"
+                                  dataKey="pairKey"
+                                  width={150}
+                                  tickFormatter={(value) => value.replace('_vs_', ' vs ')}
+                                />
+                                <Tooltip 
+                                  formatter={(value, name, props) => {
+                                    const percent = (value / props.payload.total) * 100;
+                                    return [`${value} (${percent.toFixed(1)}%)`, name === 'agreements' ? 'Agreements' : 'Disagreements'];
+                                  }}
+                                />
+                                <Legend />
+                                <Bar dataKey="agreements" name="Agreements" stackId="a" fill="#82ca9d" />
+                                <Bar dataKey="disagreements" name="Disagreements" stackId="a" fill="#ff8042" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div style={{ 
+                    margin: '20px 0', 
+                    padding: '20px', 
+                    backgroundColor: 'white', 
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    <h3>Evaluator Comparison by Model/Test Case</h3>
+                    <p>This analysis shows how evaluator judgments vary across models and test cases.</p>
+                    
+                    <div style={{ marginBottom: '20px' }}>
+                      <select
+                        value={selectedEvaluator || ''}
+                        onChange={(e) => setSelectedEvaluator(e.target.value || null)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          border: '1px solid #d1d5db',
+                          marginRight: '10px'
+                        }}
+                      >
+                        <option value="">Select Primary Evaluator</option>
+                        {uniqueEvaluators.map(evaluator => (
+                          <option key={evaluator} value={evaluator}>{evaluator || 'Unknown'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {selectedEvaluator && (() => {
+                      // Get data for the selected evaluator
+                      const evaluatorData = data.filter(row => row.evaluator_model === selectedEvaluator);
+                      
+                      if (evaluatorData.length === 0) {
+                        return <p>No data found for the selected evaluator.</p>;
+                      }
+                      
+                      // Analyze by model
+                      const modelAnalysis = uniqueModels
+                        .map(model => {
+                          const modelData = evaluatorData.filter(row => row.model === model);
+                          if (modelData.length === 0) return null;
+                          
+                          const successCount = modelData.filter(row => 
+                            row.goal_achieved === true || row.goal_achieved === 'true' || 
+                            row.goal_achieved === 1 || row.success === true || 
+                            row.success === 'true' || row.success === 1
+                          ).length;
+                          
+                          return {
+                            model,
+                            total: modelData.length,
+                            successCount,
+                            successRate: (successCount / modelData.length) * 100
+                          };
+                        })
+                        .filter(Boolean)
+                        .sort((a, b) => b.successRate - a.successRate);
+                      
+                      // Analyze by test case
+                      const testCaseAnalysis = uniqueTestCases
+                        .map(testCase => {
+                          const testCaseData = evaluatorData.filter(row => row.test_case === testCase);
+                          if (testCaseData.length === 0) return null;
+                          
+                          const successCount = testCaseData.filter(row => 
+                            row.goal_achieved === true || row.goal_achieved === 'true' || 
+                            row.goal_achieved === 1 || row.success === true || 
+                            row.success === 'true' || row.success === 1
+                          ).length;
+                          
+                          return {
+                            testCase,
+                            total: testCaseData.length,
+                            successCount,
+                            successRate: (successCount / testCaseData.length) * 100
+                          };
+                        })
+                        .filter(Boolean)
+                        .sort((a, b) => b.successRate - a.successRate);
+                      
+                      return (
+                        <>
+                          <h3>Success Rates by Model for {selectedEvaluator}</h3>
+                          <ResponsiveContainer width="100%" height={400}>
+                            <BarChart
+                              data={modelAnalysis}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="model" 
+                                angle={-45} 
+                                textAnchor="end" 
+                                height={100} 
+                                interval={0}
+                              />
+                              <YAxis 
+                                label={{ value: 'Success Rate (%)', angle: -90, position: 'insideLeft' }} 
+                                domain={[0, 100]}
+                              />
+                              <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                              <Legend />
+                              <Bar dataKey="successRate" name="Success Rate" fill="#8884d8">
+                                {modelAnalysis.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                          
+                          <h3 style={{ marginTop: '30px' }}>Success Rates by Test Case for {selectedEvaluator}</h3>
+                          <ResponsiveContainer width="100%" height={400}>
+                            <BarChart
+                              data={testCaseAnalysis}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="testCase" 
+                                angle={-45} 
+                                textAnchor="end" 
+                                height={100} 
+                                interval={0}
+                              />
+                              <YAxis 
+                                label={{ value: 'Success Rate (%)', angle: -90, position: 'insideLeft' }} 
+                                domain={[0, 100]}
+                              />
+                              <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                              <Legend />
+                              <Bar dataKey="successRate" name="Success Rate" fill="#82ca9d">
+                                {testCaseAnalysis.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
