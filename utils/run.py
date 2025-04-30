@@ -60,6 +60,8 @@ def generate_step(
 
     data = attacker_generate(messages, json_format=True)
     try: 
+        #TODO: the lastResponseSummary is sometimes not defined, so it throws an error
+        # Potentially when it is the first prompt
         return data["generatedQuestion"], data["lastResponseSummary"]
     except:
         return None, data
@@ -132,7 +134,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         response = target_generate(history_t)
 
         while (
-            check_refusal(prompt, response, attacker_generate)
+            check_refusal(prompt, response, evaluator_generate)
         ) and C_refused < 10:
             print("Refused, Backtrack")
             score = "refused"
@@ -160,9 +162,12 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
                 round_number, goal, turn_type, max_rounds, SYSTEM_PROMPT, history_a, response, attacker_generate, regenerate_prompt=True, refused_prompt=refused_prompt, target_refusal_response=target_refusal_response)
 
             if prompt is None:
-                print("Attacker refused to generate prompt")
+                error_message = "Attacker refused to generate prompt"
+                print(error_message)
+                if response_summary is not None and isinstance(response_summary, str):
+                    error_message += ": " + response_summary
                 with open(output_file_path, 'a') as f:
-                    f.write(json.dumps({"round": round_number, "error": "Attacker refused to generate prompt: " + response_summary}) + '\n')
+                    f.write(json.dumps({"round": round_number, "error": error_message}) + '\n')
                 return
         
             history_t.append({"role": "user", "content": prompt})
