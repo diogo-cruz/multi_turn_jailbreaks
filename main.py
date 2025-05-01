@@ -26,6 +26,12 @@ import importlib
 import asyncio
 from dotenv import load_dotenv
 from utils import generate, run, generate_score_rubric
+from utils.generate import (
+    NO_REASONING_SUPPORTED_MODELS, 
+    ALWAYS_REASONING_MODELS, 
+    THINKING_VARIANTS,
+    QWEN_MODELS
+)
 
 
 # Load the API keys from the .env file
@@ -124,9 +130,10 @@ parser.add_argument(
 )
 parser.add_argument(
     "--reasoning",
-    type=bool,
+    type=str,
     default=None,
-    help="If set, use reasoning",
+    choices=["none", "low", "medium", "high"],
+    help="Reasoning mode for models. Options: none, low, medium, high. None to disable reasoning control.",
 )
 args = parser.parse_args()
 
@@ -140,9 +147,27 @@ target_model = args.target_model
 target_temp = args.target_temp
 reasoning = args.reasoning
 
+# Check compatibility between the model and reasoning settings before starting
+def validate_model_reasoning_compatibility(model, reasoning):
+    if reasoning == "none":
+        valid_none_models = NO_REASONING_SUPPORTED_MODELS + ALWAYS_REASONING_MODELS + THINKING_VARIANTS + QWEN_MODELS
+        if model not in valid_none_models:
+            print(f"ERROR: Model {model} does not support 'none' reasoning mode")
+            print("Valid models that support 'none' reasoning:")
+            for m in sorted(valid_none_models):
+                print(f"  - {m}")
+            return False
+    return True
 
-def target_generate(messages, **kwargs):
-    return generate(messages, client=target_client, model=target_model, temperature=target_temp, reasoning=reasoning, **kwargs)
+def safe_target_generate(messages, **kwargs):
+    try:
+        return generate(messages, client=target_client, model=target_model, temperature=target_temp, reasoning=reasoning, **kwargs)
+    except ValueError as e:
+        print(f"ERROR: {str(e)}")
+        print("Exiting due to incompatible reasoning settings with the selected model.")
+        exit(1)
+
+target_generate = safe_target_generate
 
 
 attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
@@ -198,11 +223,18 @@ timestamp = {"timestamp": current_time}
 
 target_model_name = args.target_model.split("/")[-1]
 
+# Before running the attack, validate the model and reasoning compatibility
+if reasoning is not None and not validate_model_reasoning_compatibility(target_model, reasoning):
+    print("Exiting due to incompatible reasoning settings with the selected model.")
+    exit(1)
+
 # Function to run a single sample
 async def run_sample(sample_num):
     # Create a unique output file path for each sample
+    # Add reasoning suffix to filename if reasoning is not None
+    reasoning_suffix = f"_reasoning_{reasoning}" if reasoning is not None else ""
     output_file_path = (
-        f"./clean_results/test/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
+        f"./clean_results/final_runs/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}{reasoning_suffix}_sample{sample_num}_{current_time}.jsonl"
     )
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     print(f"Generated Output file path for sample {sample_num}:", output_file_path)
