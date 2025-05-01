@@ -3083,9 +3083,404 @@ const EvaluatorViz = () => {
           {/* Reasoning Analysis Tab */}
           {activeTab === 'reasoningAnalysis' && (
             <div>
-              {/* Add reasoning analysis content here */}
-              <h2>Reasoning Analysis</h2>
-              <p>This section will contain reasoning analysis content.</p>
+              <h2 style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+                Reasoning Analysis
+              </h2>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <p style={{ marginBottom: '1rem' }}>
+                  This analysis explores the relationship between reasoning effort and attack success rate (ASR).
+                  Only data with reasoning values ("none", "low", "medium", or "high") is included.
+                </p>
+                
+                {(() => {
+                  // Filter data to include only rows with reasoning values
+                  const reasoningData = data.filter(row => 
+                    row.reasoning && 
+                    ["none", "low", "medium", "high"].includes(String(row.reasoning).toLowerCase())
+                  );
+                  
+                  if (reasoningData.length === 0) {
+                    return (
+                      <div style={{ 
+                        padding: '1rem', 
+                        backgroundColor: '#fff3cd', 
+                        color: '#856404',
+                        borderRadius: '0.25rem',
+                        border: '1px solid #ffeeba',
+                        marginBottom: '1rem'
+                      }}>
+                        No data with reasoning values found. The CSV should contain a 'reasoning' column 
+                        with values: "none", "low", "medium", or "high".
+                      </div>
+                    );
+                  }
+                  
+                  // Process data by reasoning level and model
+                  const reasoningLevels = ["none", "low", "medium", "high"];
+                  const reasoningOrder = { "none": 0, "low": 1, "medium": 2, "high": 3 };
+                  
+                  // 1. Group data by model and reasoning level
+                  const dataByModelAndReasoning = {};
+                  reasoningData.forEach(row => {
+                    const model = row.model;
+                    const reasoning = String(row.reasoning).toLowerCase();
+                    
+                    if (!dataByModelAndReasoning[model]) {
+                      dataByModelAndReasoning[model] = {};
+                    }
+                    
+                    if (!dataByModelAndReasoning[model][reasoning]) {
+                      dataByModelAndReasoning[model][reasoning] = {
+                        totalTests: 0,
+                        successfulTests: 0,
+                        asr: 0
+                      };
+                    }
+                    
+                    dataByModelAndReasoning[model][reasoning].totalTests += 1;
+                    if (row.success) {
+                      dataByModelAndReasoning[model][reasoning].successfulTests += 1;
+                    }
+                  });
+                  
+                  // 2. Calculate ASR for each model and reasoning level
+                  Object.keys(dataByModelAndReasoning).forEach(model => {
+                    reasoningLevels.forEach(reasoning => {
+                      if (dataByModelAndReasoning[model][reasoning]) {
+                        const { totalTests, successfulTests } = dataByModelAndReasoning[model][reasoning];
+                        dataByModelAndReasoning[model][reasoning].asr = 
+                          totalTests > 0 ? (successfulTests / totalTests) * 100 : 0;
+                      }
+                    });
+                  });
+                  
+                  // 3. Create chart data
+                  const chartData = [];
+                  const uniqueModelsInData = [...new Set(reasoningData.map(d => d.model))];
+                  
+                  uniqueModelsInData.forEach((model, index) => {
+                    reasoningLevels.forEach(reasoning => {
+                      if (dataByModelAndReasoning[model] && dataByModelAndReasoning[model][reasoning]) {
+                        const { asr, totalTests } = dataByModelAndReasoning[model][reasoning];
+                        
+                        if (totalTests > 0) {
+                          chartData.push({
+                            model,
+                            modelSize: MODEL_SIZES[model] || 0,
+                            reasoning,
+                            reasoningValue: reasoningOrder[reasoning],
+                            asr,
+                            totalTests,
+                            color: COLORS[index % COLORS.length],
+                            // Create a unique x-value for each model+reasoning combination
+                            key: `${model}-${reasoning}`
+                          });
+                        }
+                      }
+                    });
+                  });
+                  
+                  // Check if we have data to display
+                  if (chartData.length === 0) {
+                    return (
+                      <div style={{ 
+                        padding: '1rem', 
+                        backgroundColor: '#fff3cd', 
+                        color: '#856404',
+                        borderRadius: '0.25rem',
+                        border: '1px solid #ffeeba',
+                        marginBottom: '1rem'
+                      }}>
+                        Could not generate chart data. Please check that your data has valid 'reasoning' 
+                        values and success metrics.
+                      </div>
+                    );
+                  }
+                  
+                  // 4. Aggregate data for overview chart
+                  const aggregatedByReasoning = {};
+                  reasoningLevels.forEach(level => {
+                    aggregatedByReasoning[level] = { totalTests: 0, successfulTests: 0, asr: 0 };
+                  });
+                  
+                  reasoningData.forEach(row => {
+                    const reasoning = String(row.reasoning).toLowerCase();
+                    aggregatedByReasoning[reasoning].totalTests += 1;
+                    if (row.success) {
+                      aggregatedByReasoning[reasoning].successfulTests += 1;
+                    }
+                  });
+                  
+                  reasoningLevels.forEach(level => {
+                    const { totalTests, successfulTests } = aggregatedByReasoning[level];
+                    aggregatedByReasoning[level].asr = 
+                      totalTests > 0 ? (successfulTests / totalTests) * 100 : 0;
+                  });
+                  
+                  const overviewData = reasoningLevels.map(level => ({
+                    reasoning: level,
+                    reasoningValue: reasoningOrder[level],
+                    asr: aggregatedByReasoning[level].asr,
+                    totalTests: aggregatedByReasoning[level].totalTests
+                  }));
+                  
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                      {/* Overview chart: ASR by Reasoning Level */}
+                      <div style={{ 
+                        backgroundColor: 'white', 
+                        padding: '1.5rem', 
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        <h3 style={{ marginBottom: '1rem' }}>Overall Attack Success Rate by Reasoning Effort</h3>
+                        <div style={{ height: '400px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={overviewData}
+                              margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="reasoning" 
+                                label={{ 
+                                  value: 'Reasoning Effort', 
+                                  position: 'bottom', 
+                                  offset: 20 
+                                }}
+                              />
+                              <YAxis 
+                                label={{ 
+                                  value: 'Attack Success Rate (%)', 
+                                  angle: -90, 
+                                  position: 'insideLeft',
+                                  style: { textAnchor: 'middle' }
+                                }}
+                                domain={[0, 100]}
+                              />
+                              <Tooltip 
+                                formatter={(value, name) => {
+                                  if (name === 'asr') return [`${value.toFixed(2)}%`, 'Success Rate'];
+                                  return [value, name];
+                                }}
+                                labelFormatter={(value) => `Reasoning: ${value}`}
+                              />
+                              <Legend />
+                              <Bar dataKey="asr" fill="#8884d8" name="ASR (%)">
+                                <LabelList 
+                                  dataKey="totalTests" 
+                                  position="top" 
+                                  content={(props) => {
+                                    const { x, y, width, value } = props;
+                                    return (
+                                      <text 
+                                        x={x + width / 2} 
+                                        y={y - 10} 
+                                        fill="#666" 
+                                        textAnchor="middle"
+                                        fontSize="12"
+                                      >
+                                        {`n=${value}`}
+                                      </text>
+                                    );
+                                  }}
+                                />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+                          The chart shows Attack Success Rate (ASR) by reasoning effort level, with sample size (n) shown above each bar.
+                        </div>
+                      </div>
+                      
+                      {/* Model-specific chart: ASR by Reasoning Level and Model */}
+                      <div style={{ 
+                        backgroundColor: 'white', 
+                        padding: '1.5rem', 
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        <h3 style={{ marginBottom: '1rem' }}>Attack Success Rate by Model and Reasoning Effort</h3>
+                        <div style={{ height: '500px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
+                              margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                type="category"
+                                dataKey="reasoning" 
+                                label={{ 
+                                  value: 'Reasoning Effort', 
+                                  position: 'bottom', 
+                                  offset: 20 
+                                }}
+                                allowDuplicatedCategory={false}
+                              />
+                              <YAxis 
+                                label={{ 
+                                  value: 'Attack Success Rate (%)', 
+                                  angle: -90, 
+                                  position: 'insideLeft',
+                                  style: { textAnchor: 'middle' }
+                                }}
+                                domain={[0, 100]}
+                              />
+                              <Tooltip 
+                                formatter={(value, name) => [`${value.toFixed(2)}%`, name]}
+                                labelFormatter={(value) => `Reasoning: ${value}`}
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    return (
+                                      <div style={{ 
+                                        backgroundColor: 'white', 
+                                        padding: '10px', 
+                                        border: '1px solid #ccc',
+                                        borderRadius: '4px',
+                                        fontSize: '12px'
+                                      }}>
+                                        <p><strong>Model:</strong> {payload[0].name}</p>
+                                        <p><strong>Reasoning:</strong> {data.reasoning}</p>
+                                        <p><strong>ASR:</strong> {data.asr.toFixed(2)}%</p>
+                                        {data.totalTests > 0 && (
+                                          <p><strong>Sample Size:</strong> {data.totalTests}</p>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Legend />
+                              {uniqueModelsInData.map((model, index) => {
+                                // Skip models with insufficient data points
+                                const modelDataPoints = chartData.filter(d => d.model === model);
+                                if (modelDataPoints.length === 0) return null;
+                                
+                                return (
+                                  <Line
+                                    key={model}
+                                    type="monotone"
+                                    dataKey="asr"
+                                    data={reasoningLevels.map(level => {
+                                      const point = modelDataPoints.find(d => d.reasoning === level);
+                                      return point || { reasoning: level, asr: 0, totalTests: 0 };
+                                    })}
+                                    name={model}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    activeDot={{ 
+                                      r: (props) => {
+                                        const { payload } = props;
+                                        return payload.totalTests > 0 ? 
+                                          Math.min(Math.max(payload.totalTests / 5, 5), 15) : 0;
+                                      },
+                                      fill: COLORS[index % COLORS.length],
+                                      stroke: "#fff"
+                                    }}
+                                    dot={{ 
+                                      r: (props) => {
+                                        const { payload } = props;
+                                        return payload.totalTests > 0 ? 
+                                          Math.min(Math.max(payload.totalTests / 10, 3), 10) : 0;
+                                      },
+                                      fill: COLORS[index % COLORS.length],
+                                      stroke: "#fff"
+                                    }}
+                                  />
+                                );
+                              })}
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.875rem', color: '#666' }}>
+                          Dot size represents relative sample size. Lines connect reasoning levels for each model.
+                        </div>
+                      </div>
+                      
+                      {/* Summary Table */}
+                      <div style={{ 
+                        backgroundColor: 'white', 
+                        padding: '1.5rem', 
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      }}>
+                        <h3 style={{ marginBottom: '1rem' }}>Data Summary</h3>
+                        <table style={{ 
+                          width: '100%', 
+                          borderCollapse: 'collapse', 
+                          marginTop: '1rem',
+                          fontSize: '0.875rem'
+                        }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f8fafc' }}>
+                              <th style={{ padding: '0.75rem', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>Model</th>
+                              {reasoningLevels.map(level => (
+                                <th key={level} style={{ padding: '0.75rem', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
+                                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                                </th>
+                              ))}
+                              <th style={{ padding: '0.75rem', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>Overall</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uniqueModelsInData.map(model => {
+                              const modelData = { totalTests: 0, successfulTests: 0 };
+                              
+                              reasoningLevels.forEach(level => {
+                                if (dataByModelAndReasoning[model] && dataByModelAndReasoning[model][level]) {
+                                  modelData.totalTests += dataByModelAndReasoning[model][level].totalTests;
+                                  modelData.successfulTests += dataByModelAndReasoning[model][level].successfulTests;
+                                }
+                              });
+                              
+                              const overallASR = modelData.totalTests > 0 
+                                ? (modelData.successfulTests / modelData.totalTests) * 100
+                                : 0;
+                              
+                              return (
+                                <tr key={model} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                  <td style={{ padding: '0.75rem', fontWeight: '500' }}>{model}</td>
+                                  {reasoningLevels.map(level => {
+                                    const hasData = dataByModelAndReasoning[model] && 
+                                                  dataByModelAndReasoning[model][level] &&
+                                                  dataByModelAndReasoning[model][level].totalTests > 0;
+                                    
+                                    return (
+                                      <td key={level} style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                        {hasData ? (
+                                          <>
+                                            {dataByModelAndReasoning[model][level].asr.toFixed(1)}%
+                                            <br />
+                                            <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                              ({dataByModelAndReasoning[model][level].successfulTests}/{dataByModelAndReasoning[model][level].totalTests})
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <span style={{ color: '#9ca3af' }}>-</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                  <td style={{ padding: '0.75rem', textAlign: 'center', backgroundColor: '#f8fafc' }}>
+                                    <strong>{overallASR.toFixed(1)}%</strong>
+                                    <br />
+                                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                      ({modelData.successfulTests}/{modelData.totalTests})
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
           
