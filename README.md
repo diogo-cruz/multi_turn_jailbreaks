@@ -1,49 +1,56 @@
-# Automated Multi Turn Jailbreak Attacks
 
-## Background
-### What is Jailbreak Attack?
-Aligned AI models are trained to refrain from answering or generating content considered toxic or harmful. 
-Examples include "How to make illegal weapons" or "How to manufacture illicit substances". 
-This behavior of LLMs is due to the Safety Training Process (learning to refuse) during the training stage, as well as system prompts (instructions) given at inference. 
-However, through sophisticated handcrafted jailbreak prompts (inputs), an attacker can override this behavior and make the AI model respond or behave as the attacker intends. 
-This is known as Jailbreak Attacks or LLM Jailbreaking.
+# Automated Multi-Turn Jailbreak Attacks
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### What is Automated Jailbreak Attack?
-Instead of humans manually crafting jailbreak prompts to compromise AI models, one can automate this process by using another AI model to jailbreak the target AI model. 
-This is referred to as an automated jailbreak attack.
+A framework for testing and evaluating LLM vulnerabilities through automated multi-turn jailbreak attacks.
 
-### What is Multi Turn Jailbreak Attack?
-Multi-Turn Jailbreak Attacks involve jailbreaking within a conversation (user, ai, user, ai ...). 
+## Table of contents
+1. [Overview](#overview)
+2. [How to run](#howtorun)
+    1. [Single run](#single)
+    2. [Parallel run scripts](#parallel)
+3. [Available Jailbreaking Methods](#jailbreaks)
+4. [Plottings Results](#plotting)
+
+## Overview <a name="overview"></a>
+
+LLM jailbreaking refers to techniques that bypass AI safety guardrails by crafting, causing models to generate harmful content they were trained to refuse. This project automates jailbreak attacks by using one AI (attacker model) to compromise another (target model), focusing on multi-turn conversations rather than traditional single-prompt attacks.
 Most widely known jailbreak attacks (such as DAN) are single-turn attacks, where a single jailbreak prompt is given to the AI model to compromise it. 
-However, single-turn attacks have both advantages and disadvantages. 
-Advantages include "less time, lower attack cost, and the ability to be injected from retrieved contexts." 
-Disadvantages include "unnatural prompts, long prompts (problematic when there's a length limit), and the fact that sophisticated AI models are becoming more resilient to these attacks".
+These attack prompts however tend to be unnatural, fairly long, (problematic when there's a length limit), and 
+Multi-turn approaches on the other hand use natural-sounding dialogue that progressively leads models toward prohibited responses, making them more effective against increasingly resilient AI systems.
+This project provides tools to automate the process of testing LLMs for jailbreak vulnerabilities using various attack methods.
 
-## How to run
-Currently support gpt-4o only for both Attacker and Target AI.
-However system prompts can be changed.
+### Repo Features
 
-### Add test_case json file to ./test_cases directory
-Add to the test_cases directory to run automated attacks. <br>
-test_case must be in the following json format in a json file. <br>
-Check out the test case examples inside the test_cases. <br>
-Use "to_json.py" if you want to change into json file.
+- **Multiple Attack Methods**: Dozens of pre-defined multi-turn attack methods ('jailbreaks' folder)
+- **Test Case Framework**: 30 pre-defined harm scenarios from StrongREJECT in JSON format ('test_cases' folder)
+- **Support for running various models, tactics and testases in parallel**: Compatible with SOTA models from Openrouter
+- **Results Analysis**: Tools for visualizing and comparing attack effectiveness across tactics, models, and multi- vs. single-turn settings
 
-```json
-{
-  "target_system": (system_prompt of the target ai),
-  "task": (what kind of task you want the target AI system to generate),
-  "max_rounds": (max number of turns in a conversation)
-}
+
+## How to run <a name="howtorun"></a>
+
+### Installation and Setup
+```bash
+# Clone the repository + optionally set up and activate virtual environment
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy .env and set up environment variables
+cp .env.example .env
+
+# Edit .env with your OpenAI API Key
+OPENROUTER_API_KEY=your_api_key_here
+
+# Make the .sh scripts executable:
+chmod +x run_attacks_parallel_free_ratelimit_fixed.sh
+chmod +x check_completed_runs.sh
 ```
 
-### Run
-#### Environment Variables
-Copy the .env.example file and make .env file.
-Store your environment variables into the .env file such as OpenAI API Key.
-
-#### Setup your Test Case
-Set your test case in json and place it in test_cases.
+#### Setup a custom Test Case
+Set your test case in the following json format and place it in the ./test_cases directory.
+Use "to_json.py" if you want to change into json file.
 
 Example
 ```json
@@ -53,7 +60,7 @@ Example
   "max_rounds": 8
 }
 ```
-#### How to run
+### Single attacks <a name="single"></a>
 Example
 ```shell
 python main.py --jailbreak-tactic "crescendomation" --test-case "how_to_make_meth" --target-model "gpt-4" --attacker-model "gpt-4o"
@@ -68,103 +75,13 @@ Arguments:
 --attacker-base-url: [base url for attacker model. Default OpenAI URL if not provided.]
 ````
 
-## Implemented Methods
-### Crescendomation (Crescendo + Automation)
-Paper: [Microsoft](https://crescendo-the-multiturn-jailbreak.github.io/assets/pdf/CrescendoFullPaper.pdf) <br>
-Prompt source is referred from "crescendo" in [Promptfoo](https://github.com/promptfoo/promptfoo/blob/main/src/redteam/providers/crescendo/prompts.ts) <br>
-Official Implementation: No (no official implementation opened) <br>
-The conversation flow is as follows:
-1. Educational Inquiry as a Starting Point
-2. Building Trust through Sequential Questions
-3. Specificity and Direction
-4. Hypothetical Scenario Construction
-5. Exploiting Contemporary Sensitivities
-6. Leading Questions
+Currently only gpt-4o is supported for both Attacker and Target AI.
+However system prompts can be changed.
 
-Due to no official implementation, we implemented based on the algorithm in the paper.
-
-Example
-```shell
-python main.py --jailbreak-tactic "crescendomation" --test-case "how_to_make_meth" --target-model "gpt-4" --attacker-model "gpt-4o"
-```
-
-#### When is it effective?
-- When the goal is to generate dangerous information such as bomb making, meth recipe.
-
-### Opposite Day
-Reference: [Scale AI Paper](https://arxiv.org/pdf/2408.15221), [MHJ Dataset from Scale AI](https://huggingface.co/datasets/ScaleAI/mhj) <br>
-The original paper's focus is not to develop new tactics, but to show the effectiveness of human multi-turn jailbreaking over automated single-turn attacks. <br>
-However the example conversation in the paper and many samples in the released MHJ Dataset use Opposite Method, which we named "Opposite Day". <br>
-The conversation flow is as follows:
-1. Reverse the Harmful Objective and Request
-2. Request for Opposing Viewpoint
-
-The implementation is simple so based on the crescendomation algorithm structure, we changed the attacker generator prompt only to do the "Opposite Day" Attack.
-
-Example
-```shell
-python main.py --jailbreak-tactic "opposite_day" --test-case "misinformation_annexation_of_crimea_russia" --target-model "gpt-4" --attacker-model "gpt-4o"
-```
-
-#### When is it effective?
-- When the goal is to generate hate speech, but works on other cases too.
-
-### Actor Attack
-Paper: [Derail Yourself: Multi-turn LLM Jailbreak Attack through Self-discovered Clues](https://arxiv.org/abs/2410.10700) <br>
-Official Implementation: [Official Project Github Repository](https://github.com/renqibing/ActorAttack) <br>
-The conversation flow is as follows:
-1. Exploring the Person and Background
-2. Identifying Cultural or Historical Context
-3. Requesting Specific Technical or Subject Details
-4. Inquiring about Materials and Processes
-5. Final Connection Request
-
-Different from Crescendomation, attack process has two stages, "pre-attack" and "in-attack".
-In the "pre-attack" stage, the actor and the whole conversation flow (multi-turn prompts) are generated.
-In the "in-attack" stage, the pre-generated prompts are given the the target model, but prompts are dynamically modified when refused.<br>
-For the implemented version, "dynamic modify" is always True.
-
-Example
-```shell
-python main.py --jailbreak-tactic "actor_attack" --test-case "how_to_make_meth" --target-model "gpt-4" --attacker-model "gpt-4o"
-```
-#### When is it effective?
-- When the goal is to generate dangerous information such as bomb making, meth recipe.
-
-### Acronym
-Reference: [Scale AI Paper](https://arxiv.org/pdf/2408.15221), [MHJ Dataset from Scale AI](https://huggingface.co/datasets/ScaleAI/mhj) <br>
-The original paper's focus is not to develop new tactics, but to show the effectiveness of human multi-turn jailbreaking over automated single-turn attacks. <br>
-However the example conversation in the paper and many samples in the released MHJ Dataset use Acronym Method, which we named "Acronym". <br>
-The conversation flow is as follows:
-1. Extract the Acronym
-2. Fix the Acronym if needed
-3. Build on the Acronym
-4. Incrementally Shift the Context
-
-The implementation is simple so based on the crescendomation algorithm structure, we changed the attacker generator prompt only to do the "Acronym" Attack.
-
-Example
-```shell
-python main.py --jailbreak-tactic "acronym" --test-case "jewish_racial_slurs" --target-model "gpt-4" --attacker-model "gpt-4o"
-```
-
-#### When is it effective?
-- When the goal is to generate specific words that are not allowed to generate such as slurs.
-
-
-### More to come...
-
-
-## Contribution
-Please let us know if the implementation is wrong or if you have improvement ideas.
-Feel frue to add new attack methods.
-
-
-## Using Free API Models
-
+### Parallel attacks <a name="parallel"></a>
 This project includes scripts for running automated jailbreak tests using free models from OpenRouter. These scripts help manage API rate limits and enable efficient parallel execution of multiple test combinations.
 
-### Available Scripts
+#### Available Scripts
 
 #### 1. Run Attacks with Rate Limiting (Parallel Execution)
 
@@ -218,24 +135,6 @@ This script handles common API errors including:
 - Temporary service outages
 - Content policy violations
 
-### Setting Up
-
-1. Create a `.env` file with your OpenRouter API key:
-```
-OPENROUTER_API_KEY=your_api_key_here
-```
-
-2. Make the scripts executable:
-```bash
-chmod +x run_attacks_parallel_free_ratelimit_fixed.sh
-chmod +x check_completed_runs.sh
-```
-
-3. Run the parallel execution script to start testing:
-```bash
-./run_attacks_parallel_free_ratelimit_fixed.sh
-```
-
 ### Results Storage
 
 Results are stored in JSON files with this structure:
@@ -245,12 +144,46 @@ Results are stored in JSON files with this structure:
 
 Each file contains the complete conversation history and model responses for the test combination.
 
-## Plotting Results
+## Available Jailbreaking Methods <a name="jailbreaks"></a>
+All descriptions of multi-turn jailbreak methods except two are taken from the [Scale AI Paper](https://arxiv.org/pdf/2408.15221)
+The original paper's focus is not to develop new tactics, but to show the effectiveness of human multi-turn jailbreaking over automated single-turn attacks. Read the paper and appendix D for more information about the jailbreaking methods.
 
-The `plot_results.py` script provides visualization capabilities for analyzing model evaluation results stored in JSONL files. The script offers flexible options for creating both interactive and static plots to compare model performance across different configurations.
+The following multi-turn tactics have been adapted from the [AIM intelligence repo](https://github.com/AIM-Intelligence/Automated-Multi-Turn-Jailbreaks): 
 
-### Basic Usage
+### Crescendomation (Crescendo + Automation)
+Paper: [Microsoft](https://crescendo-the-multiturn-jailbreak.github.io/assets/pdf/CrescendoFullPaper.pdf) <br>
+Prompt source is referred from "crescendo" in [Promptfoo](https://github.com/promptfoo/promptfoo/blob/main/src/redteam/providers/crescendo/prompts.ts) <br>
+Due to no official implementation, we implemented based on the algorithm in the paper.
 
+### Actor Attack
+Paper: [Derail Yourself: Multi-turn LLM Jailbreak Attack through Self-discovered Clues](https://arxiv.org/abs/2410.10700) <br>
+Official Implementation: [Official Project Github Repository](https://github.com/renqibing/ActorAttack) <br>
+The conversation flow is as follows:
+1. Exploring the Person and Background
+2. Identifying Cultural or Historical Context
+3. Requesting Specific Technical or Subject Details
+4. Inquiring about Materials and Processes
+5. Final Connection Request
+
+Different from Crescendomation, attack process has two stages, "pre-attack" and "in-attack".
+In the "pre-attack" stage, the actor and the whole conversation flow (multi-turn prompts) are generated.
+In the "in-attack" stage, the pre-generated prompts are given the the target model, but prompts are dynamically modified when refused.<br>
+For the implemented version, "dynamic modify" is always True.
+
+Please not that we only extensively tested these jailbreaking methods:
+- Direct Request
+- Actor Attack
+- Command
+- Crescendomation
+- Crowding
+- Emotional Appeal
+- Opposite Day
+- Acronym
+
+The other implementations should be considered experimental.
+
+
+## Plotting Results <a name="plotting"></a>
 To generate plots from your results, run the script with the following basic syntax:
 
 ```bash
@@ -272,7 +205,16 @@ The script accepts several command-line arguments to customize the visualization
 * `--goal-achieved-only`: Include only results where the evaluation goal was achieved
 * `--refused-only`: Include only results where the model refused at least once
 
-### Plot Types
+
+Generate plots to compare model performance:
+
+```bash
+# Interactive model comparison
+python plot_results.py --turn-type multi --temp 0.0 --plot-type model
+
+# Static plots for specific configurations
+python plot_results.py --key crescendomation --no-interactive-plot
+```
 
 #### Model Comparison Plots
 
@@ -326,3 +268,15 @@ Show only attempts with refused rounds:
 ```bash
 python plot_results.py --refused-only --plot-type model
 ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue if the implementation is wrong or if you have improvement ideas, or add new attack methods in a pull request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Disclaimer
+
+This tool is intended for research and educational purposes only. Please use responsibly and in accordance with applicable laws and regulations.
