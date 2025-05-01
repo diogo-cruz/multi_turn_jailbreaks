@@ -953,7 +953,7 @@ const EvaluatorViz = () => {
         <>
           {/* Navigation Tabs */}
           <div className="tabs" style={{ display: 'flex', marginBottom: '1rem', borderBottom: '1px solid #e5e7eb' }}>
-            {['overview', 'models', 'testCases', 'prompts', 'tacticAnalysis', 'evaluatorAnalysis'].map(tab => (
+            {['overview', 'models', 'testCases', 'prompts', 'tacticAnalysis', 'evaluatorAnalysis', 'reasoningAnalysis'].map(tab => (
               <div 
                 key={tab}
                 className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -972,6 +972,7 @@ const EvaluatorViz = () => {
                  tab === 'testCases' ? 'Test Cases' :
                  tab === 'tacticAnalysis' ? 'Tactic Analysis' :
                  tab === 'evaluatorAnalysis' ? 'Evaluator Analysis' :
+                 tab === 'reasoningAnalysis' ? 'Reasoning Analysis' :
                  'Prompts'}
               </div>
             ))}
@@ -2531,9 +2532,65 @@ const EvaluatorViz = () => {
                         // Group by evaluator
                         const evaluatorResults = {};
                         runs.forEach(run => {
-                          evaluatorResults[run.evaluator_model] = run.goal_achieved === true || 
-                            run.goal_achieved === 'true' || run.goal_achieved === 1 || 
-                            run.success === true || run.success === 'true' || run.success === 1;
+                          // Primary: Use the last score from the scores array if available
+                          let scoreValue = null;
+                          
+                          if (run.scores) {
+                            let scoresList = [];
+                            
+                            // Handle scores that might be stored as a string
+                            if (typeof run.scores === 'string') {
+                              try {
+                                // Remove any surrounding quotes and clean the string
+                                const cleanedScores = run.scores.replace(/^['"]|['"]$/g, '')
+                                  .replace(/\\/g, '')
+                                  .trim();
+                                
+                                // Try to parse as JSON
+                                scoresList = JSON.parse(cleanedScores);
+                              } catch (e) {
+                                // If parsing fails, check for comma-separated format
+                                const commaSeparated = run.scores.split(',').map(s => parseFloat(s.trim()));
+                                if (!isNaN(commaSeparated[0])) {
+                                  scoresList = commaSeparated;
+                                }
+                              }
+                            } else if (Array.isArray(run.scores)) {
+                              scoresList = run.scores;
+                            }
+                            
+                            // Get the last non-zero score if available
+                            for (let i = scoresList.length - 1; i >= 0; i--) {
+                              if (scoresList[i] && !isNaN(scoresList[i]) && scoresList[i] > 0) {
+                                scoreValue = scoresList[i];
+                                break;
+                              }
+                            }
+                            
+                            // If no non-zero score found, use the last score
+                            if (scoreValue === null && scoresList.length > 0) {
+                              scoreValue = scoresList[scoresList.length - 1];
+                            }
+                            
+                            // Store the entire score progression for more detailed analysis
+                            evaluatorResults[run.evaluator_model] = {
+                              finalScore: scoreValue,
+                              scoreProgression: scoresList,
+                              // Also keep binary success as a fallback
+                              binarySuccess: run.goal_achieved === true || 
+                                run.goal_achieved === 'true' || run.goal_achieved === 1 || 
+                                run.success === true || run.success === 'true' || run.success === 1
+                            };
+                          } else {
+                            // Fallback to binary if no scores are available
+                            evaluatorResults[run.evaluator_model] = {
+                              finalScore: null,
+                              scoreProgression: [],
+                              binarySuccess: run.goal_achieved === true || 
+                                run.goal_achieved === 'true' || run.goal_achieved === 1 || 
+                                run.success === true || run.success === 'true' || run.success === 1
+                            };
+                          }
                         });
                         
                         // Compare each pair of evaluators
@@ -2547,14 +2604,44 @@ const EvaluatorViz = () => {
                             if (!totalPairs[pairKey]) {
                               totalPairs[pairKey] = 0;
                               agreementCounts[pairKey] = 0;
-                              evaluatorPairs[pairKey] = { evalA, evalB };
+                              evaluatorPairs[pairKey] = { 
+                                evalA, 
+                                evalB,
+                                scoreDiffs: [], // Track score differences for statistical analysis
+                                binaryAgreements: 0,
+                                binaryTotal: 0
+                              };
                             }
                             
                             totalPairs[pairKey]++;
                             
-                            // Check if they agree
-                            if (evaluatorResults[evalA] === evaluatorResults[evalB]) {
-                              agreementCounts[pairKey]++;
+                            const resultA = evaluatorResults[evalA];
+                            const resultB = evaluatorResults[evalB];
+                            
+                            // Track binary agreement as a secondary metric
+                            evaluatorPairs[pairKey].binaryTotal++;
+                            if (resultA.binarySuccess === resultB.binarySuccess) {
+                              evaluatorPairs[pairKey].binaryAgreements++;
+                            }
+                            
+                            // If both have valid scores, compare the score values
+                            if (resultA.finalScore !== null && resultB.finalScore !== null) {
+                              // Calculate absolute difference between scores
+                              const scoreDiff = Math.abs(resultA.finalScore - resultB.finalScore);
+                              
+                              // Store the difference for later analysis
+                              evaluatorPairs[pairKey].scoreDiffs.push(scoreDiff);
+                              
+                              // Consider scores "in agreement" if they're within 0.2 of each other
+                              // This threshold can be adjusted based on your specific scoring scale
+                              if (scoreDiff <= 0.2) {
+                                agreementCounts[pairKey]++;
+                              }
+                            } else {
+                              // If scores aren't available, fall back to binary success
+                              if (resultA.binarySuccess === resultB.binarySuccess) {
+                                agreementCounts[pairKey]++;
+                              }
                             }
                           }
                         }
@@ -2562,10 +2649,26 @@ const EvaluatorViz = () => {
                       
                       // Calculate correlation percentages
                       const correlationData = Object.keys(totalPairs).map(pairKey => {
-                        const { evalA, evalB } = evaluatorPairs[pairKey];
+                        const { evalA, evalB, scoreDiffs, binaryAgreements, binaryTotal } = evaluatorPairs[pairKey];
                         const total = totalPairs[pairKey];
                         const agreements = agreementCounts[pairKey];
                         const correlation = (agreements / total) * 100;
+                        
+                        // Calculate additional correlation metrics
+                        let avgScoreDiff = 0;
+                        let scoreStdDev = 0;
+                        
+                        if (scoreDiffs.length > 0) {
+                          // Average score difference
+                          avgScoreDiff = scoreDiffs.reduce((sum, diff) => sum + diff, 0) / scoreDiffs.length;
+                          
+                          // Standard deviation of score differences
+                          const variance = scoreDiffs.reduce((sum, diff) => sum + Math.pow(diff - avgScoreDiff, 2), 0) / scoreDiffs.length;
+                          scoreStdDev = Math.sqrt(variance);
+                        }
+                        
+                        // Binary success correlation (for comparison)
+                        const binaryCorrelation = binaryTotal > 0 ? (binaryAgreements / binaryTotal) * 100 : 0;
                         
                         return {
                           pairKey,
@@ -2574,7 +2677,13 @@ const EvaluatorViz = () => {
                           total,
                           agreements,
                           correlation,
-                          disagreements: total - agreements
+                          disagreements: total - agreements,
+                          avgScoreDiff,
+                          scoreStdDev,
+                          scoreDiffs,
+                          binaryCorrelation,
+                          binaryAgreements,
+                          binaryTotal
                         };
                       }).sort((a, b) => b.correlation - a.correlation);
                       
@@ -2588,6 +2697,7 @@ const EvaluatorViz = () => {
                             marginBottom: '20px'
                           }}>
                             <p><strong>Parameters used for matching:</strong> jailbreak_tactic, test_case, turn_type, target_model, target_temp, max_round, attacker_model</p>
+                            <p><strong>Correlation method:</strong> Using the scores list when available (with 0.2 threshold for agreement), falling back to binary success/failure when scores are unavailable.</p>
                             <p>Found {multiEvaluatorRuns.length} experiment runs with multiple evaluators.</p>
                           </div>
                           
@@ -2614,7 +2724,9 @@ const EvaluatorViz = () => {
                                   <thead>
                                     <tr>
                                       <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'left' }}>Evaluator Model</th>
-                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Goal Achieved</th>
+                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Final Score</th>
+                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Score Progression</th>
+                                      <th style={{ padding: '8px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Binary Result</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -2623,10 +2735,59 @@ const EvaluatorViz = () => {
                                         run.goal_achieved === 'true' || run.goal_achieved === 1 || 
                                         run.success === true || run.success === 'true' || run.success === 1;
                                       
+                                      // Parse scores
+                                      let scoresList = [];
+                                      let finalScore = null;
+                                      
+                                      try {
+                                        if (typeof run.scores === 'string') {
+                                          const cleanedScores = run.scores.replace(/^['"]|['"]$/g, '')
+                                            .replace(/\\/g, '')
+                                            .trim();
+                                          scoresList = JSON.parse(cleanedScores);
+                                        } else if (Array.isArray(run.scores)) {
+                                          scoresList = run.scores;
+                                        }
+                                        
+                                        // Get the last non-zero score
+                                        for (let i = scoresList.length - 1; i >= 0; i--) {
+                                          if (scoresList[i] && !isNaN(scoresList[i]) && scoresList[i] > 0) {
+                                            finalScore = scoresList[i];
+                                            break;
+                                          }
+                                        }
+                                        
+                                        // If no non-zero score found, use the last score
+                                        if (finalScore === null && scoresList.length > 0) {
+                                          finalScore = scoresList[scoresList.length - 1];
+                                        }
+                                      } catch (e) {
+                                        console.error("Error parsing scores for display", e);
+                                      }
+                                      
                                       return (
                                         <tr key={index}>
                                           <td style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>
                                             {run.evaluator_model || "Unknown"}
+                                          </td>
+                                          <td style={{ 
+                                            padding: '8px', 
+                                            borderBottom: '1px solid #ddd',
+                                            textAlign: 'center',
+                                            fontWeight: 'bold'
+                                          }}>
+                                            {finalScore !== null ? finalScore.toFixed(2) : 'N/A'}
+                                          </td>
+                                          <td style={{ 
+                                            padding: '8px', 
+                                            borderBottom: '1px solid #ddd',
+                                            textAlign: 'center',
+                                            fontSize: '0.85em'
+                                          }}>
+                                            {scoresList.length > 0 
+                                              ? scoresList.map(s => typeof s === 'number' ? s.toFixed(2) : s).join(' → ')
+                                              : 'N/A'
+                                            }
                                           </td>
                                           <td style={{ 
                                             padding: '8px', 
@@ -2652,7 +2813,9 @@ const EvaluatorViz = () => {
                               <thead>
                                 <tr>
                                   <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'left' }}>Evaluator Pair</th>
-                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Correlation</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Score Correlation</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Avg Score Diff</th>
+                                  <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Binary Correlation</th>
                                   <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Agreements</th>
                                   <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Disagreements</th>
                                   <th style={{ padding: '10px', borderBottom: '2px solid #ddd', textAlign: 'center' }}>Total Comparisons</th>
@@ -2672,6 +2835,17 @@ const EvaluatorViz = () => {
                                       fontWeight: 'bold'
                                     }}>
                                       {data.correlation.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                                      {data.avgScoreDiff.toFixed(2)}
+                                    </td>
+                                    <td style={{ 
+                                      padding: '10px', 
+                                      borderBottom: '1px solid #ddd', 
+                                      textAlign: 'center',
+                                      backgroundColor: `rgba(${255 - Math.round(data.binaryCorrelation * 2.55)}, ${Math.round(data.binaryCorrelation * 2.55)}, 100, 0.1)`,
+                                    }}>
+                                      {data.binaryCorrelation.toFixed(1)}%
                                     </td>
                                     <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
                                       {data.agreements}
@@ -2903,6 +3077,15 @@ const EvaluatorViz = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* Reasoning Analysis Tab */}
+          {activeTab === 'reasoningAnalysis' && (
+            <div>
+              {/* Add reasoning analysis content here */}
+              <h2>Reasoning Analysis</h2>
+              <p>This section will contain reasoning analysis content.</p>
             </div>
           )}
           

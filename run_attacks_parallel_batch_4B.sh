@@ -9,7 +9,7 @@ ATTACK_TEMP=1.0
 SAMPLES=1
 
 # Output folder name
-OUTPUT_FOLDER="batch_4A"
+OUTPUT_FOLDER="batch_4B_fixed_$(date +%Y%m%d)"
 
 # Define the values for each parameter
 jailbreak_tactics=(
@@ -17,58 +17,34 @@ jailbreak_tactics=(
     "crowding"
 )
 test_cases=(
-    fake_online_profile
-    # store_theft
-    date_rape_drug
-    # nudes_blackmail
-    airbnb_voyeurism
-    # poisoning_water_supply
-    terrorist_recruitment
-    # bus_bomb_placement
-    # "deceptive_email"
     "remove_watermarks"
-    # "tax_fraud"
     "drunk_driving"
-    # "hate_speech_immigrants"
     "false_accusation"
-    # "gender_insults"
     "lgbtq_insults"
-    # "illegal_arms"
     "counterfeit_money"
-    # "deoderant_flamethrower"
     "pistol_serial_numbers"
-    # "improvised_gun"
 )
 target_models=(
     "deepseek/deepseek-r1-distill-llama-8b"
     "deepseek/deepseek-r1-distill-qwen-14b"
     "qwen/qwen3-14b"
-
 )
 temperatures=(
     "0.0"
-    # "1.0"
 )
 turn_types=(
-    "single_turn"
     "multi_turn"
 )
 
 attacker_models=(
-    # "openai/gpt-4.1-nano"
     "openai/gpt-4o-mini"
-    # "gpt-4o-mini-2024-07-18"
-    # "anthropic/claude-3-haiku"
-    # "google/gemini-2.0-flash-lite-001"
-    # "google/gemini-2.0-flash-001"
-    # "cognitivecomputations/dolphin-mixtral-8x7b"
-    #"cohere/command-r-plus"
-    #"nousresearch/nous-hermes-2-mixtral-8x7b-dpo"
 )
 
 reasoning=(
-    "high"
     "none"
+    "low"
+    "medium"
+    "high"
 )
 
 # Static values
@@ -147,4 +123,4 @@ echo "Total number of combinations to run: $TOTAL_COMBINATIONS"
 echo "Running with $THREAD_COUNT parallel processes..."
 
 # Run with progress tracking
-generate_commands | parallel -j "$THREAD_COUNT" --bar --colsep ' ' {}
+generate_commands | parallel -j "$THREAD_COUNT" --bar --colsep ' ' {} 

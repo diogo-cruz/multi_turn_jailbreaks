@@ -46,6 +46,8 @@ const InteractiveJailbreakViz = () => {
     'results_2B.csv',
     'batch3A_results.csv',
     'batch_4A_results.csv',
+    'batch_4B_results.csv',
+    'batch_4B_fixed_20250501_results.csv',
     'results_final_3samples.csv'
   ]);
   // State for enhanced master data
