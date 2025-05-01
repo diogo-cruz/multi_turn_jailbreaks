@@ -173,7 +173,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
             reasoning_args = {
                 "reasoning": {
                     "max_tokens": reasoning_tokens,
-                    "exclude": True  # Don't show reasoning in output
+                    "exclude": False  # Include reasoning in output
                 }
             }
             base_args["extra_body"] = reasoning_args
@@ -193,7 +193,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
             # Use exclude parameter to hide reasoning
             reasoning_args = {
                 "reasoning": {
-                    "exclude": True
+                    "exclude": False  # Include reasoning in output
                 }
             }
             base_args["extra_body"] = reasoning_args
@@ -204,7 +204,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
         elif model in ALWAYS_REASONING_MODELS:
             reasoning_args = {
                 "reasoning": {
-                    "exclude": True
+                    "exclude": False  # Include reasoning in output
                 }
             }
             base_args["extra_body"] = reasoning_args
@@ -224,7 +224,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
             reasoning_args = {
                 "reasoning": {
                     "effort": reasoning,
-                    "exclude": True  # Don't show reasoning in output
+                    "exclude": False  # Include reasoning in output
                 }
             }
         
@@ -233,7 +233,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
             reasoning_args = {
                 "reasoning": {
                     "max_tokens": reasoning_tokens,
-                    "exclude": True  # Don't show reasoning in output
+                    "exclude": False  # Include reasoning in output
                 }
             }
         

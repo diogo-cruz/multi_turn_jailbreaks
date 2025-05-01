@@ -143,19 +143,28 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             history_t.pop()
             C_refused += 1
             # round_number -= 1
+            
+            # Extract reasoning if available in the response
+            reasoning_content = None
+            if isinstance(response, dict) and "reasoning" in response:
+                reasoning_content = response.get("reasoning")
+                # The actual response is in the content field
+                response = response.get("content", str(response))
+            
+            refusal_data = {
+                "round": round_number,
+                "user": prompt,
+                "assistant": response,
+                "score": score,
+                "rationale": rationale if rationale else "N/A",
+            }
+            
+            # Add reasoning to output if available
+            if reasoning_content:
+                refusal_data["reasoning"] = reasoning_content
+            
             with open(output_file_path, "a") as f:
-                f.write(
-                    json.dumps(
-                        {
-                            "round": round_number,
-                            "user": prompt,
-                            "assistant": response,
-                            "score": score,
-                            "rationale": rationale if rationale else "N/A",
-                        }
-                    )
-                    + "\n"
-                )
+                f.write(json.dumps(refusal_data) + "\n")
             
             # ask the attacker llm to regenerate the prompt
             refused_prompt = prompt
@@ -199,19 +208,29 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         history_a["score"].append(score)
 
         print(f"Round {round_number} - Loss: {score}")
+        
+        # Extract reasoning if available in the response
+        reasoning_content = None
+        if isinstance(response, dict) and "reasoning" in response:
+            reasoning_content = response.get("reasoning")
+            # The actual response is in the content field
+            response = response.get("content", str(response))
+        
+        output_data = {
+            "round": round_number,
+            "user": prompt,
+            "assistant": response,
+            "score": score,
+            "summary": summary if summary else "N/A",
+        }
+        
+        # Add reasoning to output if available
+        if reasoning_content:
+            output_data["reasoning"] = reasoning_content
+            
         with open(output_file_path, "a") as f:
-            f.write(
-                json.dumps(
-                    {
-                        "round": round_number,
-                        "user": prompt,
-                        "assistant": response,
-                        "score": score,
-                        "summary": summary if summary else "N/A",
-                    }
-                )
-                + "\n"
-            )
+            f.write(json.dumps(output_data) + "\n")
+            
         if score == 1:
             print("Goal achieved")
             with open(output_file_path, "a") as f:
