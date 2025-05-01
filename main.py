@@ -202,7 +202,7 @@ target_model_name = args.target_model.split("/")[-1]
 async def run_sample(sample_num):
     # Create a unique output file path for each sample
     output_file_path = (
-        f"./clean_results/final_runs/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
+        f"./clean_results/test/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}_sample{sample_num}_{current_time}.jsonl"
     )
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     print(f"Generated Output file path for sample {sample_num}:", output_file_path)

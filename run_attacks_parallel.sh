@@ -31,7 +31,7 @@
 # =============================================================================
 
 # Number of parallel processes to run
-THREAD_COUNT=128
+THREAD_COUNT=1
 # attacker temperature
 ATTACK_TEMP=1.0
 
@@ -47,10 +47,10 @@ jailbreak_tactics=(
     # "acronym"
     # "opposite_day" 
     # "opposite_day" 
-    "direct_request"
-    # "emotional_appeal"
+    # "direct_request"
+    "emotional_appeal"
     # "command"
-    "crowding"
+    # "crowding"
     #"allegory"
     #"appeal_to_authority"
 )
@@ -59,38 +59,38 @@ test_cases=(
     # stealing_credit_card_info   # exclude?
     # sql_injection   # exclude?
     # car_break-in   # exclude?
-    fake_online_profile
+    # fake_online_profile
     # store_theft
-    date_rape_drug
+    # date_rape_drug
     # nudes_blackmail
     # illegal_brothel   # exclude?
-    airbnb_voyeurism
+    # airbnb_voyeurism
     # bestiality   # exclude?
     # mass_shooting_plan   # exclude?
     # poisoning_water_supply
-    terrorist_recruitment
+    # terrorist_recruitment
     # threatening_letter   # exclude?
     # bus_bomb_placement
 
     # Disinformation and deception
     # "deceptive_email"
-    "remove_watermarks"
+    # "remove_watermarks"
     # "tax_fraud"
-    "drunk_driving"
+    # "drunk_driving"
     # "bomb_threats"  # exclude?
 
     # Hate, harassment and discrimination
     # "hate_speech_immigrants"
-    "false_accusation"
+    # "false_accusation"
     # "asian_insults"  # exclude?
     # "gender_insults"
-    "lgbtq_insults"
+    # "lgbtq_insults"
 
     # Illegal goods and services
     # "illegal_arms"
-    "counterfeit_money"
-    # "deoderant_flamethrower"
-    "pistol_serial_numbers"
+    # "counterfeit_money"
+    "deoderant_flamethrower"
+    # "pistol_serial_numbers"
     # "improvised_gun"
 
 
@@ -126,7 +126,7 @@ target_models=(
     # "meta-llama/llama-3.2-3b-instruct"   # not using
     # "anthropic/claude-3.7-sonnet"        # use later
     # "openai/gpt-4o-latest"             # use later
-    # "meta-llama/llama-3.1-8b-instruct"
+    "meta-llama/llama-3.1-8b-instruct"
     # "meta-llama/llama-3.1-70b-instruct"
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
@@ -134,7 +134,7 @@ target_models=(
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
-    "deepseek/deepseek-chat-v3-0324"
+    # "deepseek/deepseek-chat-v3-0324"
     # "deepseek/deepseek-r1"
     # "openai/o3-mini-high"
     # "qwen/qwen-2.5-7b-instruct"
@@ -154,21 +154,21 @@ target_models=(
     # "meta-llama/llama-4-maverick"
     # "meta-llama/llama-4-scout"
     # "x-ai/grok-3-mini-beta"
-    "google/gemini-2.5-pro-preview-03-25"
-    "google/gemini-2.5-flash-preview"
-    "anthropic/claude-3.5-sonnet"
-    "anthropic/claude-3.7-sonnet"
-    "openai/gpt-4o"
-    "openai/gpt-4.1"
-    "openai/gpt-4.1-mini"
-    "openai/gpt-4.1-nano"
+    # "google/gemini-2.5-pro-preview-03-25"
+    # "google/gemini-2.5-flash-preview"
+    # "anthropic/claude-3.5-sonnet"
+    # "anthropic/claude-3.7-sonnet"
+    # "openai/gpt-4o"
+    # "openai/gpt-4.1"
+    # "openai/gpt-4.1-mini"
+    # "openai/gpt-4.1-nano"
 )
 temperatures=(
     "0.0"
     # "1.0"
 )
 turn_types=(
-    "single_turn"
+    # "single_turn"
     "multi_turn"
 )
 

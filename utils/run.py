@@ -133,9 +133,10 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         history_t.append({"role": "user", "content": prompt})
         response = target_generate(history_t)
 
-        while (
-            check_refusal(prompt, response, evaluator_generate)
-        ) and C_refused < 10:
+        while C_refused < 10:
+            refusal, rationale = check_refusal(prompt, response, evaluator_generate)
+            if not refusal:
+                break
             print("Refused, Backtrack")
             score = "refused"
             # history_a["score"].append(score)
@@ -150,6 +151,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
                             "user": prompt,
                             "assistant": response,
                             "score": score,
+                            "rationale": rationale if rationale else "N/A",
                         }
                     )
                     + "\n"
@@ -193,7 +195,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
 
         history_t.append({"role": "assistant", "content": response})
         # score = evaluate_with_rubric(response, goal, criteria, attacker_generate)
-        score = evaluate_with_strongreject(response, goal, evaluator_generate)
+        score, summary = evaluate_with_strongreject(response, goal, evaluator_generate)
         history_a["score"].append(score)
 
         print(f"Round {round_number} - Loss: {score}")
@@ -205,6 +207,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
                         "user": prompt,
                         "assistant": response,
                         "score": score,
+                        "summary": summary if summary else "N/A",
                     }
                 )
                 + "\n"
