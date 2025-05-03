@@ -28,6 +28,11 @@ target_models=(
     "deepseek/deepseek-r1-distill-llama-8b"
     "deepseek/deepseek-r1-distill-qwen-14b"
     "qwen/qwen3-14b"
+    "openai/o4-mini-high"
+    "deepseek/deepseek-r1"
+    "qwen/qwq-32b"
+    "google/gemini-2.5-flash-preview:thinking"
+    "anthropic/claude-3.7-sonnet:thinking"
 )
 temperatures=(
     "0.0"
