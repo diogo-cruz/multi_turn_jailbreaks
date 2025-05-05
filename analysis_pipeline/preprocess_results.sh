@@ -1,5 +1,30 @@
 #!/bin/bash
 
+# =============================================================================
+# Jailbreak Results Preprocessing Script
+# =============================================================================
+#
+# This script automates the preprocessing of jailbreak attack result files 
+# before they are analyzed. It handles synchronization of results from external
+# storage, file organization, and filename normalization to ensure consistent
+# analysis.
+#
+# The script:
+# - Creates necessary directory structure for results
+# - Syncs results from Google Drive using rclone
+# - Copies all JSONL files to a unified results directory
+# - Standardizes filenames by converting deterministic tags to timestamps
+# - Removes special characters and model name artifacts from filenames
+# - Eliminates duplicate files to prevent analysis errors
+# 
+# This preprocessing step is essential for ensuring consistent file naming
+# conventions and organization before detailed analysis is performed.
+#
+# Usage:
+#   ./preprocess_results.sh
+#
+# =============================================================================
+
 # Create results directory if it doesn't exist
 mkdir -p results
 mkdir -p results_direct

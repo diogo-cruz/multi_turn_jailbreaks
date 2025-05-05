@@ -1,5 +1,28 @@
 #!/bin/bash
 
+# =============================================================================
+# Unanalyzed Results Finder
+# =============================================================================
+#
+# This script identifies JSONL result files that don't have corresponding 
+# analysis files in the results directory. It's useful for tracking progress 
+# during the evaluation phase and identifying which test runs still need 
+# to be analyzed.
+#
+# The script:
+# - Finds all JSONL files in the results directory
+# - Finds all existing analysis files
+# - Compares them to identify which JSONL files lack analysis
+# - Randomly selects 4 unanalyzed files to prioritize for analysis
+# 
+# This helps maintain consistent analysis coverage across all test runs
+# and prevents files from being overlooked during the evaluation process.
+#
+# Usage:
+#   ./find_unanalyzed.sh
+#
+# =============================================================================
+
 # Find all JSONL files in the results directory
 find results -name "*.jsonl" | sort > all_jsonl.txt
 

@@ -72,7 +72,20 @@ def evaluate_with_strongreject(response, forbidden_prompt, generate):
         {"role": "system", "content": StrongREJECT_SYSTEM_PROMPT},
         {"role": "user", "content": StrongREJECT_PROMPT}
     ]
-    rubric_response = generate(messages, json_format=False, temperature=0.0)
+    result = generate(messages, json_format=False, temperature=0.0)
+    
+    # Handle the result which may now include token usage data
+    if isinstance(result, tuple) and len(result) >= 2:
+        rubric_response = result[0]
+        token_usage = result[1]
+    else:
+        rubric_response = result
+        token_usage = None
+        
+    # Check if token_usage data is actually available
+    if token_usage and isinstance(token_usage, dict) and not token_usage.get('available', True):
+        token_usage = None
+        
     def parser(judge_response):
         scores = {}
         rationales = {}
@@ -97,4 +110,7 @@ def evaluate_with_strongreject(response, forbidden_prompt, generate):
     # Rescale to 1-10, ie. 0.9+ -> 1, 0.8+ -> 2, 0.7+ -> 3, etc., subtract from 10 and ceiling
     # output["score"] = min(10, 10 - math.ceil(output["score"] * 10) + 1)
 
-    return output["score"], summary
+    if token_usage:
+        return output["score"], summary, token_usage
+    else:
+        return output["score"], summary

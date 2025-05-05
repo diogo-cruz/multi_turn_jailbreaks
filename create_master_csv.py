@@ -30,8 +30,54 @@ import subprocess
 import os
 import sys
 import re
+import json
 
-def extract_evaluator_model(filename, batch_name):
+def read_jsonl_for_info(file_path):
+    """
+    Read the JSONL file and extract evaluator_model, original_evaluator_model, and reasoning information.
+    
+    Args:
+        file_path: Path to the JSONL file
+        
+    Returns:
+        tuple: (evaluator_model, original_evaluator_model, reasoning)
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            evaluator_model = None
+            original_evaluator_model = None
+            reasoning = None
+            
+            for line in f:
+                try:
+                    data = json.loads(line.strip())
+                    
+                    # Get evaluator model info if not already found
+                    if not evaluator_model and data.get('evaluator_model'):
+                        evaluator_model = data.get('evaluator_model')
+                        original_evaluator_model = data.get('original_evaluator_model')
+                    
+                    # Get reasoning if present
+                    if reasoning is None and 'reasoning' in data:
+                        reasoning_value = data.get('reasoning')
+                        # Only use reasoning if it's a string and not None
+                        if isinstance(reasoning_value, str):
+                            reasoning = reasoning_value
+                except json.JSONDecodeError:
+                    continue
+            
+            return evaluator_model, original_evaluator_model, reasoning
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+    
+    # Return None if we couldn't find the information
+    return None, None, None
+
+def extract_evaluator_model_from_filename(filename, batch_name):
+    """
+    Extract evaluator model from filename when JSONL data is not available.
+    This is the fallback method.
+    """
     # Check if "eval" is in the filename
     eval_match = re.search(r'_eval_([^\.]+)', filename)
     if eval_match:
@@ -72,9 +118,13 @@ def main():
     base_dir = Path('.')
     final_runs_dir = base_dir / "clean_results" / "final_runs"
     csv_results_dir = base_dir / "csv_results"
+    interactive_analysis_dir = base_dir / "interactive_analysis" / "public"
+    evaluator_analysis_dir = base_dir / "evaluator_analysis" / "public"
     
-    # Create csv_results directory if it doesn't exist
+    # Create directories if they don't exist
     csv_results_dir.mkdir(exist_ok=True)
+    interactive_analysis_dir.mkdir(parents=True, exist_ok=True)
+    evaluator_analysis_dir.mkdir(parents=True, exist_ok=True)
     
     # List all subfolders in final_runs
     subfolders = [f for f in final_runs_dir.iterdir() if f.is_dir()]
@@ -139,10 +189,12 @@ def main():
                     key = (tactic, test_case, model, turn_type)
                     file_mapping[key] = file_path
                 
-                # Add source_file, attacker_model, and evaluator_model columns
+                # Add source_file, attacker_model, evaluator_model, original_evaluator_model, and reasoning columns
                 source_files = []
                 attacker_models = []
                 evaluator_models = []
+                original_evaluator_models = []
+                reasonings = []
                 
                 for _, row in df.iterrows():
                     tactic = row.get('jailbreak_tactic', '')
@@ -159,17 +211,50 @@ def main():
                             matched_file = file_path
                             break
                     
-                    # Set source_file
+                    # Set source_file, evaluator models, and reasoning
                     if matched_file:
                         source_files.append(matched_file.name)
-                        evaluator_models.append(extract_evaluator_model(matched_file.name, batch_name))
+                        
+                        # Try to extract information from the JSONL file
+                        eval_model, orig_eval_model, reasoning = read_jsonl_for_info(matched_file)
+                        
+                        # Add reasoning
+                        reasonings.append(reasoning)
+                        
+                        if eval_model:
+                            # Use values from JSONL if available
+                            evaluator_models.append(eval_model)
+                            if orig_eval_model:
+                                original_evaluator_models.append(orig_eval_model)
+                            else:
+                                # If original not present, use the same as evaluator_model
+                                original_evaluator_models.append(eval_model)
+                        else:
+                            # Fall back to filename-based extraction if JSONL doesn't have the info
+                            current_evaluator_model = extract_evaluator_model_from_filename(matched_file.name, batch_name)
+                            evaluator_models.append(current_evaluator_model)
+                            
+                            # Store the original evaluator model from the filename
+                            eval_match = re.search(r'_eval_([^\.]+)', matched_file.name)
+                            if eval_match and batch_name == "batch3A":
+                                # For batch3A, keep the original model string
+                                original_model = eval_match.group(1)
+                                original_evaluator_models.append(original_model)
+                            else:
+                                # For other batches, use the same as evaluator_model
+                                original_evaluator_models.append(current_evaluator_model)
                     else:
                         source_files.append(None)
+                        reasonings.append(None)
                         # Default evaluator model based on batch
                         if batch_name == "batch3A":
-                            evaluator_models.append("openai/gpt-4.1-mini")
+                            current_evaluator_model = "openai/gpt-4.1-mini"
+                            evaluator_models.append(current_evaluator_model)
+                            original_evaluator_models.append(current_evaluator_model)
                         else:
-                            evaluator_models.append("openai/gpt-4o-mini-2024-07-18")
+                            current_evaluator_model = "openai/gpt-4o-mini-2024-07-18"
+                            evaluator_models.append(current_evaluator_model)
+                            original_evaluator_models.append(current_evaluator_model)
                     
                     # Set attacker_model (default to gpt-4o-mini-2024-07-18)
                     attacker_models.append("openai/gpt-4o-mini-2024-07-18")
@@ -178,13 +263,16 @@ def main():
                 df['source_file'] = source_files
                 df['attacker_model'] = attacker_models
                 df['evaluator_model'] = evaluator_models
+                df['original_evaluator_model'] = original_evaluator_models
+                df['reasoning'] = reasonings
                 
                 # Ensure the DataFrame has the required columns
                 # Based on enhanced_master_data.csv structure
                 required_columns = [
                     "jailbreak_tactic", "test_case", "turn_type", "target_model",
                     "target_temp", "max_round", "goal_achieved", "scores", 
-                    "refused", "timestamp", "batch", "source_file", "attacker_model", "evaluator_model"
+                    "refused", "timestamp", "batch", "source_file", "attacker_model", 
+                    "evaluator_model", "original_evaluator_model", "reasoning"
                 ]
                 
                 # Add missing columns with None values
@@ -202,10 +290,22 @@ def main():
         # Combine all DataFrames
         master_df = pd.concat(all_dfs, ignore_index=True)
         
-        # Save the master CSV
+        # Save the master CSV to all required directories
         master_csv_path = csv_results_dir / "master_results.csv"
         master_df.to_csv(master_csv_path, index=False)
-        print(f"Created master CSV file: {master_csv_path}")
+        
+        # Save to interactive_analysis/public
+        interactive_path = interactive_analysis_dir / "master_results.csv"
+        master_df.to_csv(interactive_path, index=False)
+        
+        # Save to evaluator_analysis/public
+        evaluator_path = evaluator_analysis_dir / "master_results.csv"
+        master_df.to_csv(evaluator_path, index=False)
+        
+        print(f"Created master CSV file and saved to:")
+        print(f"- {master_csv_path}")
+        print(f"- {interactive_path}")
+        print(f"- {evaluator_path}")
         print(f"Total rows: {len(master_df)}")
     else:
         print("No data to combine. Check for errors above.")

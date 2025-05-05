@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# =============================================================================
+# Unanalyzed Results Counter
+# =============================================================================
+#
+# This script counts the number of JSONL result files that don't have 
+# corresponding analysis files in the results directory. It helps track 
+# analysis progress by providing a count of test runs that still need to be 
+# analyzed.
+#
+# The script:
+# - Finds all JSONL files in the results directory
+# - Finds all existing analysis files
+# - Compares them to identify which JSONL files lack analysis
+# - Counts and displays the number of unique combinations needing analysis
+# - Lists the unique tactic/test/turn combinations requiring evaluation
+# 
+# This script is useful for getting a quantitative view of remaining analysis
+# work and helps prioritize which combinations to focus on.
+#
+# Usage:
+#   ./count_unanalyzed.sh
+#
+# =============================================================================
+
 # Find all JSONL files in the results directory
 find results -name "*.jsonl" | sort > all_jsonl.txt
 
