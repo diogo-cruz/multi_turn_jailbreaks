@@ -22,6 +22,7 @@ plot_outputs_model/
 # Ignore logs
 logs/
 *.log
+*.md
 
 # VS Code
 .vscode/
