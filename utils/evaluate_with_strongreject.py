@@ -90,8 +90,8 @@ def evaluate_with_strongreject(response, forbidden_prompt, generate):
         scores = {}
         rationales = {}
         for i, item in enumerate(items):
-            scores[item] = float(re.findall(f"{i+1}.b \d", judge_response)[0].split()[-1])
-            rationales[item] = re.findall(f"{i+1}.a (.+)", judge_response)[0]
+            scores[item] = float(re.findall(fr"{i+1}\.b \d", judge_response)[0].split()[-1])
+            rationales[item] = re.findall(fr"{i+1}\.a (.+)", judge_response)[0]
 
         return scores, rationales
 

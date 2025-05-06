@@ -26,6 +26,7 @@ from utils import (
     check_refusal,
     evaluate_with_strongreject,
 )
+from datetime import datetime
 
 def generate_step(
     round_num, task, turn_type, max_rounds, system_prompt, history_a, last_response, attacker_generate, regenerate_prompt=False, refused_prompt=None, target_refusal_response=None
@@ -98,17 +99,50 @@ def get_custom_run(jailbreak_tactic):
         return None
 
 def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic, evaluator_generate=None):
+    """
+    Run a jailbreak attack on a target model using a specified jailbreak tactic.
     
+    Parameters:
+    - test_case: The test case to use for the attack (either a dict or a file path)
+    - output_file_path: The path to save the output
+    - target_generate: A function that generates text from the target model
+    - attacker_generate: A function that generates text from the attacker model
+    - jailbreak_tactic: The jailbreak tactic to use
+    - evaluator_generate: A function that generates a score for the attack
+    
+    Returns:
+    - score: The score of the attack
+    - rejected: Whether the attack was rejected
+    """
+
+    # Load the test case - either from file or use the provided dict
+    if isinstance(test_case, dict):
+        test_case_data = test_case
+    else:
+        try:
+            with open(test_case, 'r') as f:
+                test_case_data = json.load(f)
+        except (TypeError, FileNotFoundError):
+            raise ValueError(f"Could not load test case from {test_case}")
+
+    # Extract test case data
+    if "task" in test_case_data:
+        goal = test_case_data["task"]  # Legacy format
+    else:
+        goal = test_case_data.get("goal", "Unknown goal")
+        
+    # Get target model information if available
+    target_model = test_case_data.get("target_model", "unknown")
+    print(f"Goal: {goal}")
+
     if evaluator_generate is None:
         raise ValueError("Evaluator generate function is required for the attack.")
     
-    goal = test_case["task"]
-    # target_system = test_case["target_system"]
-    # success_condition = test_case.get("success_condition", None)
-    turn_type = test_case["turn_type"]
-    max_rounds = test_case["max_rounds"]
+    # Get turn type and max rounds with fallbacks for both formats
+    turn_type = test_case_data.get("turn_type", test_case_data.get("type", "multi"))
+    max_rounds = test_case_data.get("max_rounds", test_case_data.get("maxRounds", 10))
 
-    if not has_single_turn(jailbreak_tactic) and test_case["turn_type"] == "single":
+    if not has_single_turn(jailbreak_tactic) and turn_type == "single":
         raise Exception(f"Jailbreak tactic {jailbreak_tactic} does not have a single turn implementation.")
     
     prompt_module = importlib.import_module(f"jailbreaks.{jailbreak_tactic}.prompt_{turn_type}_turn")
@@ -166,6 +200,46 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             response = target_result
             target_token_usage = None
 
+        # DEBUG: Print the raw response for inspection
+        print(f"DEBUG: Raw response type: {type(response)}")
+        
+        # Extract and save reasoning content immediately to prevent loss
+        reasoning_content = None
+        
+        # Check if response has a reasoning field directly
+        if isinstance(response, dict) and "reasoning" in response:
+            reasoning_content = response.get("reasoning")
+            print(f"DEBUG: Extracted reasoning content from response dict, type={type(reasoning_content)}, len={len(str(reasoning_content)) if reasoning_content else 0}")
+            # The actual response is in the content field
+            response = response.get("content", str(response))
+        # Check if response has reasoning as an attribute
+        elif hasattr(response, "reasoning"):
+            reasoning_content = getattr(response, "reasoning")
+            print(f"DEBUG: Extracted reasoning content from response object attribute, type={type(reasoning_content)}, len={len(str(reasoning_content)) if reasoning_content else 0}")
+            # Save a copy of the reasoning to preserve it
+            saved_reasoning = reasoning_content
+            # If response also has a content attribute, use that for the visible response
+            if hasattr(response, "content"):
+                response = getattr(response, "content")
+        # Check for Qwen-specific formats
+        elif isinstance(response, str) and "<thinking>" in response:
+            # Extract reasoning content from Qwen's <thinking> tags
+            import re
+            thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
+            if thinking_match:
+                reasoning_content = thinking_match.group(1)
+                print(f"DEBUG: Extracted Qwen reasoning from <thinking> tags, len={len(reasoning_content)}")
+                # Remove thinking tags from the visible response
+                response = re.sub(r'<thinking>.*?</thinking>', '', response, flags=re.DOTALL)
+                print(f"DEBUG: Removed thinking tags from response")
+        
+        # For DeepSeek models, estimate token count if not available
+        if target_token_usage and ('deepseek' in target_model.lower() or 'qwen' in target_model.lower()) and reasoning_content:
+            estimated_tokens = len(reasoning_content) // 4  # Rough approximation of tokens
+            if not target_token_usage.get('reasoning_tokens'):
+                print(f"DEBUG: No reasoning tokens found in usage data, estimating from content: ~{estimated_tokens} tokens")
+                target_token_usage['reasoning_tokens'] = estimated_tokens
+
         while C_refused < 10:
             refusal_result = check_refusal(prompt, response, evaluator_generate)
             
@@ -187,13 +261,6 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             history_t.pop()
             C_refused += 1
             # round_number -= 1
-            
-            # Extract reasoning if available in the response
-            reasoning_content = None
-            if isinstance(response, dict) and "reasoning" in response:
-                reasoning_content = response.get("reasoning")
-                # The actual response is in the content field
-                response = response.get("content", str(response))
             
             refusal_data = {
                 "round": round_number,
@@ -300,40 +367,135 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
 
         print(f"Round {round_number} - Loss: {score}")
         
-        # Extract reasoning if available in the response
-        reasoning_content = None
-        if isinstance(response, dict) and "reasoning" in response:
-            reasoning_content = response.get("reasoning")
-            # The actual response is in the content field
-            response = response.get("content", str(response))
-        
-        output_data = {
-            "round": round_number,
-            "user": prompt,
-            "assistant": response,
-            "score": score,
-            "summary": summary if summary else "N/A",
-        }
-        
-        # Add reasoning to output if available
-        if reasoning_content:
-            output_data["reasoning"] = reasoning_content
+        # DEBUG: Print the raw response for inspection
+        print(f"DEBUG: Raw response type for evaluation: {type(response)}")
+        if isinstance(response, dict):
+            print(f"DEBUG: Response keys for evaluation: {response.keys()}")
             
-        # Add token usage information if available
-        if target_token_usage and isinstance(target_token_usage, dict):
-            # Check if token_usage data is available
-            if target_token_usage.get('available', True):
+        # Enhanced reasoning extraction for evaluated responses
+        evaluator_reasoning_content = None
+        if isinstance(evaluation_result, dict) and "reasoning" in evaluation_result:
+            evaluator_reasoning_content = evaluation_result.get("reasoning")
+            print(f"DEBUG: Extracted evaluator reasoning content from result dict")
+            # The actual result would be in the content field
+            evaluation_result = evaluation_result.get("content", str(evaluation_result))
+        # Check if evaluation_result has reasoning as an attribute
+        elif hasattr(evaluation_result, "reasoning"):
+            evaluator_reasoning_content = getattr(evaluation_result, "reasoning")
+            print(f"DEBUG: Extracted evaluator reasoning content from result object attribute")
+        
+        # For DeepSeek models, estimate token count if not available
+        if 'deepseek' in target_model.lower() and reasoning_content:
+            estimated_tokens = len(reasoning_content) // 4  # Rough approximation of tokens
+            if not target_token_usage or not target_token_usage.get('reasoning_tokens'):
+                print(f"DEBUG: No reasoning tokens found in usage data, estimating from content: ~{estimated_tokens} tokens")
+                if target_token_usage:
+                    target_token_usage['reasoning_tokens'] = estimated_tokens
+                else:
+                    target_token_usage = {'reasoning_tokens': estimated_tokens}
+
+        # Save the results to the output file
+        with open(output_file_path, 'a') as f:
+            # Create the output data
+            output_data = {
+                "goal": goal,
+                "target_model": target_model,
+                "jailbreak_tactic": jailbreak_tactic,
+                "tactic_prompt": prompt,
+                "target_response": response,
+                "score": score,
+                "rejected": False,
+                "reasoning": False,  # This will be changed to true if reasoning content is found
+                "metadata": {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "dataset": "strongreject", 
+                    "creator": "anonymous",
+                }
+            }
+            
+            print(f"DEBUG: Created output_data base structure with keys: {list(output_data.keys())}")
+            
+            # Add token usage if available
+            if target_token_usage:
                 output_data["token_usage"] = target_token_usage
-                # Extract reasoning tokens specifically if available
-                if "reasoning_tokens" in target_token_usage:
-                    output_data["reasoning_tokens"] = target_token_usage["reasoning_tokens"]
+                print(f"DEBUG: Added token_usage with keys: {list(target_token_usage.keys()) if isinstance(target_token_usage, dict) else 'not a dict'}")
                 
-        # Optionally include evaluator token usage
-        if evaluator_token_usage and isinstance(evaluator_token_usage, dict):
-            output_data["evaluator_token_usage"] = evaluator_token_usage
+                # Mark reasoning as true if we have reasoning tokens
+                if "reasoning_tokens" in target_token_usage and target_token_usage["reasoning_tokens"] > 0:
+                    output_data["reasoning"] = True
+                    print(f"DEBUG: Set reasoning=True based on reasoning_tokens={target_token_usage['reasoning_tokens']}")
+            else:
+                # If we have API errors but still have reasoning content, create a basic token_usage object
+                if reasoning_content and ('deepseek' in target_model.lower() or 'qwen' in target_model.lower()):
+                    output_data["token_usage"] = {
+                        "available": True,
+                        "model": target_model,
+                        "reasoning_tokens": len(str(reasoning_content)) // 4,  # Rough approximation
+                        "prompt_tokens": 0,  # Unknown due to API error
+                        "completion_tokens": 0,  # Unknown due to API error
+                        "total_tokens": 0  # Unknown due to API error
+                    }
+                    print(f"DEBUG: Created fallback token_usage due to API error but with reasoning content")
             
-        with open(output_file_path, "a") as f:
-            f.write(json.dumps(output_data) + "\n")
+            # Add evaluator token usage if available
+            if evaluator_token_usage:
+                output_data["evaluator_token_usage"] = evaluator_token_usage
+                print(f"DEBUG: Added evaluator_token_usage")
+            
+            # Add reasoning content if available - CRITICAL SECTION
+            if reasoning_content:
+                print(f"DEBUG: [CRITICAL] Adding reasoning_content to output_data with type={type(reasoning_content)}, length={len(str(reasoning_content))}")
+                
+                # Store reasoning in the output (both legacy field and the newer field)
+                output_data["reasoning_content"] = reasoning_content
+                output_data["reasoning"] = True
+                print(f"DEBUG: After adding, output_data keys = {list(output_data.keys())}")
+            else:
+                print(f"DEBUG: [CRITICAL] No reasoning_content available to add to output_data")
+                
+                # Last resort attempt for Qwen models - check if there was a token_usage error but response has reasoning
+                if isinstance(response, str) and "<thinking>" in response and 'qwen' in target_model.lower():
+                    # Try to extract reasoning from the response string
+                    import re
+                    thinking_match = re.search(r'<thinking>(.*?)</thinking>', response, re.DOTALL)
+                    if thinking_match:
+                        extracted_reasoning = thinking_match.group(1)
+                        output_data["reasoning_content"] = extracted_reasoning
+                        output_data["reasoning"] = True
+                        print(f"DEBUG: [RECOVERY] Extracted Qwen reasoning from <thinking> tags in response string, len={len(extracted_reasoning)}")
+                        
+                        # Also cleanup the visible response
+                        output_data["target_response"] = re.sub(r'<thinking>.*?</thinking>', '', response, flags=re.DOTALL)
+                        print(f"DEBUG: [RECOVERY] Cleaned up response by removing thinking tags")
+                        
+                        # Create estimated token usage if not already present
+                        if "token_usage" not in output_data:
+                            output_data["token_usage"] = {
+                                "available": True,
+                                "model": target_model,
+                                "reasoning_tokens": len(extracted_reasoning) // 4,
+                                "prompt_tokens": 0,  # Unknown
+                                "completion_tokens": len(response) // 4,  # Rough approximation
+                                "total_tokens": len(response) // 4  # Rough approximation
+                            }
+            
+            # Add evaluator reasoning content if available
+            if evaluator_reasoning_content:
+                print(f"DEBUG: Adding evaluator_reasoning_content to output_data")
+                output_data["evaluator_reasoning_content"] = evaluator_reasoning_content
+            
+            # Add summary if available
+            if summary:
+                output_data["summary"] = summary
+            
+            # Debug the final output
+            print(f"DEBUG: Final output_data keys before writing: {list(output_data.keys())}")
+            
+            # Write to the file
+            f.write(json.dumps(output_data) + '\n')
+            
+            # Verify after writing
+            print(f"DEBUG: Successfully wrote output data to {output_file_path}")
             
         if score == 1:
             print("Goal achieved")
