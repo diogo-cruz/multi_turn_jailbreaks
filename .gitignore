@@ -23,6 +23,8 @@ plot_outputs_model/
 logs/
 *.log
 *.md
+*.txt
+*.png
 
 # VS Code
 .vscode/
