@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Number of parallel processes to run
-THREAD_COUNT=128
+THREAD_COUNT=1
 # attacker temperature
 ATTACK_TEMP=1.0
 
@@ -9,7 +9,7 @@ ATTACK_TEMP=1.0
 SAMPLES=1
 
 # Output folder name
-OUTPUT_FOLDER="batch_3A"
+OUTPUT_FOLDER="batch3A"
 
 # Define the values for each parameter
 jailbreak_tactics=(
@@ -20,10 +20,10 @@ jailbreak_tactics=(
     # "acronym"
     # "opposite_day" 
     # "opposite_day" 
-    "direct_request"
+    "direct_request"   
     # "emotional_appeal"
     # "command"
-    "crowding"
+    # "crowding"
     #"allegory"
     #"appeal_to_authority"
 )
@@ -45,25 +45,25 @@ test_cases=(
     # threatening_letter   # exclude?
     # bus_bomb_placement
 
-    # Disinformation and deception
+    ### Disinformation and deception
     # "deceptive_email"
-    "remove_watermarks"
+    "remove_watermarks"             # done 
     # "tax_fraud"
-    "drunk_driving"
+    "drunk_driving"               # done
     # "bomb_threats"  # exclude?
 
-    # Hate, harassment and discrimination
+    ### Hate, harassment and discrimination
     # "hate_speech_immigrants"
-    "false_accusation"
+    "false_accusation"             # done
     # "asian_insults"  # exclude?
     # "gender_insults"
-    "lgbtq_insults"
+    "lgbtq_insults"                 # done 
 
-    # Illegal goods and services
+    ### Illegal goods and services
     # "illegal_arms"
-    "counterfeit_money"
+    "counterfeit_money"          # done 
     # "deoderant_flamethrower"
-    "pistol_serial_numbers"
+    "pistol_serial_numbers"        # done 
     # "improvised_gun"
 
 
@@ -107,7 +107,7 @@ target_models=(
     # "meta-llama/llama-3.1-405b-instruct"
     # "meta-llama/llama-3.3-70b-instruct"
     # "gpt-4o-mini-2024-07-18"
-    "deepseek/deepseek-chat-v3-0324"
+    # "deepseek/deepseek-chat-v3-0324"
     # "deepseek/deepseek-r1"
     # "openai/o3-mini-high"
     # "qwen/qwen-2.5-7b-instruct"
@@ -127,7 +127,10 @@ target_models=(
     # "meta-llama/llama-4-maverick"
     # "meta-llama/llama-4-scout"
     # "x-ai/grok-3-mini-beta"
-    "google/gemini-2.5-pro-preview-03-25"
+
+    ### new models
+    # "deepseek/deepseek-chat-v3-0324"
+    # "google/gemini-2.5-pro-preview-03-25"
     "google/gemini-2.5-flash-preview"
     "anthropic/claude-3.5-sonnet"
     "anthropic/claude-3.7-sonnet"
