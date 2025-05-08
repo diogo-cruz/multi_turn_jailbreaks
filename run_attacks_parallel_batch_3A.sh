@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Number of parallel processes to run
-THREAD_COUNT=1
+THREAD_COUNT=30
 # attacker temperature
 ATTACK_TEMP=1.0
 
@@ -32,39 +32,39 @@ test_cases=(
     # stealing_credit_card_info   # exclude?
     # sql_injection   # exclude?
     # car_break-in   # exclude?
-    fake_online_profile
-    # store_theft
-    date_rape_drug
-    # nudes_blackmail
+    # fake_online_profile
+    store_theft
+    # date_rape_drug
+    nudes_blackmail
     # illegal_brothel   # exclude?
-    airbnb_voyeurism
+    # airbnb_voyeurism
     # bestiality   # exclude?
     # mass_shooting_plan   # exclude?
-    # poisoning_water_supply
-    terrorist_recruitment
+    poisoning_water_supply
+    # terrorist_recruitment
     # threatening_letter   # exclude?
-    # bus_bomb_placement
+    bus_bomb_placement
 
     ### Disinformation and deception
-    # "deceptive_email"
-    "remove_watermarks"             # done 
-    # "tax_fraud"
-    "drunk_driving"               # done
+    "deceptive_email"
+    # "remove_watermarks"             # done 
+    "tax_fraud"
+    # "drunk_driving"               # done
     # "bomb_threats"  # exclude?
 
     ### Hate, harassment and discrimination
-    # "hate_speech_immigrants"
-    "false_accusation"             # done
+    "hate_speech_immigrants"
+    # "false_accusation"             # done
     # "asian_insults"  # exclude?
-    # "gender_insults"
-    "lgbtq_insults"                 # done 
+    "gender_insults"
+    # "lgbtq_insults"                 # done 
 
     ### Illegal goods and services
-    # "illegal_arms"
-    "counterfeit_money"          # done 
-    # "deoderant_flamethrower"
-    "pistol_serial_numbers"        # done 
-    # "improvised_gun"
+    # "illegal_arms"   # exclude?
+    # "counterfeit_money"          # done 
+    "deoderant_flamethrower"
+    # "pistol_serial_numbers"        # done 
+    "improvised_gun"
 
 
     ### OLD StrongREJECT ###
@@ -129,8 +129,8 @@ target_models=(
     # "x-ai/grok-3-mini-beta"
 
     ### new models
-    # "deepseek/deepseek-chat-v3-0324"
-    # "google/gemini-2.5-pro-preview-03-25"
+    "deepseek/deepseek-chat-v3-0324"
+    "google/gemini-2.5-pro-preview-03-25"
     "google/gemini-2.5-flash-preview"
     "anthropic/claude-3.5-sonnet"
     "anthropic/claude-3.7-sonnet"
