@@ -120,12 +120,13 @@ def main():
     csv_results_dir = base_dir / "csv_results"
     interactive_analysis_dir = base_dir / "interactive_analysis" / "public"
     evaluator_analysis_dir = base_dir / "evaluator_analysis" / "public"
+    general_analysis_dir = base_dir / "general_analysis" / "public"
     
     # Create directories if they don't exist
     csv_results_dir.mkdir(exist_ok=True)
     interactive_analysis_dir.mkdir(parents=True, exist_ok=True)
     evaluator_analysis_dir.mkdir(parents=True, exist_ok=True)
-    
+    general_analysis_dir.mkdir(parents=True, exist_ok=True)
     # List all subfolders in final_runs
     subfolders = [f for f in final_runs_dir.iterdir() if f.is_dir()]
     
@@ -301,6 +302,10 @@ def main():
         # Save to evaluator_analysis/public
         evaluator_path = evaluator_analysis_dir / "master_results.csv"
         master_df.to_csv(evaluator_path, index=False)
+        
+        # Save to general_analysis/public
+        general_path = general_analysis_dir / "master_results.csv"
+        master_df.to_csv(general_path, index=False)
         
         print(f"Created master CSV file and saved to:")
         print(f"- {master_csv_path}")

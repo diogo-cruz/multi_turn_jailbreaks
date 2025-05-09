@@ -1,0 +1,14 @@
+---
+description: Before running commands in the terminal, activate the conda env multi_turn_jailbreaks.
+globs: 
+alwaysApply: false
+---
+# Rule: Activate Conda Environment for multi_turn_jailbreaks
+
+## Description
+This rule ensures that the 'multi_turn_jailbreaks' conda environment is activated before the AI runs Python scripts or project-related terminal commands.
+
+## AI Instructions
+- Before executing any Python scripts, tests, or other terminal commands relevant to this project, you must verify that the 'multi_turn_jailbreaks' conda environment is active.
+- To activate this environment, use the command: `conda activate multi_turn_jailbreaks`
+- If you are generating a sequence of commands to be run in the terminal, ensure the conda activation is the first step. For example: `conda activate multi_turn_jailbreaks && python your_script.py`
