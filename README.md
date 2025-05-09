@@ -1,4 +1,3 @@
-
 # Automated Multi-Turn Jailbreak Attacks
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -280,3 +279,36 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Disclaimer
 
 This tool is intended for research and educational purposes only. Please use responsibly and in accordance with applicable laws and regulations.
+
+# Multi-Turn Jailbreaks Analysis
+
+This repository contains code and data for analyzing multi-turn jailbreak attacks on language models.
+
+## Features
+
+- **Data Visualization**: Interactive charts showing model performance metrics including:
+  - Attack Success Rate (ASR) with error bars showing standard error
+  - Refusal rates
+  - Average conversation rounds
+  - Comparison across different jailbreak tactics
+  - Detailed per-model analysis
+
+## Repository Structure
+
+- `src/`: Source code for the analysis pipeline
+- `jailbreaks/`: Implementation of various jailbreak techniques
+- `test_cases/`: Test cases for evaluating model responses
+- `clean_results/`: Processed results from jailbreak experiments
+- `general_analysis/`: Interactive web-based visualization dashboard
+
+## Running the Analysis Tools
+
+To run the general analysis visualization tool:
+
+```bash
+cd general_analysis
+npm install
+npm run dev
+```
+
+The visualization will be available at http://localhost:5173

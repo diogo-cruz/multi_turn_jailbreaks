@@ -10,9 +10,8 @@ const COLORS = [
   '#00C49F', '#FFBB28', '#FF8042', '#a4de6c', '#d0ed57'
 ];
 
-const SizeAnalysis = ({ data, modelComparisonData }) => {
+const ReleaseAnalysis = ({ data, modelComparisonData }) => {
   const [metric, setMetric] = useState("success");
-  const [logScale, setLogScale] = useState(true);
   
   // Process data for visualization
   const processedData = useMemo(() => {
@@ -20,30 +19,61 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
       return { models: [], familyGroups: {} };
     }
     
-    // Map model names to sizes from modelComparisonData
-    const modelSizes = {};
+    // Map model names to release dates from modelComparisonData
+    const modelDates = {};
     const modelFamilies = {};
     
-    // First pass: exact matches only
-    for (const model of modelComparisonData) {
-      if (model.model_name && model.parameters) {
-        modelSizes[model.model_name] = parseFloat(model.parameters);
-        
-        // Extract model family
-        const nameParts = model.model_name.toLowerCase().split(/[-\s]/);
-        if (nameParts.length > 0) {
-          const family = nameParts[0];
-          modelFamilies[model.model_name] = family;
+    // Parse date string into timestamp
+    const parseReleaseDate = (dateStr) => {
+      if (!dateStr) return null;
+      
+      // Check if it's already a timestamp
+      if (typeof dateStr === 'number') return dateStr;
+      
+      try {
+        // Try to parse month and year format (e.g., "May 2024")
+        const monthYearMatch = dateStr.match(/([A-Za-z]+)\s+(\d{4})/);
+        if (monthYearMatch) {
+          const month = new Date(Date.parse(monthYearMatch[1] + " 1, 2000")).getMonth();
+          const year = parseInt(monthYearMatch[2]);
+          return new Date(year, month, 15).getTime(); // Middle of the month
         }
-      } else if (model.Model && model.Parameters) {
+        
+        // Otherwise try standard date parsing
+        return new Date(dateStr).getTime();
+      } catch (e) {
+        console.warn("Could not parse date:", dateStr);
+        return null;
+      }
+    };
+    
+    // First pass: collect release dates with exact matching
+    for (const model of modelComparisonData) {
+      if (model.model_name && model["Release Date"]) {
+        const timestamp = parseReleaseDate(model["Release Date"]);
+        if (timestamp) {
+          modelDates[model.model_name] = timestamp;
+          
+          // Extract model family
+          const nameParts = model.model_name.toLowerCase().split(/[-\s]/);
+          if (nameParts.length > 0) {
+            const family = nameParts[0];
+            modelFamilies[model.model_name] = family;
+          }
+        }
+      } else if (model.Model && model["Release Date"]) {
         // Handle the CSV format from model_comparison.csv
         const modelName = model.Model;
-        modelSizes[modelName] = parseFloat(model.Parameters);
+        const timestamp = parseReleaseDate(model["Release Date"]);
         
-        const nameParts = modelName.toLowerCase().split(/[-\s\/]/);
-        if (nameParts.length > 0) {
-          const family = nameParts[0];
-          modelFamilies[modelName] = family;
+        if (timestamp) {
+          modelDates[modelName] = timestamp;
+          
+          const nameParts = modelName.toLowerCase().split(/[-\s\/]/);
+          if (nameParts.length > 0) {
+            const family = nameParts[0];
+            modelFamilies[modelName] = family;
+          }
         }
       }
     }
@@ -56,9 +86,9 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
       // Process model objects
       for (const modelObject of data) {
         const modelName = modelObject.name;
-        let size = modelSizes[modelName];
+        let releaseDate = modelDates[modelName];
         
-        if (!size) continue; // Skip if no exact match
+        if (!releaseDate) continue; // Skip if no exact match
         
         // Calculate overall metrics
         const successRate = modelObject.testCases 
@@ -75,7 +105,11 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
         
         modelData[modelName] = {
           name: modelName,
-          size,
+          releaseDate,
+          releaseDateStr: new Date(releaseDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short'
+          }),
           family: modelFamilies[modelName] || 'unknown',
           successRate,
           refusalRate,
@@ -87,14 +121,18 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
       // Process raw data rows
       for (const row of data) {
         const modelName = row.target_model || row.model || 'unknown';
-        let size = modelSizes[modelName];
+        let releaseDate = modelDates[modelName];
         
-        if (!size) continue; // Skip if no exact match
+        if (!releaseDate) continue; // Skip if no exact match
         
         if (!modelData[modelName]) {
           modelData[modelName] = {
             name: modelName,
-            size,
+            releaseDate,
+            releaseDateStr: new Date(releaseDate).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short'
+            }),
             family: modelFamilies[modelName] || 'unknown',
             successCount: 0,
             refusalCount: 0,
@@ -148,12 +186,12 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
       result.push(model);
     }
     
-    // Sort result by size
-    result.sort((a, b) => a.size - b.size);
+    // Sort result by release date
+    result.sort((a, b) => a.releaseDate - b.releaseDate);
     
     // Group by family
     Object.keys(families).forEach(family => {
-      families[family].sort((a, b) => a.size - b.size);
+      families[family].sort((a, b) => a.releaseDate - b.releaseDate);
     });
     
     return {
@@ -228,67 +266,54 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
     </div>
   );
   
-  // Render scale toggler
-  const renderScaleToggler = () => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium mb-1">X-Axis Scale:</label>
-      <div className="flex space-x-4">
-        <label className="inline-flex items-center">
-          <input 
-            type="checkbox" 
-            checked={logScale} 
-            onChange={(e) => setLogScale(e.target.checked)}
-            className="mr-1"
-          />
-          Logarithmic Scale
-        </label>
-      </div>
-    </div>
-  );
+  // Format date for display
+  const formatDate = (timestamp) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short'
+    });
+  };
   
   // Render the scatter plot
   const renderScatterPlot = () => {
     if (!chartData || chartData.length === 0) {
       return (
         <div className="p-4 bg-gray-100 rounded-md text-center">
-          <p className="text-gray-700 mb-2">Model size data is not available.</p>
-          <p className="text-gray-600 text-sm">Please ensure that model_comparison.csv contains parameter counts and model names match those in your data source.</p>
+          <p className="text-gray-700 mb-2">Model release date data is not available.</p>
+          <p className="text-gray-600 text-sm">Please ensure that model_comparison.csv contains release dates and model names match those in your data source.</p>
         </div>
       );
     }
     
-    // Format domain for x-axis (model size) based on scale type
-    const domain = logScale 
-      ? [Math.pow(10, Math.floor(Math.log10(Math.min(...chartData.map(m => m.size))))), 
-         Math.pow(10, Math.ceil(Math.log10(Math.max(...chartData.map(m => m.size)))))]
-      : [0, Math.max(...chartData.map(m => m.size)) * 1.1];
+    // Get min and max dates for domain
+    const minDate = Math.min(...chartData.map(m => m.releaseDate));
+    const maxDate = Math.max(...chartData.map(m => m.releaseDate));
+    
+    // Add some padding to the domain
+    const oneMonthMs = 30 * 24 * 60 * 60 * 1000;
+    const domain = [minDate - oneMonthMs, maxDate + oneMonthMs];
     
     return (
       <div className="chart-container">
         <h3 className="text-lg font-medium mb-2">
           {metric === 'success' ? 'Success Rate' : 
-           metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'} vs. Model Size
+           metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'} vs. Release Timeline
         </h3>
         
         <ResponsiveContainer width="100%" height={500}>
           <ScatterChart
-            margin={{ top: 20, right: 30, left: 30, bottom: 20 }}
+            margin={{ top: 20, right: 30, left: 30, bottom: 60 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               type="number" 
-              dataKey="size" 
-              name="Model Size" 
-              scale={logScale ? 'log' : 'linear'}
+              dataKey="releaseDate" 
+              name="Release Date" 
               domain={domain}
-              tick={{ fontSize: 12 }}
-              tickFormatter={(value) => {
-                if (value >= 1e9) return `${(value / 1e9).toFixed(0)}B`;
-                if (value >= 1e6) return `${(value / 1e6).toFixed(0)}M`;
-                return value;
-              }}
+              tickFormatter={formatDate}
+              tick={{ fontSize: 12, angle: -45, textAnchor: 'end' }}
             >
-              <Label value="Model Size (Parameters)" offset={-10} position="insideBottom" />
+              <Label value="Model Release Date" offset={-20} position="insideBottom" />
             </XAxis>
             <YAxis 
               type="number" 
@@ -312,28 +337,19 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
             />
             <Tooltip 
               cursor={{ strokeDasharray: '3 3' }}
-              formatter={(value, name, props) => {
-                if (name === 'Model Size') {
-                  if (value >= 1e9) return [`${(value / 1e9).toFixed(2)}B`, name];
-                  if (value >= 1e6) return [`${(value / 1e6).toFixed(2)}M`, name];
-                  return [value, name];
-                }
+              formatter={(value, name) => {
+                if (name === 'Release Date') return [formatDate(value), name];
                 if (name === 'Sample Count') return [value, name];
                 return [`${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`, name];
               }}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const model = payload[0].payload;
-                  const sizeStr = model.size >= 1e9 
-                    ? `${(model.size / 1e9).toFixed(2)}B` 
-                    : model.size >= 1e6 
-                      ? `${(model.size / 1e6).toFixed(2)}M` 
-                      : model.size;
                   
                   return (
                     <div className="bg-white p-2 border rounded shadow">
                       <p className="font-medium">{model.name}</p>
-                      <p>Size: {sizeStr} parameters</p>
+                      <p>Release Date: {model.releaseDateStr}</p>
                       <p>
                         {metric === 'success' ? 'Success Rate' : 
                          metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'}: 
@@ -374,38 +390,37 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
   };
   
   // Check if there's data for analysis
-  const hasModelSizeData = useMemo(() => {
+  const hasModelReleaseData = useMemo(() => {
     return chartData && chartData.length > 0;
   }, [chartData]);
 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold mb-4">Model Size Analysis</h2>
+        <h2 className="text-xl font-bold mb-4">Model Release Timeline Analysis</h2>
         <p className="text-gray-600">
-          Analyze the relationship between model size (parameters) and jailbreak resistance.
+          Analyze the relationship between model release date and jailbreak resistance over time.
         </p>
       </div>
       
-      {!hasModelSizeData ? (
+      {!hasModelReleaseData ? (
         <div className="p-6 bg-gray-100 rounded text-center">
           <p className="text-lg">
-            Model size data is not available. Please ensure that model_comparison.csv contains parameter counts.
+            Model release date data is not available. Please ensure that model_comparison.csv contains release dates.
           </p>
         </div>
       ) : (
         <div className="flex flex-wrap -mx-2">
           <div className="w-full md:w-1/4 px-2">
             {renderMetricSelector()}
-            {renderScaleToggler()}
             
             <div className="mt-6 p-4 bg-blue-50 rounded">
               <h3 className="text-md font-medium mb-2">Key Insights</h3>
               <ul className="list-disc pl-5 text-sm space-y-2">
-                <li>Compare how model size correlates with jailbreak resistance</li>
+                <li>Track how jailbreak resistance evolves over time</li>
+                <li>Compare effectiveness across different model release dates</li>
                 <li>Points are colored by model family</li>
                 <li>Larger points indicate more samples</li>
-                <li>Toggle between linear and logarithmic scales</li>
               </ul>
             </div>
           </div>
@@ -419,4 +434,4 @@ const SizeAnalysis = ({ data, modelComparisonData }) => {
   );
 };
 
-export default SizeAnalysis; 
+export default ReleaseAnalysis; 

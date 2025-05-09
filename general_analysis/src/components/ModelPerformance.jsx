@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Cell, LabelList, LineChart, Line, ScatterChart, Scatter, ZAxis
+  Cell, LabelList, ErrorBar
 } from 'recharts';
 import { calculateStandardError } from '../utils/dataProcessing';
 
@@ -12,19 +12,82 @@ const COLORS = [
 ];
 
 const ModelPerformance = ({ data, selectedModel, onModelSelect, uniqueModels }) => {
-  const [chartType, setChartType] = useState("bar");
-  const [metric, setMetric] = useState("success");
-  
   // Process data for visualization
   const processedData = useMemo(() => {
     if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.log("No data available");
       return [];
     }
     
     // Check if data is already processed (models array)
-    if (Array.isArray(data) && data[0] && data[0].name) {
-      return data;
+    if (Array.isArray(data) && data[0] && typeof data[0] === 'object' && 'name' in data[0] && 'rows' in data[0]) {
+      console.log("Using pre-processed model data");
+      
+      // Return data as is if ASR metrics are already calculated
+      if (data[0].singleTurnASR !== undefined && data[0].multiTurnASR !== undefined) {
+        return data;
+      }
+      
+      // Format data into the expected structure if needed
+      return data.map(model => {
+        // Calculate metrics if they don't exist
+        if (!('successRate' in model)) {
+          // Extract rows for calculation
+          const rows = model.rows || [];
+          
+          // Success rate
+          let successCount = 0;
+          for (const row of rows) {
+            if (row.goal_achieved === true || row.success === true || 
+                row.jailbreak_success === true || 
+                (row.asr !== undefined && row.asr > 0) ||
+                row.attack_success === true ||
+                row.is_success === true) {
+              successCount++;
+            }
+          }
+          const successRate = rows.length > 0 ? (successCount / rows.length) * 100 : 0;
+          
+          // Refusal rate
+          let refusalCount = 0;
+          for (const row of rows) {
+            if (row.refused === true || 
+                row.refusal === true || 
+                row.rejection === true ||
+                row.is_rejected === true) {
+              refusalCount++;
+            }
+          }
+          const refusalRate = rows.length > 0 ? (refusalCount / rows.length) * 100 : 0;
+          
+          // Calculate average rounds
+          const roundsData = rows
+            .filter(row => row.num_turns !== undefined || row.rounds !== undefined || row.turn_count !== undefined)
+            .map(row => {
+              const value = row.num_turns !== undefined ? row.num_turns : 
+                          row.rounds !== undefined ? row.rounds :
+                          row.turn_count !== undefined ? row.turn_count : 0;
+              return typeof value === 'number' ? value : 0;
+            });
+          
+          const avgRounds = roundsData.length > 0 
+            ? roundsData.reduce((sum, val) => sum + val, 0) / roundsData.length 
+            : 0;
+          
+          return {
+            ...model,
+            successRate,
+            refusalRate,
+            avgRounds,
+            count: rows.length
+          };
+        }
+        
+        return model;
+      });
     }
+    
+    console.log("Processing raw data, sample:", data.slice(0, 3)); // Debug log
     
     // Group by model
     const modelData = {};
@@ -39,41 +102,59 @@ const ModelPerformance = ({ data, selectedModel, onModelSelect, uniqueModels }) 
     }
     
     // Calculate metrics for each model
-    return Object.entries(modelData).map(([modelName, rows]) => {
-      // Calculate success rate
-      const successfulRows = rows.filter(row => 
-        row.success !== undefined ? Boolean(row.success) : 
-        row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
-        row.asr !== undefined ? row.asr > 0 : false
-      );
-      const successRate = rows.length > 0 ? (successfulRows.length / rows.length) * 100 : 0;
+    const result = Object.entries(modelData).map(([modelName, rows]) => {
+      // For debugging
+      if (modelName === Object.keys(modelData)[0]) {
+        console.log(`Sample row for ${modelName}:`, rows[0]);
+      }
       
-      // Calculate refusal rate
-      const refusalRows = rows.filter(row => 
-        row.refused !== undefined ? Boolean(row.refused) : 
-        row.refusal !== undefined ? Boolean(row.refusal) :
-        row.rejection !== undefined ? Boolean(row.rejection) : false
-      );
-      const refusalRate = rows.length > 0 ? (refusalRows.length / rows.length) * 100 : 0;
+      // Calculate success rate - check multiple possible field names
+      let successCount = 0;
+      for (const row of rows) {
+        if (row.goal_achieved === true || row.success === true || 
+            row.jailbreak_success === true || 
+            (row.asr !== undefined && row.asr > 0) ||
+            row.attack_success === true ||
+            row.is_success === true) {
+          successCount++;
+        }
+      }
+      const successRate = rows.length > 0 ? (successCount / rows.length) * 100 : 0;
       
-      // Calculate average rounds
+      // Calculate refusal rate - check multiple possible field names
+      let refusalCount = 0;
+      for (const row of rows) {
+        if (row.refused === true || 
+            row.refusal === true || 
+            row.rejection === true ||
+            row.is_rejected === true) {
+          refusalCount++;
+        }
+      }
+      const refusalRate = rows.length > 0 ? (refusalCount / rows.length) * 100 : 0;
+      
+      // Calculate average rounds - check multiple possible field names
       const roundsData = rows
-        .filter(row => row.num_turns || row.rounds || row.turn_count)
-        .map(row => row.num_turns || row.rounds || row.turn_count || 0);
+        .filter(row => row.num_turns !== undefined || row.rounds !== undefined || row.turn_count !== undefined)
+        .map(row => {
+          const value = row.num_turns !== undefined ? row.num_turns : 
+                       row.rounds !== undefined ? row.rounds :
+                       row.turn_count !== undefined ? row.turn_count : 0;
+          return typeof value === 'number' ? value : 0;
+        });
       
       const avgRounds = roundsData.length > 0 
         ? roundsData.reduce((sum, val) => sum + val, 0) / roundsData.length 
         : 0;
       
       // Calculate standard errors
-      const successValues = rows.map(row => 
-        row.success !== undefined ? (row.success ? 100 : 0) : 
-        row.jailbreak_success !== undefined ? (row.jailbreak_success ? 100 : 0) :
-        row.asr !== undefined ? row.asr * 100 : 0
-      );
-      
-      const successStdErr = calculateStandardError(successValues);
+      const successStdErr = calculateStandardError(rows.map(() => successRate));
       const roundsStdErr = calculateStandardError(roundsData);
+      
+      // Calculate non-zero temperature entries for warning
+      const nonZeroTempRows = rows.filter(row => 
+        row.target_model_temperature && row.target_model_temperature !== 0
+      );
       
       return {
         name: modelName,
@@ -82,32 +163,24 @@ const ModelPerformance = ({ data, selectedModel, onModelSelect, uniqueModels }) 
         avgRounds,
         successStdErr,
         roundsStdErr,
-        count: rows.length
+        count: rows.length,
+        skippedTemperatureEntries: nonZeroTempRows.length,
+        rows // Keep the original rows for reference
       };
     });
+    
+    console.log("Processed data:", result.slice(0, 3)); // Debug log
+    return result;
   }, [data]);
   
-  // Sort data by the selected metric
-  const sortedData = useMemo(() => {
-    if (!processedData || processedData.length === 0) return [];
+  // Sum up all skipped temperature entries
+  const totalSkippedEntries = useMemo(() => {
+    if (!processedData || processedData.length === 0) return 0;
     
-    const metricMap = {
-      'success': 'successRate',
-      'refusal': 'refusalRate',
-      'rounds': 'avgRounds'
-    };
-    
-    const field = metricMap[metric] || 'successRate';
-    
-    return [...processedData].sort((a, b) => {
-      // Primary sort by the metric
-      if (b[field] !== a[field]) {
-        return b[field] - a[field];
-      }
-      // Secondary sort by name for stable ordering
-      return a.name.localeCompare(b.name);
-    });
-  }, [processedData, metric]);
+    return processedData.reduce((total, model) => {
+      return total + (model.skippedTemperatureEntries || 0);
+    }, 0);
+  }, [processedData]);
   
   // Extract data for selected model
   const selectedModelData = useMemo(() => {
@@ -131,290 +204,203 @@ const ModelPerformance = ({ data, selectedModel, onModelSelect, uniqueModels }) 
           <option key={model} value={model}>{model}</option>
         ))}
       </select>
-    </div>
-  );
-  
-  // Render the chart type selector
-  const renderChartTypeSelector = () => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium mb-1">Chart Type:</label>
-      <div className="flex space-x-4">
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="bar" 
-            checked={chartType === "bar"} 
-            onChange={() => setChartType("bar")}
-            className="mr-1"
-          />
-          Bar Chart
-        </label>
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="line" 
-            checked={chartType === "line"} 
-            onChange={() => setChartType("line")}
-            className="mr-1"
-          />
-          Line Chart
-        </label>
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="scatter" 
-            checked={chartType === "scatter"} 
-            onChange={() => setChartType("scatter")}
-            className="mr-1"
-          />
-          Scatter Plot
-        </label>
-      </div>
-    </div>
-  );
-  
-  // Render the metric selector
-  const renderMetricSelector = () => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium mb-1">Metric:</label>
-      <div className="flex space-x-4">
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="success" 
-            checked={metric === "success"} 
-            onChange={() => setMetric("success")}
-            className="mr-1"
-          />
-          Success Rate
-        </label>
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="refusal" 
-            checked={metric === "refusal"} 
-            onChange={() => setMetric("refusal")}
-            className="mr-1"
-          />
-          Refusal Rate
-        </label>
-        <label className="inline-flex items-center">
-          <input 
-            type="radio" 
-            value="rounds" 
-            checked={metric === "rounds"} 
-            onChange={() => setMetric("rounds")}
-            className="mr-1"
-          />
-          Average Rounds
-        </label>
-      </div>
+      
+      {totalSkippedEntries > 0 && (
+        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm">
+          Warning: {totalSkippedEntries} entries with non-zero target model temperature were excluded from ASR calculations.
+        </div>
+      )}
     </div>
   );
   
   // Render a bar chart for model comparison
   const renderBarChart = () => {
-    if (!sortedData || sortedData.length === 0) {
+    if (!processedData || processedData.length === 0) {
       return <div>No data available</div>;
     }
     
-    // Get data series based on selected metric
-    const dataKey = metric === 'success' ? 'successRate' : 
-                    metric === 'refusal' ? 'refusalRate' : 'avgRounds';
+    // Sort models alphabetically
+    const alphabeticallySorted = [...processedData].sort((a, b) => a.name.localeCompare(b.name));
     
-    const errorKey = metric === 'success' ? 'successStdErr' : 
-                     metric === 'refusal' ? 'refusalStdErr' : 'roundsStdErr';
+    // Create chart data with both single-turn and multi-turn values and standard errors
+    const chartData = alphabeticallySorted.map(model => {
+      // Ensure values are valid numbers
+      const singleTurn = typeof model.singleTurnASR === "number" ? model.singleTurnASR : 
+                         Number(model.singleTurnASR || 0);
+      const multiTurn = typeof model.multiTurnASR === "number" ? model.multiTurnASR : 
+                        Number(model.multiTurnASR || 0);
+      
+      // Debug test case rates availability
+      console.log(`Model ${model.name} data:`, {
+        hasSingleTurn: !!model.singleTurn,
+        hasMultiTurn: !!model.multiTurn,
+        singleTurnRates: model.singleTurn ? model.singleTurn.testCaseRates : 'N/A',
+        multiTurnRates: model.multiTurn ? model.multiTurn.testCaseRates : 'N/A'
+      });
+      
+      // Calculate standard errors for ASR values - only if we have actual test case data
+      let singleTurnError = null; // No default fallback value - will skip error bars if null
+      let multiTurnError = null;  // No default fallback value - will skip error bars if null
+      let hasInsufficientData = false; // Flag to indicate models with insufficient data
+      
+      // Try to get actual error values from test case rates if available
+      if (model.singleTurn && Array.isArray(model.singleTurn.testCaseRates) && model.singleTurn.testCaseRates.length > 1) {
+        singleTurnError = calculateStandardError(model.singleTurn.testCaseRates);
+        console.log(`Calculated SE for ${model.name} single-turn: ${singleTurnError.toFixed(2)}% from ${model.singleTurn.testCaseRates.length} test cases`);
+      } else if (singleTurn > 0) {
+        hasInsufficientData = true;
+        console.log(`Insufficient data for ${model.name} single-turn error bars`);
+      }
+      
+      if (model.multiTurn && Array.isArray(model.multiTurn.testCaseRates) && model.multiTurn.testCaseRates.length > 1) {
+        multiTurnError = calculateStandardError(model.multiTurn.testCaseRates);
+        console.log(`Calculated SE for ${model.name} multi-turn: ${multiTurnError.toFixed(2)}% from ${model.multiTurn.testCaseRates.length} test cases`);
+      } else if (multiTurn > 0) {
+        hasInsufficientData = true;
+        console.log(`Insufficient data for ${model.name} multi-turn error bars`);
+      }
+                          
+      return {
+        name: model.name,
+        singleTurn: isNaN(singleTurn) ? 0 : singleTurn,
+        multiTurn: isNaN(multiTurn) ? 0 : multiTurn,
+        singleTurnError: singleTurnError,
+        multiTurnError: multiTurnError,
+        hasInsufficientData: hasInsufficientData
+      };
+    });
     
-    // Create chart data with error bars
-    const chartData = sortedData.map(model => ({
-      name: model.name,
-      value: model[dataKey],
-      error: model[errorKey] || 0
-    }));
+    // Debug chart data
+    console.log("Chart data for side-by-side ASR comparison:");
+    console.log("First 5 chart data points:", chartData.slice(0, 5));
+    
+    // Ensure there's actual data to display
+    if (chartData.length === 0) {
+      return <div>No data available for ASR comparison</div>;
+    }
+    
+    // Find maximum value for domain scaling (max across both single and multi-turn)
+    const maxSingleTurn = Math.max(...chartData.map(item => item.singleTurn));
+    const maxMultiTurn = Math.max(...chartData.map(item => item.multiTurn));
+    const maxValue = Math.max(maxSingleTurn, maxMultiTurn);
+    console.log("Max values - Single:", maxSingleTurn, "Multi:", maxMultiTurn);
+    
+    // Set domain to max 100% for percentage data
+    const domainMax = 100;
     
     return (
       <div className="chart-container">
         <h3 className="text-lg font-medium mb-2">
-          {metric === 'success' ? 'Success Rate' : 
-           metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'} by Model
+          Attack Success Rate (ASR) Comparison
         </h3>
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={Math.max(500, chartData.length * 40)}>
           <BarChart
             data={chartData}
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
+            layout="vertical"
+            margin={{ top: 20, right: 120, left: 150, bottom: 20 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
-              dataKey="name" 
-              angle={-45} 
-              textAnchor="end"
-              height={100}
-              interval={0}
+              type="number"
+              domain={[0, domainMax]}
+              tickFormatter={(value) => `${value}%`}
+              label={{ 
+                value: 'Attack Success Rate (%)',
+                position: 'insideBottom',
+                offset: -10
+              }}
             />
             <YAxis 
-              label={{ 
-                value: metric === 'success' ? 'Success Rate (%)' : 
-                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Average Rounds',
-                angle: -90, 
-                position: 'insideLeft' 
-              }} 
+              dataKey="name"
+              type="category"
+              width={140}
+              interval={0}
+              tick={{ textAnchor: 'end' }}
             />
-            <Tooltip formatter={(value) => [
-              `${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`,
-              metric === 'success' ? 'Success Rate' : 
-              metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'
-            ]} />
+            <Tooltip 
+              formatter={(value, name, props) => {
+                // Safety check for undefined props
+                if (!props || !props.payload) {
+                  return [value.toFixed(2) + '%', name === 'singleTurn' ? 'Single-Turn ASR' : 'Multi-Turn ASR'];
+                }
+                
+                // Get the error value based on which bar is hovered
+                const errorValue = name === 'singleTurn' ? 
+                  props.payload.singleTurnError : 
+                  props.payload.multiTurnError;
+                  
+                // Return formatted value with standard error if available
+                const formattedValue = `${value.toFixed(2)}%`;
+                const displayName = name === 'singleTurn' ? 'Single-Turn ASR' : 'Multi-Turn ASR';
+                
+                if (errorValue !== null) {
+                  return [`${formattedValue} ± ${errorValue.toFixed(2)}%`, displayName];
+                } else if (value > 0) {
+                  return [`${formattedValue} (no error bars*)`, displayName];
+                } else {
+                  return [formattedValue, displayName];
+                }
+              }}
+            />
             <Legend />
             <Bar 
-              dataKey="value" 
+              dataKey="singleTurn" 
+              name="Single-Turn ASR"
               fill="#8884d8"
-              name={metric === 'success' ? 'Success Rate' : 
-                   metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'}
             >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-              <LabelList dataKey="value" position="top" formatter={(value) => `${value.toFixed(1)}${metric !== 'rounds' ? '%' : ''}`} />
+              <LabelList 
+                dataKey="singleTurn" 
+                position="right" 
+                formatter={(value, entry) => {
+                  // Add null check to prevent "entry is undefined" error
+                  if (!entry || entry.payload === undefined) return `${value.toFixed(1)}%`;
+                  const hasNoError = entry.payload.singleTurnError === null && entry.payload.singleTurn > 0;
+                  return `${value.toFixed(1)}%${hasNoError ? ' *' : ''}`;
+                }}
+                style={{ fontWeight: 'bold' }}
+              />
+              {/* Only show error bars if we have actual error data */}
+              <ErrorBar 
+                dataKey="singleTurnError" 
+                width={4} 
+                strokeWidth={2} 
+                stroke="#000000" 
+                direction="x"
+              />
+            </Bar>
+            <Bar 
+              dataKey="multiTurn" 
+              name="Multi-Turn ASR"
+              fill="#82ca9d"
+            >
+              <LabelList 
+                dataKey="multiTurn" 
+                position="right" 
+                formatter={(value, entry) => {
+                  // Add null check to prevent "entry is undefined" error
+                  if (!entry || entry.payload === undefined) return `${value.toFixed(1)}%`;
+                  const hasNoError = entry.payload.multiTurnError === null && entry.payload.multiTurn > 0;
+                  return `${value.toFixed(1)}%${hasNoError ? ' *' : ''}`;
+                }}
+                style={{ fontWeight: 'bold' }}
+              />
+              {/* Only show error bars if we have actual error data */}
+              <ErrorBar 
+                dataKey="multiTurnError" 
+                width={4} 
+                strokeWidth={2} 
+                stroke="#000000" 
+                direction="x"
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </div>
-    );
-  };
-  
-  // Render a line chart for model comparison
-  const renderLineChart = () => {
-    if (!sortedData || sortedData.length === 0) {
-      return <div>No data available</div>;
-    }
-    
-    // Get data series based on selected metric
-    const dataKey = metric === 'success' ? 'successRate' : 
-                    metric === 'refusal' ? 'refusalRate' : 'avgRounds';
-    
-    return (
-      <div className="chart-container">
-        <h3 className="text-lg font-medium mb-2">
-          {metric === 'success' ? 'Success Rate' : 
-           metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'} by Model
-        </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart
-            data={sortedData}
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="name" 
-              angle={-45} 
-              textAnchor="end"
-              height={100}
-              interval={0}
-            />
-            <YAxis 
-              label={{ 
-                value: metric === 'success' ? 'Success Rate (%)' : 
-                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Average Rounds',
-                angle: -90, 
-                position: 'insideLeft' 
-              }} 
-            />
-            <Tooltip formatter={(value) => [
-              `${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`,
-              metric === 'success' ? 'Success Rate' : 
-              metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'
-            ]} />
-            <Legend />
-            <Line 
-              type="monotone" 
-              dataKey={dataKey} 
-              stroke="#8884d8" 
-              name={metric === 'success' ? 'Success Rate' : 
-                    metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'}
-              activeDot={{ r: 8 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  };
-  
-  // Render a scatter plot for model comparison
-  const renderScatterPlot = () => {
-    if (!sortedData || sortedData.length === 0) {
-      return <div>No data available</div>;
-    }
-    
-    return (
-      <div className="chart-container">
-        <h3 className="text-lg font-medium mb-2">
-          Success Rate vs. Refusal Rate by Model
-        </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <ScatterChart
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              type="number" 
-              dataKey="successRate" 
-              name="Success Rate" 
-              label={{ 
-                value: 'Success Rate (%)', 
-                position: 'insideBottom', 
-                offset: -10 
-              }}
-            />
-            <YAxis 
-              type="number" 
-              dataKey="refusalRate" 
-              name="Refusal Rate"
-              label={{ 
-                value: 'Refusal Rate (%)', 
-                angle: -90, 
-                position: 'insideLeft' 
-              }}
-            />
-            <ZAxis 
-              type="number" 
-              dataKey="avgRounds" 
-              range={[40, 400]} 
-              name="Average Rounds"
-            />
-            <Tooltip 
-              cursor={{ strokeDasharray: '3 3' }}
-              formatter={(value, name) => [
-                `${value.toFixed(2)}${name === 'Average Rounds' ? '' : '%'}`,
-                name
-              ]}
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const model = payload[0].payload;
-                  return (
-                    <div className="bg-white p-2 border rounded shadow">
-                      <p className="font-medium">{model.name}</p>
-                      <p>Success Rate: {model.successRate.toFixed(2)}%</p>
-                      <p>Refusal Rate: {model.refusalRate.toFixed(2)}%</p>
-                      <p>Average Rounds: {model.avgRounds.toFixed(2)}</p>
-                      <p>Sample Count: {model.count}</p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Legend />
-            <Scatter 
-              name="Models" 
-              data={sortedData} 
-              fill="#8884d8"
-            >
-              {sortedData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
+        {/* Add explanation for the * symbol if any model has insufficient data */}
+        {chartData.some(item => item.hasInsufficientData) && (
+          <div className="mt-2 text-xs text-red-600">
+            * Models with insufficient test case data (fewer than 2 test cases) do not show error bars.
+          </div>
+        )}
       </div>
     );
   };
@@ -425,65 +411,145 @@ const ModelPerformance = ({ data, selectedModel, onModelSelect, uniqueModels }) 
       return <div>Select a model to view details</div>;
     }
     
+    // Ensure we have all required properties or provide defaults
+    const refusalRate = selectedModelData.refusalRate !== undefined ? selectedModelData.refusalRate : 0;
+    const avgRounds = selectedModelData.avgRounds !== undefined ? selectedModelData.avgRounds : 0;
+    const singleTurnASR = selectedModelData.singleTurnASR !== undefined ? selectedModelData.singleTurnASR : 0;
+    const multiTurnASR = selectedModelData.multiTurnASR !== undefined ? selectedModelData.multiTurnASR : 0;
+    const singleTurnTestCases = selectedModelData.singleTurnTestCases || 0;
+    const multiTurnTestCases = selectedModelData.multiTurnTestCases || 0;
+    const count = selectedModelData.count || 0;
+    const skippedCount = selectedModelData.skippedTemperatureEntries || 0;
+    
+    // Calculate error bounds (standard error)
+    let singleTurnError = null; // No default fallback value
+    let multiTurnError = null;  // No default fallback value
+    let hasInsufficientData = false;
+    
+    // Try to get actual error values from test case rates if available
+    if (selectedModelData.singleTurn && Array.isArray(selectedModelData.singleTurn.testCaseRates) && 
+        selectedModelData.singleTurn.testCaseRates.length > 1) {
+      singleTurnError = calculateStandardError(selectedModelData.singleTurn.testCaseRates);
+    } else if (singleTurnASR > 0) {
+      hasInsufficientData = true;
+    }
+    
+    if (selectedModelData.multiTurn && Array.isArray(selectedModelData.multiTurn.testCaseRates) && 
+        selectedModelData.multiTurn.testCaseRates.length > 1) {
+      multiTurnError = calculateStandardError(selectedModelData.multiTurn.testCaseRates);
+    } else if (multiTurnASR > 0) {
+      hasInsufficientData = true;
+    }
+    
     return (
       <div className="mt-8 p-4 border rounded">
-        <h3 className="text-xl font-medium mb-2">{selectedModelData.name}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Success Rate</p>
-            <p className="text-2xl font-bold">{selectedModelData.successRate.toFixed(2)}%</p>
+        <h3 className="text-xl font-medium mb-4">{selectedModelData.name}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-blue-50 p-4 rounded shadow">
+            <h4 className="text-lg font-medium text-blue-800 mb-3">Single-Turn Performance</h4>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Attack Success Rate:</span>
+              <span className="text-xl font-bold">
+                {singleTurnASR.toFixed(2)}%
+                {singleTurnError !== null ? ` ± ${singleTurnError.toFixed(2)}%` : singleTurnASR > 0 ? ' *' : ''}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mb-2">{singleTurnTestCases} test cases</div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full" 
+                style={{ width: `${Math.min(100, singleTurnASR)}%` }}
+              ></div>
+            </div>
           </div>
-          <div className="bg-red-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Refusal Rate</p>
-            <p className="text-2xl font-bold">{selectedModelData.refusalRate.toFixed(2)}%</p>
+          
+          <div className="bg-green-50 p-4 rounded shadow">
+            <h4 className="text-lg font-medium text-green-800 mb-3">Multi-Turn Performance</h4>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Attack Success Rate:</span>
+              <span className="text-xl font-bold">
+                {multiTurnASR.toFixed(2)}%
+                {multiTurnError !== null ? ` ± ${multiTurnError.toFixed(2)}%` : multiTurnASR > 0 ? ' *' : ''}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mb-2">{multiTurnTestCases} test cases</div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-green-600 h-2.5 rounded-full" 
+                style={{ width: `${Math.min(100, multiTurnASR)}%` }}
+              ></div>
+            </div>
           </div>
-          <div className="bg-green-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Average Rounds</p>
-            <p className="text-2xl font-bold">{selectedModelData.avgRounds.toFixed(2)}</p>
+          
+          <div className="bg-red-50 p-4 rounded shadow">
+            <h4 className="text-lg font-medium text-red-800 mb-3">Refusal Rate</h4>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Overall Refusal Rate:</span>
+              <span className="text-xl font-bold">{refusalRate.toFixed(2)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-red-500 h-2.5 rounded-full" 
+                style={{ width: `${Math.min(100, refusalRate)}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 p-4 rounded shadow">
+            <h4 className="text-lg font-medium text-yellow-800 mb-3">Conversation Data</h4>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Average Rounds:</span>
+              <span className="text-xl font-bold">{avgRounds.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Sample Count:</span>
+              <span className="text-xl font-bold">{count}</span>
+            </div>
+            {skippedCount > 0 && (
+              <div className="mt-2 text-xs text-red-500">
+                {skippedCount} entries with non-zero temperature excluded from ASR
+              </div>
+            )}
           </div>
         </div>
-        <div className="mt-4">
-          <p className="text-sm">
-            Sample Count: <span className="font-medium">{selectedModelData.count}</span>
-          </p>
-        </div>
+        
+        {/* Add explanation for missing error bars if needed */}
+        {hasInsufficientData && (
+          <div className="mt-4 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+            * Error ranges are not displayed when there are fewer than 2 test cases with available data.
+          </div>
+        )}
       </div>
     );
-  };
-  
-  // Render the appropriate chart based on selected chart type
-  const renderChart = () => {
-    switch (chartType) {
-      case "bar":
-        return renderBarChart();
-      case "line":
-        return renderLineChart();
-      case "scatter":
-        return renderScatterPlot();
-      default:
-        return renderBarChart();
-    }
   };
   
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-4">Model Performance Analysis</h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 mb-2">
           Compare performance metrics across different language models, 
-          including success rates, refusal rates, and average conversation rounds.
+          showing both single-turn and multi-turn Attack Success Rates (ASR) side by side.
+        </p>
+        <p className="text-sm text-gray-600 italic">
+          ASR is calculated by taking the maximum success rate across all tactics for each test case, 
+          then averaging these maximum success rates across all test cases. Single-turn and multi-turn 
+          ASRs are calculated separately.
+        </p>
+        <p className="text-sm text-gray-600 italic mt-1">
+          Error bars represent the standard error of the mean across test cases, showing the 
+          statistical uncertainty in the ASR measurement. Error bars are only shown when data from 
+          at least 2 test cases is available for calculation.
         </p>
       </div>
       
       <div className="flex flex-wrap -mx-2">
         <div className="w-full md:w-1/4 px-2">
           {renderModelSelector()}
-          {renderChartTypeSelector()}
-          {renderMetricSelector()}
         </div>
         
         <div className="w-full md:w-3/4 px-2">
-          {renderChart()}
+          {renderBarChart()}
           {renderModelDetails()}
         </div>
       </div>

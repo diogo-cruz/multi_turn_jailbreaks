@@ -40,7 +40,43 @@ const EvaluatorCorrelationAnalysis = ({ data }) => {
       // Raw data rows
       for (const row of data) {
         if (row.evaluator_model) {
-          evaluatorSet.add(row.evaluator_model);
+          // Extract the actual model name from file paths or full names
+          let modelName = row.evaluator_model;
+          
+          // Handle paths like "command_X_gpt-4o-mini..." or "eval_gpt-4.1-nano"
+          if (modelName.includes('gpt-') || modelName.includes('claude-') || 
+              modelName.includes('openai/') || modelName.includes('anthropic/')) {
+            
+            // Extract model name if it's in a filename
+            if (modelName.includes('.jsonl')) {
+              // Look for common model prefixes in the filename
+              const modelPrefixes = ['gpt-', 'claude-', 'openai/', 'anthropic/'];
+              for (const prefix of modelPrefixes) {
+                if (modelName.includes(prefix)) {
+                  const startIdx = modelName.indexOf(prefix);
+                  let endIdx = modelName.indexOf('_', startIdx);
+                  if (endIdx === -1) {
+                    endIdx = modelName.indexOf('.', startIdx);
+                  }
+                  if (endIdx === -1) {
+                    endIdx = modelName.length;
+                  }
+                  modelName = modelName.substring(startIdx, endIdx);
+                  break;
+                }
+              }
+              
+              // If there's an "eval_" marker, extract the evaluator model instead
+              if (modelName.includes('eval_')) {
+                const evalPart = modelName.split('eval_')[1];
+                modelName = evalPart;
+              }
+            }
+            
+            evaluatorSet.add(modelName);
+          } else {
+            evaluatorSet.add(modelName);
+          }
         }
       }
     }
@@ -63,8 +99,39 @@ const EvaluatorCorrelationAnalysis = ({ data }) => {
           // Create a key based only on the specified parameters
           const key = `${row.jailbreak_tactic || ''}_${row.test_case || ''}_${row.turn_type || ''}_${row.target_model || row.model || ''}_${row.target_temp || ''}_${row.max_round || ''}_${row.attacker_model || ''}`;
           
-          // Create a sub-key for the evaluator to handle duplicates
-          const evalKey = row.evaluator_model || 'unknown';
+          // Normalize the evaluator model name for the sub-key
+          let evalKey = row.evaluator_model || 'unknown';
+          
+          // Extract the actual model name from file paths or full names
+          if (evalKey.includes('gpt-') || evalKey.includes('claude-') || 
+              evalKey.includes('openai/') || evalKey.includes('anthropic/')) {
+            
+            // Extract model name if it's in a filename
+            if (evalKey.includes('.jsonl')) {
+              // Look for common model prefixes in the filename
+              const modelPrefixes = ['gpt-', 'claude-', 'openai/', 'anthropic/'];
+              for (const prefix of modelPrefixes) {
+                if (evalKey.includes(prefix)) {
+                  const startIdx = evalKey.indexOf(prefix);
+                  let endIdx = evalKey.indexOf('_', startIdx);
+                  if (endIdx === -1) {
+                    endIdx = evalKey.indexOf('.', startIdx);
+                  }
+                  if (endIdx === -1) {
+                    endIdx = evalKey.length;
+                  }
+                  evalKey = evalKey.substring(startIdx, endIdx);
+                  break;
+                }
+              }
+              
+              // If there's an "eval_" marker, extract the evaluator model instead
+              if (evalKey.includes('eval_')) {
+                const evalPart = evalKey.split('eval_')[1];
+                evalKey = evalPart;
+              }
+            }
+          }
           
           if (!runsByParameters[key]) {
             runsByParameters[key] = {};
@@ -95,6 +162,40 @@ const EvaluatorCorrelationAnalysis = ({ data }) => {
           runs.forEach(run => {
             // Primary: Use the last score from the scores array if available
             let scoreValue = null;
+            
+            // Normalize the evaluator model name for consistent keys
+            let evalKey = run.evaluator_model || 'unknown';
+            
+            // Extract the actual model name from file paths or full names
+            if (evalKey.includes('gpt-') || evalKey.includes('claude-') || 
+                evalKey.includes('openai/') || evalKey.includes('anthropic/')) {
+              
+              // Extract model name if it's in a filename
+              if (evalKey.includes('.jsonl')) {
+                // Look for common model prefixes in the filename
+                const modelPrefixes = ['gpt-', 'claude-', 'openai/', 'anthropic/'];
+                for (const prefix of modelPrefixes) {
+                  if (evalKey.includes(prefix)) {
+                    const startIdx = evalKey.indexOf(prefix);
+                    let endIdx = evalKey.indexOf('_', startIdx);
+                    if (endIdx === -1) {
+                      endIdx = evalKey.indexOf('.', startIdx);
+                    }
+                    if (endIdx === -1) {
+                      endIdx = evalKey.length;
+                    }
+                    evalKey = evalKey.substring(startIdx, endIdx);
+                    break;
+                  }
+                }
+                
+                // If there's an "eval_" marker, extract the evaluator model instead
+                if (evalKey.includes('eval_')) {
+                  const evalPart = evalKey.split('eval_')[1];
+                  evalKey = evalPart;
+                }
+              }
+            }
             
             if (run.scores) {
               let scoresList = [];
@@ -134,7 +235,7 @@ const EvaluatorCorrelationAnalysis = ({ data }) => {
               }
               
               // Store the entire score progression for more detailed analysis
-              evaluatorResults[run.evaluator_model] = {
+              evaluatorResults[evalKey] = {
                 finalScore: scoreValue,
                 scoreProgression: scoresList,
                 // Also keep binary success as a fallback
@@ -144,7 +245,7 @@ const EvaluatorCorrelationAnalysis = ({ data }) => {
               };
             } else {
               // Fallback to binary if no scores are available
-              evaluatorResults[run.evaluator_model] = {
+              evaluatorResults[evalKey] = {
                 finalScore: null,
                 scoreProgression: [],
                 binarySuccess: run.goal_achieved === true || 

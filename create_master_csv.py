@@ -120,7 +120,7 @@ def main():
     csv_results_dir = base_dir / "csv_results"
     interactive_analysis_dir = base_dir / "interactive_analysis" / "public"
     evaluator_analysis_dir = base_dir / "evaluator_analysis" / "public"
-    general_analysis_dir = base_dir / "general_analysis" / "public"
+    general_analysis_dir = base_dir / "general_analysis" / "public" / "data"
     
     # Create directories if they don't exist
     csv_results_dir.mkdir(exist_ok=True)

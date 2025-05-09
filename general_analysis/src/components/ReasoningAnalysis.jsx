@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Cell, LabelList, ScatterChart, Scatter, ZAxis, Label
@@ -10,50 +10,90 @@ const COLORS = [
   '#00C49F', '#FFBB28', '#FF8042', '#a4de6c', '#d0ed57'
 ];
 
-// Model parameter sizes (in billions) for reference sizing
-const MODEL_SIZES = {
-  'meta-llama/llama-3.1-70b-instruct': 70,
-  'meta-llama/llama-3.1-8b-instruct': 8,
-  'meta-llama/llama-3.2-1b-instruct': 1,
-  'meta-llama/llama-3.2-3b-instruct': 3,
-  'meta-llama/llama-3.3-70b-instruct': 70,
-  'gpt-4o-mini-2024-07-18': 25,
-  'google/gemini-2.0-flash-001': 35,
-  'google/gemini-2.0-flash-lite-001': 15,
-  'google/gemini-flash-1.5': 10,
-  'google/gemma-2-9b-it': 9,
-  'google/gemma-3-12b-it': 12,
-  'google/gemma-3-27b-it': 27,
-  'anthropic/claude-3-haiku': 8,
-  'anthropic/claude-3.5-sonnet': 18,
-  'anthropic/claude-3.7-sonnet': 45,
-  'openai/gpt-4o': 300,
-  'openai/gpt-4.1': 240,
-  'openai/gpt-4.1-mini': 24,
-  'openai/gpt-4.1-nano': 8,
-  'google/gemini-2.5-pro-preview-03-25': 120,
-  'google/gemini-2.5-flash-preview': 35,
-  'qwen/qwen-2.5-7b-instruct': 7,
-  'qwen/qwen-2.5-72b-instruct': 72,
-  'mistralai/mistral-7b-instruct-v0.3': 7,
-  'mistralai/mistral-small-3.1-24b-instruct': 24,
-  'mistralai/mistral-tiny': 3,
-  'mistralai/mistral-nemo': 12,
-  'meta-llama/llama-4-scout': 8,
-  'meta-llama/llama-4-maverick': 44,
-  'deepseek/deepseek-chat-v3-0324': 16,
-  'mistral-large-latest': 42,
-  'claude-3-sonnet': 45,
-  'claude-3-opus': 145
-};
-
 const ReasoningAnalysis = ({ data, modelComparisonData }) => {
   const [chartType, setChartType] = useState("bar");
   const [selectedModel, setSelectedModel] = useState(null);
   
+  // Debug logging for incoming data
+  useEffect(() => {
+    console.log("=== ReasoningAnalysis Component Received Data ===");
+    console.log("Data type:", typeof data);
+    console.log("Is array:", Array.isArray(data));
+    console.log("Data length:", Array.isArray(data) ? data.length : "N/A");
+    
+    if (Array.isArray(data) && data.length > 0) {
+      console.log("First data item:", data[0]);
+      
+      // Check type of first item
+      if (data[0] && data[0].name) {
+        console.log("Processing as processed models array");
+        // Look for sample rows with reasoning data
+        let foundReasoningRows = 0;
+        let reasoningSamples = [];
+        
+        for (const model of data.slice(0, 3)) {
+          if (!model.testCases) continue;
+          
+          for (const testCase of model.testCases) {
+            if (!testCase.rows) continue;
+            
+            for (const row of testCase.rows.slice(0, 5)) {
+              console.log(`Examining row from ${model.name} - ${testCase.name}:`, {
+                reasoning: row.reasoning,
+                source_file: row.source_file,
+                batch: row.batch,
+                timestamp: row.timestamp,
+                target_model: row.target_model
+              });
+              
+              if (row.reasoning || 
+                  (row.source_file && row.source_file.includes("reasoning_")) ||
+                  (row.target_model && row.target_model.includes("thinking"))) {
+                foundReasoningRows++;
+                if (reasoningSamples.length < 3) {
+                  reasoningSamples.push(row);
+                }
+              }
+            }
+          }
+        }
+        
+        console.log(`Found ${foundReasoningRows} rows with reasoning data in processed models`);
+        console.log("Reasoning data samples:", reasoningSamples);
+      } else {
+        console.log("Processing as raw data rows");
+        // Look for sample rows with reasoning data
+        let foundReasoningRows = 0;
+        let reasoningSamples = [];
+        
+        for (const row of data.slice(0, 50)) {
+          if (row.reasoning || 
+              (row.source_file && row.source_file.includes("reasoning_")) ||
+              (row.target_model && row.target_model.includes("thinking"))) {
+            foundReasoningRows++;
+            if (reasoningSamples.length < 5) {
+              reasoningSamples.push({
+                reasoning: row.reasoning,
+                source_file: row.source_file,
+                target_model: row.target_model,
+                batch: row.batch,
+                timestamp: row.timestamp
+              });
+            }
+          }
+        }
+        
+        console.log(`Found ${foundReasoningRows} rows with reasoning data in raw data`);
+        console.log("Reasoning data samples:", reasoningSamples);
+      }
+    }
+  }, [data]);
+  
   // Process data for visualization
   const processedData = useMemo(() => {
+    console.log("Processing reasoning data...");
     if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.log("No data available for reasoning analysis");
       return { 
         overviewData: [], 
         modelData: [], 
@@ -63,6 +103,62 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
       };
     }
     
+    // Debug: Check what types of goal_achieved values exist in the data
+    if (Array.isArray(data)) {
+      const goalAchievedValues = new Set();
+      const goalAchievedTypes = new Set();
+      
+      // Loop through first 100 items to check goal_achieved values
+      const sampleSize = Math.min(data.length, 100);
+      for (let i = 0; i < sampleSize; i++) {
+        if (data[i].rows) {
+          // It's a processed model
+          for (const testCase of data[i].testCases || []) {
+            for (const row of testCase.rows || []) {
+              goalAchievedValues.add(String(row.goal_achieved));
+              goalAchievedTypes.add(typeof row.goal_achieved);
+            }
+          }
+        } else {
+          // It's raw data
+          goalAchievedValues.add(String(data[i].goal_achieved));
+          goalAchievedTypes.add(typeof data[i].goal_achieved);
+        }
+      }
+      
+      console.log("DEBUG goal_achieved types:", [...goalAchievedTypes]);
+      console.log("DEBUG goal_achieved values:", [...goalAchievedValues]);
+    }
+    
+    // Create model size map from modelComparisonData
+    const modelSizes = {};
+    
+    if (modelComparisonData && modelComparisonData.length > 0) {
+      for (const model of modelComparisonData) {
+        if (model.Model && model.Parameters) {
+          const modelName = model.Model;
+          const size = parseFloat(model.Parameters);
+          
+          // Only store the exact model name
+          modelSizes[modelName] = size;
+        } else if (model.model_name && model.parameters) {
+          modelSizes[model.model_name] = parseFloat(model.parameters);
+        }
+      }
+    }
+    
+    // Function to get model size
+    const getModelSize = (modelName) => {
+      if (!modelName) return null;
+      
+      // Try direct match only
+      if (modelSizes[modelName]) {
+        return modelSizes[modelName];
+      }
+      
+      return null;
+    };
+    
     // Reasoning levels mapping
     const reasoningLevels = ["none", "low", "medium", "high"];
     const reasoningOrder = { "none": 0, "low": 1, "medium": 2, "high": 3 };
@@ -70,9 +166,14 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
     // Extract reasoning data
     let reasoningData = [];
     
+    console.log("DEBUG: Data type:", typeof data);
+    console.log("DEBUG: Data length:", Array.isArray(data) ? data.length : "N/A");
+    console.log("DEBUG: First few data items:", Array.isArray(data) ? data.slice(0, 3) : data);
+    
     // Process data based on format
     if (Array.isArray(data) && data[0] && data[0].name) {
       // Already processed models array
+      console.log("Processing model array data for reasoning");
       for (const model of data) {
         if (!model.testCases) continue;
         
@@ -80,14 +181,76 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
           if (!testCase.rows) continue;
           
           for (const row of testCase.rows) {
-            if (row.reasoning && 
-                ["none", "low", "medium", "high"].includes(String(row.reasoning).toLowerCase())) {
+            // Check for reasoning data in various places
+            let reasoningValue = null;
+            
+            // Direct reasoning field (case insensitive match)
+            if (row.reasoning && typeof row.reasoning === 'string') {
+              const lowerCaseReasoning = row.reasoning.toLowerCase().trim();
+              if (["none", "low", "medium", "high"].includes(lowerCaseReasoning)) {
+                reasoningValue = lowerCaseReasoning;
+                console.log(`Found direct reasoning value: ${reasoningValue}`);
+              }
+            }
+            // Check source_file for reasoning level
+            if (!reasoningValue && row.source_file && typeof row.source_file === 'string') {
+              const reasoningMatch = row.source_file.match(/reasoning_(none|low|medium|high)/i);
+              if (reasoningMatch) {
+                reasoningValue = reasoningMatch[1].toLowerCase();
+                console.log(`Found reasoning in source_file: ${reasoningValue}`);
+              }
+            }
+            // Check in timestamp or batch fields
+            if (!reasoningValue && row.timestamp && typeof row.timestamp === 'string') {
+              const reasoningMatch = row.timestamp.match(/reasoning_(none|low|medium|high)/i);
+              if (reasoningMatch) {
+                reasoningValue = reasoningMatch[1].toLowerCase();
+                console.log(`Found reasoning in timestamp: ${reasoningValue}`);
+              }
+            }
+            if (!reasoningValue && row.batch && typeof row.batch === 'string') {
+              const reasoningMatch = row.batch.match(/reasoning_(none|low|medium|high)/i);
+              if (reasoningMatch) {
+                reasoningValue = reasoningMatch[1].toLowerCase();
+                console.log(`Found reasoning in batch: ${reasoningValue}`);
+              }
+            }
+            // Check in target_model field for thinking variants
+            if (!reasoningValue && row.target_model && typeof row.target_model === 'string' && 
+                    row.target_model.toLowerCase().includes('thinking')) {
+              reasoningValue = 'high';
+              console.log(`Assigned 'high' reasoning to thinking model: ${row.target_model}`);
+            }
+            
+            // If we found reasoning data, add it to our collection
+            if (reasoningValue) {
+              // Determine if this was a successful attempt
+              const isSuccessful = row.goal_achieved === true || 
+                                   (typeof row.goal_achieved === 'string' && row.goal_achieved.toLowerCase() === 'true') || 
+                                   row.success === true ||
+                                   (typeof row.success === 'string' && row.success.toLowerCase() === 'true') ||
+                                   row.jailbreak_success === true || 
+                                   (typeof row.jailbreak_success === 'string' && row.jailbreak_success.toLowerCase() === 'true') ||
+                                   (row.asr !== undefined && row.asr > 0);
+                                   
+              // Log details of this determination for debugging             
+              if (Math.random() < 0.1) { // Log ~10% of rows to avoid flooding console
+                console.log(`Success determination for ${model.name}, reasoning=${reasoningValue}:`, {
+                  goal_achieved: row.goal_achieved,
+                  goal_achieved_type: typeof row.goal_achieved,
+                  success: row.success,
+                  jailbreak_success: row.jailbreak_success,
+                  asr: row.asr,
+                  isSuccessful: isSuccessful
+                });
+              }
+              
               reasoningData.push({
                 model: model.name,
-                reasoning: String(row.reasoning).toLowerCase(),
-                success: Boolean(row.success || row.jailbreak_success || (row.asr > 0)),
+                reasoning: reasoningValue,
+                success: isSuccessful,
                 test_case: testCase.name,
-                jailbreak: row.jailbreak || 'unknown'
+                jailbreak: row.jailbreak || row.jailbreak_tactic || 'unknown'
               });
             }
           }
@@ -95,15 +258,150 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
       }
     } else {
       // Raw data rows
-      reasoningData = data.filter(row => 
-        row.reasoning && ["none", "low", "medium", "high"].includes(String(row.reasoning).toLowerCase())
-      ).map(row => ({
-        model: row.target_model || row.model || 'unknown',
-        reasoning: String(row.reasoning).toLowerCase(),
-        success: Boolean(row.success || row.jailbreak_success || (row.asr > 0)),
-        test_case: row.test_case || 'unknown',
-        jailbreak: row.jailbreak || 'unknown'
-      }));
+      console.log("Processing raw data rows for reasoning");
+      let processedCount = 0;
+      
+      for (const row of data) {
+        // Check for reasoning data in various places
+        let reasoningValue = null;
+        
+        // Direct reasoning field - it could be in any format
+        if (row.reasoning !== undefined) {
+          const rawValue = String(row.reasoning).toLowerCase().trim();
+          if (["none", "low", "medium", "high"].includes(rawValue)) {
+            reasoningValue = rawValue;
+            console.log(`Row ${processedCount}: Found direct reasoning value: ${reasoningValue}`);
+          }
+        }
+        
+        // Check source_file for reasoning level
+        if (!reasoningValue && row.source_file && typeof row.source_file === 'string') {
+          const reasoningMatch = row.source_file.match(/reasoning_(none|low|medium|high)/i);
+          if (reasoningMatch) {
+            reasoningValue = reasoningMatch[1].toLowerCase();
+            console.log(`Row ${processedCount}: Found reasoning in source_file: ${reasoningValue}`);
+          }
+        }
+        
+        // Check in timestamp or batch fields
+        if (!reasoningValue && row.timestamp && typeof row.timestamp === 'string') {
+          const reasoningMatch = row.timestamp.match(/reasoning_(none|low|medium|high)/i);
+          if (reasoningMatch) {
+            reasoningValue = reasoningMatch[1].toLowerCase();
+            console.log(`Row ${processedCount}: Found reasoning in timestamp: ${reasoningValue}`);
+          }
+        }
+        
+        if (!reasoningValue && row.batch && typeof row.batch === 'string') {
+          const reasoningMatch = row.batch.match(/reasoning_(none|low|medium|high)/i);
+          if (reasoningMatch) {
+            reasoningValue = reasoningMatch[1].toLowerCase();
+            console.log(`Row ${processedCount}: Found reasoning in batch: ${reasoningValue}`);
+          }
+        }
+        
+        // Check in target_model field for thinking variants
+        if (!reasoningValue && row.target_model && typeof row.target_model === 'string' && 
+                row.target_model.toLowerCase().includes('thinking')) {
+          reasoningValue = 'high';
+          console.log(`Row ${processedCount}: Assigned 'high' reasoning to thinking model: ${row.target_model}`);
+        }
+        
+        // If we found reasoning data, add it to our collection
+        if (reasoningValue) {
+          // Determine if this was a successful attempt
+          const isSuccessful = row.goal_achieved === true || 
+                               (typeof row.goal_achieved === 'string' && row.goal_achieved.toLowerCase() === 'true') || 
+                               row.success === true ||
+                               (typeof row.success === 'string' && row.success.toLowerCase() === 'true') ||
+                               row.jailbreak_success === true || 
+                               (typeof row.jailbreak_success === 'string' && row.jailbreak_success.toLowerCase() === 'true') ||
+                               (row.asr !== undefined && row.asr > 0);
+                               
+          // Log details of this determination for debugging             
+          if (Math.random() < 0.05) { // Log ~5% of rows to avoid flooding console
+            console.log(`Success determination for raw data row, reasoning=${reasoningValue}:`, {
+              goal_achieved: row.goal_achieved,
+              goal_achieved_type: typeof row.goal_achieved,
+              success: row.success,
+              jailbreak_success: row.jailbreak_success,
+              asr: row.asr,
+              isSuccessful: isSuccessful
+            });
+          }
+          
+          reasoningData.push({
+            model: row.target_model || row.model || 'unknown',
+            reasoning: reasoningValue,
+            success: isSuccessful,
+            test_case: row.test_case || 'unknown',
+            jailbreak: row.jailbreak || row.jailbreak_tactic || 'unknown'
+          });
+        }
+        
+        processedCount++;
+        if (processedCount <= 10 || processedCount % 1000 === 0) {
+          console.log(`Processed ${processedCount}/${data.length} rows, found ${reasoningData.length} reasoning rows`);
+        }
+      }
+    }
+    
+    // Debug info
+    console.log(`Extracted ${reasoningData.length} rows with reasoning data`);
+    if (reasoningData.length > 0) {
+      console.log('Sample reasoning data:', reasoningData.slice(0, 3));
+      
+      // Count success rates by reasoning level for additional debugging
+      const successByReasoning = {}; 
+      reasoningLevels.forEach(level => {
+        const rowsWithLevel = reasoningData.filter(row => row.reasoning === level);
+        const successCount = rowsWithLevel.filter(row => row.success).length;
+        const totalCount = rowsWithLevel.length;
+        
+        successByReasoning[level] = {
+          successful: successCount,
+          total: totalCount,
+          rate: totalCount > 0 ? (successCount / totalCount) * 100 : 0
+        };
+      });
+      
+      console.log("DEBUG: Pre-calculation success rates by reasoning level:", successByReasoning);
+    } else {
+      console.warn('No reasoning data was found! Check data format and reasoning column values.');
+      
+      // Debugging - check a sample of the data to see what fields are available
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("DEBUG: Checking field availability in sample rows");
+        const sampleRows = data.slice(0, 5);
+        
+        for (let i = 0; i < sampleRows.length; i++) {
+          const row = sampleRows[i];
+          console.log(`DEBUG: Sample row ${i}:`, {
+            hasReasoning: row.reasoning !== undefined,
+            reasoningValue: row.reasoning,
+            hasSourceFile: row.source_file !== undefined,
+            sourceFileValue: row.source_file,
+            hasBatch: row.batch !== undefined, 
+            batchValue: row.batch,
+            hasTargetModel: row.target_model !== undefined,
+            targetModelValue: row.target_model
+          });
+        }
+        
+        // Look for any fields that might contain reasoning information
+        const potentialFields = Object.keys(data[0]);
+        console.log("DEBUG: All available fields:", potentialFields);
+        
+        // Check for any fields containing 'reason' in their name
+        const reasoningRelatedFields = potentialFields.filter(field => 
+          field.toLowerCase().includes('reason') || 
+          field.toLowerCase().includes('think')
+        );
+        
+        if (reasoningRelatedFields.length > 0) {
+          console.log("DEBUG: Potential reasoning-related fields:", reasoningRelatedFields);
+        }
+      }
     }
     
     if (reasoningData.length === 0) {
@@ -153,6 +451,8 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
         }
       });
     });
+    
+    console.log("DEBUG: Model and reasoning level ASR calculations:", dataByModelAndReasoning);
     
     // 3. Create chart data for each model
     const modelChartData = [];
@@ -210,11 +510,13 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
       totalTests: aggregatedByReasoning[level].totalTests
     })).filter(d => d.totalTests > 0);
     
+    console.log("DEBUG: Overview data for chart:", overviewData);
+    
     // 5. Create data for model/reasoning relationship scatter plot
     const relationshipData = [];
     
     [...uniqueModels].forEach((model, index) => {
-      const modelSize = MODEL_SIZES[model] || 0;
+      const modelSize = getModelSize(model) || 0;
       
       reasoningLevels.forEach(reasoning => {
         if (dataByModelAndReasoning[model]?.[reasoning]?.totalTests > 0) {
@@ -238,7 +540,7 @@ const ReasoningAnalysis = ({ data, modelComparisonData }) => {
       hasReasoningData: true,
       uniqueModels: [...uniqueModels]
     };
-  }, [data]);
+  }, [data, modelComparisonData]);
   
   // Render chart type selector
   const renderChartTypeSelector = () => (
