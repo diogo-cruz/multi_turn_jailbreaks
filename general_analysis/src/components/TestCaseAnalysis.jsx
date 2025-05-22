@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Cell, LabelList, ComposedChart, Line, Area
 } from 'recharts';
-import { calculateStandardError } from '../utils/dataProcessing';
+import { calculateStandardError, calculateTurnTypeMetrics } from '../utils/dataProcessing';
 
 // Color constants
 const COLORS = [
@@ -15,6 +15,7 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
   const [metric, setMetric] = useState("success");
   const [showAllModels, setShowAllModels] = useState(false);
   const [topModelCount, setTopModelCount] = useState(10);
+  const [turnType, setTurnType] = useState("all"); // "single", "multi", or "all"
   
   // Process data for visualization
   const processedData = useMemo(() => {
@@ -33,7 +34,9 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
           if (!testCaseData[testCase.name]) {
             testCaseData[testCase.name] = {
               models: {},
-              tactics: {}
+              tactics: {},
+              singleTurnRows: [],
+              multiTurnRows: []
             };
           }
           
@@ -53,7 +56,140 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
             }
             
             testCaseData[testCase.name].tactics[tacticName].push(row);
+            
+            // Separate by turn type
+            const isSingleTurn = row.num_turns === 1 || !row.num_turns;
+            if (isSingleTurn) {
+              testCaseData[testCase.name].singleTurnRows.push(row);
+            } else {
+              testCaseData[testCase.name].multiTurnRows.push(row);
+            }
           }
+        }
+      }
+      
+      // Calculate single-turn and multi-turn metrics for each model
+      for (const testCaseName in testCaseData) {
+        const testCase = testCaseData[testCaseName];
+        
+        for (const modelName in testCase.models) {
+          const modelData = testCase.models[modelName];
+          const rows = modelData.rows || [];
+          
+          // Get single-turn rows for this model
+          const singleTurnRows = rows.filter(row => row.num_turns === 1 || !row.num_turns);
+          const singleTurnSuccessful = singleTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          );
+          const singleTurnRefusal = singleTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          );
+          
+          // Get multi-turn rows for this model
+          const multiTurnRows = rows.filter(row => row.num_turns && row.num_turns > 1);
+          const multiTurnSuccessful = multiTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          );
+          const multiTurnRefusal = multiTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          );
+          
+          // Calculate rates
+          modelData.singleTurnCount = singleTurnRows.length;
+          modelData.multiTurnCount = multiTurnRows.length;
+          
+          modelData.singleTurnSuccessRate = singleTurnRows.length > 0 
+            ? (singleTurnSuccessful.length / singleTurnRows.length) * 100 
+            : 0;
+          modelData.singleTurnRefusalRate = singleTurnRows.length > 0 
+            ? (singleTurnRefusal.length / singleTurnRows.length) * 100 
+            : 0;
+          
+          modelData.multiTurnSuccessRate = multiTurnRows.length > 0 
+            ? (multiTurnSuccessful.length / multiTurnRows.length) * 100 
+            : 0;
+          modelData.multiTurnRefusalRate = multiTurnRows.length > 0 
+            ? (multiTurnRefusal.length / multiTurnRows.length) * 100 
+            : 0;
+        }
+        
+        // Calculate tactic metrics by turn type
+        for (const tacticName in testCase.tactics) {
+          const tacticRows = testCase.tactics[tacticName];
+          
+          // Single-turn metrics
+          const singleTurnRows = tacticRows.filter(row => row.num_turns === 1 || !row.num_turns);
+          const singleTurnSuccessful = singleTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          );
+          const singleTurnRefusal = singleTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          );
+          
+          // Multi-turn metrics
+          const multiTurnRows = tacticRows.filter(row => row.num_turns && row.num_turns > 1);
+          const multiTurnSuccessful = multiTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          );
+          const multiTurnRefusal = multiTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          );
+          
+          // Store metrics on the tactic array for later use
+          testCase.tactics[tacticName] = {
+            rows: tacticRows,
+            singleTurnRows,
+            multiTurnRows,
+            singleTurnCount: singleTurnRows.length,
+            multiTurnCount: multiTurnRows.length,
+            singleTurnSuccessRate: singleTurnRows.length > 0 
+              ? (singleTurnSuccessful.length / singleTurnRows.length) * 100 
+              : 0,
+            singleTurnRefusalRate: singleTurnRows.length > 0 
+              ? (singleTurnRefusal.length / singleTurnRows.length) * 100 
+              : 0,
+            multiTurnSuccessRate: multiTurnRows.length > 0 
+              ? (multiTurnSuccessful.length / multiTurnRows.length) * 100 
+              : 0,
+            multiTurnRefusalRate: multiTurnRows.length > 0 
+              ? (multiTurnRefusal.length / multiTurnRows.length) * 100 
+              : 0,
+            tacticName: tacticName,
+            successRate: tacticRows.length > 0 
+              ? (tacticRows.filter(row => 
+                  row.success !== undefined ? Boolean(row.success) : 
+                  row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+                  row.asr !== undefined ? row.asr > 0 : false
+                ).length / tacticRows.length) * 100 
+              : 0,
+            refusalRate: tacticRows.length > 0 
+              ? (tacticRows.filter(row => 
+                  row.refused !== undefined ? Boolean(row.refused) : 
+                  row.refusal !== undefined ? Boolean(row.refusal) :
+                  row.rejection !== undefined ? Boolean(row.rejection) : false
+                ).length / tacticRows.length) * 100 
+              : 0,
+            avgRounds: tacticRows.length > 0
+              ? tacticRows.reduce((sum, row) => sum + (row.num_turns || 1), 0) / tacticRows.length
+              : 0,
+            count: tacticRows.length
+          };
         }
       }
     } else {
@@ -66,7 +202,9 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
         if (!testCaseData[testCaseName]) {
           testCaseData[testCaseName] = {
             models: {},
-            tactics: {}
+            tactics: {},
+            singleTurnRows: [],
+            multiTurnRows: []
           };
         }
         
@@ -83,6 +221,14 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
         }
         
         testCaseData[testCaseName].tactics[tacticName].push(row);
+        
+        // Separate by turn type
+        const isSingleTurn = row.num_turns === 1 || !row.num_turns;
+        if (isSingleTurn) {
+          testCaseData[testCaseName].singleTurnRows.push(row);
+        } else {
+          testCaseData[testCaseName].multiTurnRows.push(row);
+        }
       }
       
       // Calculate metrics for each model within each test case
@@ -130,7 +276,13 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
         successRate: metrics.successRate,
         refusalRate: metrics.refusalRate,
         roundCount: metrics.roundCount,
-        count: metrics.rows?.length || 0
+        count: metrics.rows?.length || 0,
+        singleTurnCount: metrics.singleTurnCount || 0,
+        multiTurnCount: metrics.multiTurnCount || 0,
+        singleTurnSuccessRate: metrics.singleTurnSuccessRate || 0,
+        singleTurnRefusalRate: metrics.singleTurnRefusalRate || 0,
+        multiTurnSuccessRate: metrics.multiTurnSuccessRate || 0,
+        multiTurnRefusalRate: metrics.multiTurnRefusalRate || 0
       }));
       
       // Sort models by success rate
@@ -152,43 +304,56 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
         : 0;
       
       // Process tactic effectiveness for this test case
-      const tacticEntries = Object.entries(data.tactics).map(([tacticName, rows]) => {
-        // Calculate success rate
-        const successfulRows = rows.filter(row => 
-          row.success !== undefined ? Boolean(row.success) : 
-          row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
-          row.asr !== undefined ? row.asr > 0 : false
-        );
-        const successRate = rows.length > 0 ? (successfulRows.length / rows.length) * 100 : 0;
-        
-        // Calculate refusal rate
-        const refusalRows = rows.filter(row => 
-          row.refused !== undefined ? Boolean(row.refused) : 
-          row.refusal !== undefined ? Boolean(row.refusal) :
-          row.rejection !== undefined ? Boolean(row.rejection) : false
-        );
-        const refusalRate = rows.length > 0 ? (refusalRows.length / rows.length) * 100 : 0;
-        
-        // Calculate average rounds
-        const roundsData = rows
-          .filter(row => row.num_turns || row.rounds || row.turn_count)
-          .map(row => row.num_turns || row.rounds || row.turn_count || 0);
-        
-        const avgRounds = roundsData.length > 0 
-          ? roundsData.reduce((sum, val) => sum + val, 0) / roundsData.length 
-          : 0;
-          
-        return {
-          tacticName,
-          successRate,
-          refusalRate,
-          avgRounds,
-          count: rows.length
-        };
-      });
+      const tacticEntries = Object.values(data.tactics).map(tactic => ({
+        tacticName: tactic.tacticName,
+        successRate: tactic.successRate,
+        refusalRate: tactic.refusalRate,
+        avgRounds: tactic.avgRounds,
+        count: tactic.rows.length,
+        singleTurnCount: tactic.singleTurnCount,
+        multiTurnCount: tactic.multiTurnCount,
+        singleTurnSuccessRate: tactic.singleTurnSuccessRate,
+        singleTurnRefusalRate: tactic.singleTurnRefusalRate,
+        multiTurnSuccessRate: tactic.multiTurnSuccessRate,
+        multiTurnRefusalRate: tactic.multiTurnRefusalRate
+      }));
       
       // Sort tactics by success rate
       const sortedTactics = [...tacticEntries].sort((a, b) => b.successRate - a.successRate);
+      
+      // Process single turn data
+      const singleTurnSuccessRate = data.singleTurnRows.length > 0
+        ? (data.singleTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          ).length / data.singleTurnRows.length) * 100
+        : 0;
+        
+      const singleTurnRefusalRate = data.singleTurnRows.length > 0
+        ? (data.singleTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          ).length / data.singleTurnRows.length) * 100
+        : 0;
+      
+      // Process multi turn data
+      const multiTurnSuccessRate = data.multiTurnRows.length > 0
+        ? (data.multiTurnRows.filter(row => 
+            row.success !== undefined ? Boolean(row.success) : 
+            row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+            row.asr !== undefined ? row.asr > 0 : false
+          ).length / data.multiTurnRows.length) * 100
+        : 0;
+        
+      const multiTurnRefusalRate = data.multiTurnRows.length > 0
+        ? (data.multiTurnRows.filter(row => 
+            row.refused !== undefined ? Boolean(row.refused) : 
+            row.refusal !== undefined ? Boolean(row.refusal) :
+            row.rejection !== undefined ? Boolean(row.rejection) : false
+          ).length / data.multiTurnRows.length) * 100
+        : 0;
       
       return {
         name: testCaseName,
@@ -198,7 +363,13 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
         models: sortedModels,
         tactics: sortedTactics,
         modelCount: modelEntries.length,
-        tacticCount: tacticEntries.length
+        tacticCount: tacticEntries.length,
+        singleTurnCount: data.singleTurnRows.length,
+        multiTurnCount: data.multiTurnRows.length,
+        singleTurnSuccessRate,
+        singleTurnRefusalRate,
+        multiTurnSuccessRate,
+        multiTurnRefusalRate
       };
     });
   }, [data]);
@@ -211,6 +382,16 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
     
     return processedData.find(tc => tc.name === selectedTestCase) || null;
   }, [selectedTestCase, processedData]);
+
+  // Filter data by turn type
+  const filteredProcessedData = useMemo(() => {
+    if (!processedData || processedData.length === 0) {
+      return [];
+    }
+    
+    // Return all data but make sure the renderTurnTypeComparison function will filter data
+    return processedData;
+  }, [processedData]);
   
   // Render test case selector
   const renderTestCaseSelector = () => (
@@ -261,7 +442,46 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
             onChange={() => setMetric("rounds")}
             className="mr-1"
           />
-          Average Rounds
+          Avg. Rounds
+        </label>
+      </div>
+    </div>
+  );
+  
+  // Render turn type selector
+  const renderTurnTypeSelector = () => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium mb-1">Turn Type:</label>
+      <div className="flex space-x-4">
+        <label className="inline-flex items-center">
+          <input 
+            type="radio" 
+            value="all" 
+            checked={turnType === "all"} 
+            onChange={() => setTurnType("all")}
+            className="mr-1"
+          />
+          All
+        </label>
+        <label className="inline-flex items-center">
+          <input 
+            type="radio" 
+            value="single" 
+            checked={turnType === "single"} 
+            onChange={() => setTurnType("single")}
+            className="mr-1"
+          />
+          Single-Turn
+        </label>
+        <label className="inline-flex items-center">
+          <input 
+            type="radio" 
+            value="multi" 
+            checked={turnType === "multi"} 
+            onChange={() => setTurnType("multi")}
+            className="mr-1"
+          />
+          Multi-Turn
         </label>
       </div>
     </div>
@@ -270,93 +490,99 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
   // Render model display options
   const renderModelDisplayOptions = () => (
     <div className="mb-4">
-      <label className="block text-sm font-medium mb-1">Model Display Options:</label>
-      <div className="flex items-center space-x-4">
-        <label className="inline-flex items-center">
+      <label className="inline-flex items-center">
+        <input 
+          type="checkbox" 
+          checked={showAllModels} 
+          onChange={() => setShowAllModels(!showAllModels)}
+          className="mr-1"
+        />
+        Show All Models
+      </label>
+      {!showAllModels && (
+        <div className="mt-2">
+          <label className="block text-sm font-medium mb-1">
+            Top Models to Display: {topModelCount}
+          </label>
           <input 
-            type="checkbox" 
-            checked={showAllModels} 
-            onChange={() => setShowAllModels(!showAllModels)}
-            className="mr-1"
+            type="range" 
+            min="3" 
+            max="20" 
+            value={topModelCount} 
+            onChange={(e) => setTopModelCount(parseInt(e.target.value))}
+            className="w-full"
           />
-          Show All Models
-        </label>
-        {!showAllModels && (
-          <div className="flex items-center">
-            <span className="mr-2">Top Models:</span>
-            <input 
-              type="number"
-              min="1"
-              max="50"
-              value={topModelCount}
-              onChange={(e) => setTopModelCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              className="w-16 p-1 border rounded"
-            />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
   
   // Render test case overview
   const renderTestCaseOverview = () => {
-    if (!processedData || processedData.length === 0) {
-      return <div>No data available</div>;
+    if (!filteredProcessedData || filteredProcessedData.length === 0) {
+      return <p>No test case data available.</p>;
     }
     
-    // Get data based on selected metric
-    const dataKey = metric === 'success' ? 'avgSuccessRate' : 
-                    metric === 'refusal' ? 'avgRefusalRate' : 'avgRounds';
+    // Get the metric field based on user selection
+    const metricField = metric === 'success' ? 'avgSuccessRate' : 
+                       metric === 'refusal' ? 'avgRefusalRate' : 'avgRounds';
     
-    // Sort data by the selected metric
-    const sortedData = [...processedData].sort((a, b) => b[dataKey] - a[dataKey]);
+    // Sort test cases by the selected metric
+    const sortedTestCases = [...filteredProcessedData]
+      .filter(tc => {
+        if (turnType === 'single') return tc.singleTurnCount > 0;
+        if (turnType === 'multi') return tc.multiTurnCount > 0;
+        return true;
+      })
+      .sort((a, b) => b[metricField] - a[metricField]);
+    
+    // Prepare data for visualization
+    const chartData = sortedTestCases.map(tc => ({
+      name: tc.name,
+      value: tc[metricField],
+      fill: COLORS[0]
+    }));
+    
+    // Set up labels
+    const metricLabel = metric === 'success' ? 'Success Rate (%)' : 
+                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Avg. Rounds';
     
     return (
-      <div className="chart-container">
-        <h3 className="text-lg font-medium mb-2">
-          {metric === 'success' ? 'Average Success Rate' : 
-           metric === 'refusal' ? 'Average Refusal Rate' : 'Average Rounds'} by Test Case
-        </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={sortedData}
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="name" 
-              angle={-45} 
-              textAnchor="end"
-              height={100}
-              interval={0}
-            />
-            <YAxis 
-              label={{ 
-                value: metric === 'success' ? 'Success Rate (%)' : 
-                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Average Rounds',
-                angle: -90, 
-                position: 'insideLeft' 
-              }} 
-            />
-            <Tooltip formatter={(value) => [
-              `${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`,
-              metric === 'success' ? 'Average Success Rate' : 
-              metric === 'refusal' ? 'Average Refusal Rate' : 'Average Rounds'
-            ]} />
-            <Legend />
-            <Bar 
-              dataKey={dataKey} 
-              fill="#8884d8"
-              name={metric === 'success' ? 'Average Success Rate' : 
-                    metric === 'refusal' ? 'Average Refusal Rate' : 'Average Rounds'}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">Overview of Test Cases</h2>
+        <p className="text-sm text-gray-500 mb-2">
+          Comparison of {metricLabel} across all test cases
+          {turnType === 'single' ? ' (Single-Turn Only)' : 
+           turnType === 'multi' ? ' (Multi-Turn Only)' : ''}
+        </p>
+        
+        <div className="h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 220, bottom: 5 }}
             >
-              {sortedData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-              <LabelList dataKey={dataKey} position="top" formatter={(value) => `${value.toFixed(1)}${metric !== 'rounds' ? '%' : ''}`} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" domain={[0, 'auto']} />
+              <YAxis type="category" dataKey="name" width={200} />
+              <Tooltip formatter={(value) => `${value.toFixed(2)}`} />
+              <Bar 
+                dataKey="value" 
+                fill="#8884d8"
+                label={{ 
+                  position: 'right', 
+                  formatter: (value) => `${value.toFixed(1)}`, 
+                  fontSize: 12 
+                }}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     );
   };
@@ -364,141 +590,342 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
   // Render model performance for selected test case
   const renderModelPerformance = () => {
     if (!selectedTestCaseData) {
-      return <div>Select a test case to view model performance</div>;
+      return <p>Please select a test case to view model performance.</p>;
     }
     
-    // Get data key based on selected metric
-    const dataKey = metric === 'success' ? 'successRate' : 
-                    metric === 'refusal' ? 'refusalRate' : 'roundCount';
+    // Get models sorted by success rate
+    const allModels = selectedTestCaseData.models;
     
-    // Get models to display (all or top N)
-    const displayModels = showAllModels 
-      ? selectedTestCaseData.models 
-      : selectedTestCaseData.models.slice(0, topModelCount);
+    // Add debugging to check data
+    console.log("Turn Type:", turnType);
+    console.log("Selected Test Case Data:", selectedTestCaseData);
+    console.log("All Models:", allModels);
+    
+    // Model data for the current turn type
+    const filteredModels = allModels.map(model => {
+      // Get the appropriate data for this model based on turn type
+      let value = 0;
+      
+      if (turnType === 'single') {
+        // Calculate on the fly for single turn
+        const testCaseRows = selectedTestCaseData?.singleTurnRows || [];
+        const modelRows = testCaseRows.filter(row => 
+          (row.target_model || row.model) === model.modelName
+        );
+        
+        // If we have rows for this model, calculate metrics
+        if (modelRows.length > 0) {
+          const turnMetrics = calculateTurnTypeMetrics(modelRows);
+          
+          // Store for logging/debugging
+          model.calculatedSingleTurnSuccessRate = turnMetrics.singleTurnSuccessRate;
+          model.calculatedSingleTurnRefusalRate = turnMetrics.singleTurnRefusalRate;
+          model.calculatedSingleTurnCount = turnMetrics.singleTurnCount;
+          
+          value = metric === 'success' ? turnMetrics.singleTurnSuccessRate :
+                 metric === 'refusal' ? turnMetrics.singleTurnRefusalRate :
+                 model.roundCount;
+        }
+      } else if (turnType === 'multi') {
+        // Calculate on the fly for multi turn
+        const testCaseRows = selectedTestCaseData?.multiTurnRows || [];
+        const modelRows = testCaseRows.filter(row => 
+          (row.target_model || row.model) === model.modelName
+        );
+        
+        // If we have rows for this model, calculate metrics
+        if (modelRows.length > 0) {
+          const turnMetrics = calculateTurnTypeMetrics(modelRows);
+          
+          // Store for logging/debugging
+          model.calculatedMultiTurnSuccessRate = turnMetrics.multiTurnSuccessRate;
+          model.calculatedMultiTurnRefusalRate = turnMetrics.multiTurnRefusalRate;
+          model.calculatedMultiTurnCount = turnMetrics.multiTurnCount;
+          
+          value = metric === 'success' ? turnMetrics.multiTurnSuccessRate :
+                 metric === 'refusal' ? turnMetrics.multiTurnRefusalRate :
+                 model.roundCount;
+        }
+      } else {
+        // All turns case
+        value = metric === 'success' ? model.successRate :
+               metric === 'refusal' ? model.refusalRate :
+               model.roundCount;
+      }
+      
+      // Log individual model properties
+      console.log(`Model ${model.modelName}:`, {
+        successRate: model.successRate,
+        singleTurnSuccessRate: model.singleTurnSuccessRate,
+        multiTurnSuccessRate: model.multiTurnSuccessRate,
+        calculatedSingleTurnSuccessRate: model.calculatedSingleTurnSuccessRate,
+        calculatedMultiTurnSuccessRate: model.calculatedMultiTurnSuccessRate,
+        singleTurnCount: model.singleTurnCount,
+        multiTurnCount: model.multiTurnCount,
+        value: value
+      });
+      
+      return { 
+        ...model, 
+        value: value 
+      };
+    });
+    
+    const modelsToDisplay = showAllModels 
+      ? filteredModels 
+      : filteredModels.slice(0, Math.min(topModelCount, filteredModels.length));
+    
+    // Prepare data for visualization
+    const chartData = modelsToDisplay.map((model, index) => ({
+      name: model.modelName,
+      value: model.value,
+      fill: COLORS[index % COLORS.length]
+    }));
+    
+    // Set up labels
+    const metricLabel = metric === 'success' ? 'Success Rate (%)' : 
+                      metric === 'refusal' ? 'Refusal Rate (%)' : 'Avg. Rounds';
     
     return (
-      <div className="chart-container">
-        <h3 className="text-lg font-medium mb-2">
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">
           Model Performance for {selectedTestCaseData.name}
-        </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart
-            data={displayModels}
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="modelName" 
-              angle={-45} 
-              textAnchor="end"
-              height={100}
-              interval={0}
-            />
-            <YAxis 
-              label={{ 
-                value: metric === 'success' ? 'Success Rate (%)' : 
-                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Average Rounds',
-                angle: -90, 
-                position: 'insideLeft' 
-              }} 
-            />
-            <Tooltip formatter={(value) => [
-              `${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`,
-              metric === 'success' ? 'Success Rate' : 
-              metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'
-            ]} />
-            <Legend />
-            <Bar 
-              dataKey={dataKey} 
-              fill="#8884d8"
-              name={metric === 'success' ? 'Success Rate' : 
-                    metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'}
+          {turnType === 'single' ? ' (Single-Turn Only)' : 
+           turnType === 'multi' ? ' (Multi-Turn Only)' : ''}
+        </h2>
+        <p className="text-sm text-gray-500 mb-2">
+          {metricLabel} across top {modelsToDisplay.length} models
+        </p>
+        
+        <div className="h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 220, bottom: 5 }}
             >
-              {displayModels.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" domain={[0, 'auto']} />
+              <YAxis type="category" dataKey="name" width={200} />
+              <Tooltip formatter={(value) => `${value.toFixed(2)}`} />
+              <Bar 
+                dataKey="value" 
+                label={{ 
+                  position: 'right', 
+                  formatter: (value) => `${value.toFixed(1)}`, 
+                  fontSize: 12 
+                }}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+  
+  // Render turn type comparison
+  const renderTurnTypeComparison = () => {
+    if (!filteredProcessedData || filteredProcessedData.length === 0) {
+      return <p>No test case data available.</p>;
+    }
+    
+    // Filter out test cases with no single or multi-turn data based on selected turn type
+    const filteredTestCases = filteredProcessedData.filter(tc => {
+      if (turnType === 'single') return tc.singleTurnCount > 0;
+      if (turnType === 'multi') return tc.multiTurnCount > 0;
+      return tc.singleTurnCount > 0 || tc.multiTurnCount > 0;
+    });
+    
+    // Sort test cases by success rate
+    const sortedTestCases = [...filteredTestCases]
+      .sort((a, b) => {
+        if (turnType === 'single') return b.singleTurnSuccessRate - a.singleTurnSuccessRate;
+        if (turnType === 'multi') return b.multiTurnSuccessRate - a.multiTurnSuccessRate;
+        return b.avgSuccessRate - a.avgSuccessRate;
+      });
+    
+    // Prepare chart data
+    const singleTurnChartData = sortedTestCases
+      .filter(tc => tc.singleTurnCount > 0)
+      .map(tc => ({
+        name: tc.name,
+        successRate: tc.singleTurnSuccessRate,
+        refusalRate: tc.singleTurnRefusalRate,
+        sampleCount: tc.singleTurnCount
+      }));
+    
+    const multiTurnChartData = sortedTestCases
+      .filter(tc => tc.multiTurnCount > 0)
+      .map(tc => ({
+        name: tc.name,
+        successRate: tc.multiTurnSuccessRate,
+        refusalRate: tc.multiTurnRefusalRate,
+        sampleCount: tc.multiTurnCount
+      }));
+    
+    return (
+      <div>
+        {(turnType === 'all' || turnType === 'single') && singleTurnChartData.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold mb-2">Single-Turn Test Case Performance</h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Success and refusal rates for single-turn test cases
+            </p>
+            
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={singleTurnChartData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 220, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" domain={[0, 100]} />
+                  <YAxis type="category" dataKey="name" width={200} />
+                  <Tooltip formatter={(value) => `${value.toFixed(2)}%`} />
+                  <Legend />
+                  <Bar 
+                    dataKey="successRate" 
+                    name="Success Rate (%)" 
+                    fill="#82ca9d"
+                    label={{ 
+                      position: 'right', 
+                      formatter: (value) => `${value.toFixed(1)}%`, 
+                      fontSize: 12 
+                    }}
+                  />
+                  <Bar 
+                    dataKey="refusalRate" 
+                    name="Refusal Rate (%)" 
+                    fill="#8884d8"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        
+        {(turnType === 'all' || turnType === 'multi') && multiTurnChartData.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold mb-2">Multi-Turn Test Case Performance</h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Success and refusal rates for multi-turn test cases
+            </p>
+            
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={multiTurnChartData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 220, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" domain={[0, 100]} />
+                  <YAxis type="category" dataKey="name" width={200} />
+                  <Tooltip formatter={(value) => `${value.toFixed(2)}%`} />
+                  <Legend />
+                  <Bar 
+                    dataKey="successRate" 
+                    name="Success Rate (%)" 
+                    fill="#ffc658"
+                    label={{ 
+                      position: 'right', 
+                      formatter: (value) => `${value.toFixed(1)}%`, 
+                      fontSize: 12 
+                    }}
+                  />
+                  <Bar 
+                    dataKey="refusalRate" 
+                    name="Refusal Rate (%)" 
+                    fill="#ff8042"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
   
   // Render tactic effectiveness for selected test case
   const renderTacticEffectiveness = () => {
-    if (!selectedTestCaseData || !selectedTestCaseData.tactics || selectedTestCaseData.tactics.length === 0) {
-      return <div>No tactic data available for this test case</div>;
+    if (!selectedTestCaseData) {
+      return <p>Please select a test case to view tactic effectiveness.</p>;
     }
     
-    // Get data key based on selected metric
-    const dataKey = metric === 'success' ? 'successRate' : 
-                    metric === 'refusal' ? 'refusalRate' : 'avgRounds';
+    // Get tactics sorted by success rate
+    const sortedTactics = selectedTestCaseData.tactics;
+    
+    // Get the metric field based on user selection and turn type
+    const metricField = metric === 'success' ? 
+      (turnType === 'single' ? 'singleTurnSuccessRate' : 
+       turnType === 'multi' ? 'multiTurnSuccessRate' : 'successRate') :
+      metric === 'refusal' ? 
+      (turnType === 'single' ? 'singleTurnRefusalRate' : 
+       turnType === 'multi' ? 'multiTurnRefusalRate' : 'refusalRate') : 
+      'avgRounds';
+    
+    // Prepare data for visualization
+    const chartData = sortedTactics
+      .filter(tactic => {
+        if (turnType === 'single') return tactic.singleTurnCount > 0;
+        if (turnType === 'multi') return tactic.multiTurnCount > 0;
+        return true;
+      })
+      .map((tactic, index) => ({
+        name: tactic.tacticName,
+        value: turnType === 'single' ? (tactic.singleTurnSuccessRate || 0) :
+               turnType === 'multi' ? (tactic.multiTurnSuccessRate || 0) :
+               tactic[metricField],
+        fill: COLORS[index % COLORS.length]
+      }));
+    
+    // Set up labels
+    const metricLabel = metric === 'success' ? 'Success Rate (%)' : 
+                      metric === 'refusal' ? 'Refusal Rate (%)' : 'Avg. Rounds';
     
     return (
-      <div className="chart-container">
-        <h3 className="text-lg font-medium mb-2">
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">
           Tactic Effectiveness for {selectedTestCaseData.name}
-        </h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <ComposedChart
-            data={selectedTestCaseData.tactics}
-            margin={{ top: 20, right: 30, left: 30, bottom: 100 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="tacticName" 
-              angle={-45} 
-              textAnchor="end"
-              height={100}
-              interval={0}
-            />
-            <YAxis 
-              yAxisId="left"
-              label={{ 
-                value: metric === 'success' ? 'Success Rate (%)' : 
-                       metric === 'refusal' ? 'Refusal Rate (%)' : 'Average Rounds',
-                angle: -90, 
-                position: 'insideLeft' 
-              }} 
-            />
-            <YAxis 
-              yAxisId="right"
-              orientation="right"
-              label={{ 
-                value: 'Sample Count', 
-                angle: 90, 
-                position: 'insideRight' 
-              }}
-            />
-            <Tooltip formatter={(value, name) => {
-              if (name === "Sample Count") return [value, name];
-              return [
-                `${value.toFixed(2)}${metric !== 'rounds' ? '%' : ''}`,
-                metric === 'success' ? 'Success Rate' : 
-                metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'
-              ];
-            }} />
-            <Legend />
-            <Bar 
-              yAxisId="left"
-              dataKey={dataKey} 
-              fill="#8884d8"
-              name={metric === 'success' ? 'Success Rate' : 
-                    metric === 'refusal' ? 'Refusal Rate' : 'Average Rounds'}
+          {turnType === 'single' ? ' (Single-Turn Only)' : 
+           turnType === 'multi' ? ' (Multi-Turn Only)' : ''}
+        </h2>
+        <p className="text-sm text-gray-500 mb-2">
+          {metricLabel} across all tactics
+        </p>
+        
+        <div className="h-96">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 180, bottom: 5 }}
             >
-              {selectedTestCaseData.tactics.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-            <Line 
-              type="monotone" 
-              dataKey="count" 
-              stroke="#ff7300" 
-              name="Sample Count"
-              yAxisId="right"
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" domain={[0, 'auto']} />
+              <YAxis type="category" dataKey="name" width={160} />
+              <Tooltip formatter={(value) => `${value.toFixed(2)}`} />
+              <Bar 
+                dataKey="value" 
+                label={{ 
+                  position: 'right', 
+                  formatter: (value) => `${value.toFixed(1)}`, 
+                  fontSize: 12 
+                }}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     );
   };
@@ -506,36 +933,47 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
   // Render details for selected test case
   const renderTestCaseDetails = () => {
     if (!selectedTestCaseData) {
-      return <div>Select a test case to view details</div>;
+      return <p>Please select a test case to view details.</p>;
     }
     
     return (
-      <div className="mt-8 p-4 border rounded">
-        <h3 className="text-xl font-medium mb-2">{selectedTestCaseData.name}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Average Success Rate</p>
-            <p className="text-2xl font-bold">{selectedTestCaseData.avgSuccessRate.toFixed(2)}%</p>
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">
+          Details for {selectedTestCaseData.name}
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-gray-100 p-4 rounded">
+            <h3 className="font-semibold mb-1">Success Rate</h3>
+            <p className="text-2xl">{selectedTestCaseData.avgSuccessRate.toFixed(2)}%</p>
+            {selectedTestCaseData.singleTurnCount > 0 && (
+              <p className="text-sm mt-2">Single-Turn: {selectedTestCaseData.singleTurnSuccessRate.toFixed(2)}%</p>
+            )}
+            {selectedTestCaseData.multiTurnCount > 0 && (
+              <p className="text-sm">Multi-Turn: {selectedTestCaseData.multiTurnSuccessRate.toFixed(2)}%</p>
+            )}
           </div>
-          <div className="bg-red-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Average Refusal Rate</p>
-            <p className="text-2xl font-bold">{selectedTestCaseData.avgRefusalRate.toFixed(2)}%</p>
+          
+          <div className="bg-gray-100 p-4 rounded">
+            <h3 className="font-semibold mb-1">Refusal Rate</h3>
+            <p className="text-2xl">{selectedTestCaseData.avgRefusalRate.toFixed(2)}%</p>
+            {selectedTestCaseData.singleTurnCount > 0 && (
+              <p className="text-sm mt-2">Single-Turn: {selectedTestCaseData.singleTurnRefusalRate.toFixed(2)}%</p>
+            )}
+            {selectedTestCaseData.multiTurnCount > 0 && (
+              <p className="text-sm">Multi-Turn: {selectedTestCaseData.multiTurnRefusalRate.toFixed(2)}%</p>
+            )}
           </div>
-          <div className="bg-green-50 p-3 rounded">
-            <p className="text-sm text-gray-600">Average Rounds</p>
-            <p className="text-2xl font-bold">{selectedTestCaseData.avgRounds.toFixed(2)}</p>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm">
-              Models tested: <span className="font-medium">{selectedTestCaseData.modelCount}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-sm">
-              Tactics used: <span className="font-medium">{selectedTestCaseData.tacticCount}</span>
-            </p>
+          
+          <div className="bg-gray-100 p-4 rounded">
+            <h3 className="font-semibold mb-1">Sample Count</h3>
+            <p className="text-2xl">{selectedTestCaseData.singleTurnCount + selectedTestCaseData.multiTurnCount}</p>
+            {selectedTestCaseData.singleTurnCount > 0 && (
+              <p className="text-sm mt-2">Single-Turn: {selectedTestCaseData.singleTurnCount}</p>
+            )}
+            {selectedTestCaseData.multiTurnCount > 0 && (
+              <p className="text-sm">Multi-Turn: {selectedTestCaseData.multiTurnCount}</p>
+            )}
           </div>
         </div>
       </div>
@@ -543,29 +981,34 @@ const TestCaseAnalysis = ({ data, selectedTestCase, onTestCaseSelect, uniqueTest
   };
   
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-4">Test Case Analysis</h2>
-        <p className="text-gray-600">
-          Analyze performance across different test cases, 
-          comparing model effectiveness and tactics for each test scenario.
-        </p>
-      </div>
+    <div className="pb-8">
+      <h1 className="text-2xl font-bold mb-4">Test Case Analysis</h1>
       
-      <div className="flex flex-wrap -mx-2">
-        <div className="w-full md:w-1/4 px-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
           {renderTestCaseSelector()}
           {renderMetricSelector()}
+        </div>
+        <div>
+          {renderTurnTypeSelector()}
           {renderModelDisplayOptions()}
         </div>
-        
-        <div className="w-full md:w-3/4 px-2">
+      </div>
+      
+      {!selectedTestCase && (
+        <>
           {renderTestCaseOverview()}
+          {renderTurnTypeComparison()}
+        </>
+      )}
+      
+      {selectedTestCase && (
+        <>
           {renderTestCaseDetails()}
           {renderModelPerformance()}
           {renderTacticEffectiveness()}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

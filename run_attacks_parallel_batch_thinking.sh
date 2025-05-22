@@ -15,6 +15,8 @@ OUTPUT_FOLDER="batch_thinking"
 jailbreak_tactics=(
     "direct_request"
     "crowding"
+    "emotional_appeal"
+    "command"
 )
 test_cases=(
     fake_online_profile
@@ -42,6 +44,11 @@ test_cases=(
 target_models=(
     "anthropic/claude-3.7-sonnet"
     "google/gemini-2.5-flash-preview"
+    "google/gemini-2.5-pro-preview"
+    "qwen/qwen3-8b"
+    "openai/o4-mini"
+    "openai/o3-mini"
+    "openai/o1-mini"
 )
 temperatures=(
     "0.0"

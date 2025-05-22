@@ -9,6 +9,7 @@ import SizeAnalysis from './components/SizeAnalysis';
 import ReleaseAnalysis from './components/ReleaseAnalysis';
 import ReasoningAnalysis from './components/ReasoningAnalysis';
 import EvaluatorCorrelationAnalysis from './components/EvaluatorCorrelationAnalysis';
+import DebugTurnTypeData from './components/debug/DebugTurnTypeData';
 import { processJailbreakData, loadMasterResultsData } from './utils/dataProcessing';
 
 // CSS styles for tabs
@@ -321,6 +322,10 @@ const CombinedVisualization = () => {
                  data={currentData}
                  modelComparisonData={modelComparisonData}
                />;
+      case "debug":
+        return <DebugTurnTypeData 
+                 data={currentData}
+               />;
       default:
         return <div>Select a tab to view analysis</div>;
     }
@@ -355,6 +360,7 @@ const CombinedVisualization = () => {
         {renderTab("heatmap", "Model Comparison")}
         {renderTab("size", "Size Analysis")}
         {renderTab("release", "Release Analysis")}
+        {renderTab("debug", "Debug Turn Data")}
       </div>
       
       {renderContent()}

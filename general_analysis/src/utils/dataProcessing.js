@@ -832,4 +832,90 @@ export const calculateModelASR = (modelData) => {
   }
   
   return results;
+};
+
+// Add function to calculate single and multi-turn metrics
+export const calculateTurnTypeMetrics = (rows) => {
+  if (!rows || rows.length === 0) {
+    return {
+      singleTurnRows: [],
+      multiTurnRows: [],
+      singleTurnSuccessRate: 0,
+      singleTurnRefusalRate: 0,
+      multiTurnSuccessRate: 0,
+      multiTurnRefusalRate: 0,
+      singleTurnCount: 0,
+      multiTurnCount: 0
+    };
+  }
+
+  // Split rows into single and multi-turn based on turn_type field
+  // Prioritize turn_type field over num_turns if it exists
+  const singleTurnRows = rows.filter(row => 
+    row.turn_type === 'single' || 
+    (row.turn_type === undefined && (!row.num_turns || row.num_turns === 1))
+  );
+  
+  const multiTurnRows = rows.filter(row => 
+    row.turn_type === 'multi' || 
+    (row.turn_type === undefined && row.num_turns && row.num_turns > 1)
+  );
+  
+  // Log what we found
+  console.log(`Found ${singleTurnRows.length} single-turn rows and ${multiTurnRows.length} multi-turn rows out of ${rows.length} total rows`);
+  
+  // Calculate metrics for single-turn rows
+  let singleTurnSuccessRate = 0;
+  let singleTurnRefusalRate = 0;
+  
+  if (singleTurnRows.length > 0) {
+    const successfulSingleTurnRows = singleTurnRows.filter(row => 
+      row.goal_achieved !== undefined ? Boolean(row.goal_achieved) :
+      row.success !== undefined ? Boolean(row.success) : 
+      row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+      row.asr !== undefined ? row.asr > 0 : false
+    );
+    
+    const refusalSingleTurnRows = singleTurnRows.filter(row => 
+      row.refused !== undefined ? Boolean(row.refused) : 
+      row.refusal !== undefined ? Boolean(row.refusal) :
+      row.rejection !== undefined ? Boolean(row.rejection) : false
+    );
+    
+    singleTurnSuccessRate = (successfulSingleTurnRows.length / singleTurnRows.length) * 100;
+    singleTurnRefusalRate = (refusalSingleTurnRows.length / singleTurnRows.length) * 100;
+  }
+  
+  // Calculate metrics for multi-turn rows
+  let multiTurnSuccessRate = 0;
+  let multiTurnRefusalRate = 0;
+  
+  if (multiTurnRows.length > 0) {
+    const successfulMultiTurnRows = multiTurnRows.filter(row => 
+      row.goal_achieved !== undefined ? Boolean(row.goal_achieved) :
+      row.success !== undefined ? Boolean(row.success) : 
+      row.jailbreak_success !== undefined ? Boolean(row.jailbreak_success) :
+      row.asr !== undefined ? row.asr > 0 : false
+    );
+    
+    const refusalMultiTurnRows = multiTurnRows.filter(row => 
+      row.refused !== undefined ? Boolean(row.refused) : 
+      row.refusal !== undefined ? Boolean(row.refusal) :
+      row.rejection !== undefined ? Boolean(row.rejection) : false
+    );
+    
+    multiTurnSuccessRate = (successfulMultiTurnRows.length / multiTurnRows.length) * 100;
+    multiTurnRefusalRate = (refusalMultiTurnRows.length / multiTurnRows.length) * 100;
+  }
+  
+  return {
+    singleTurnRows,
+    multiTurnRows,
+    singleTurnSuccessRate,
+    singleTurnRefusalRate,
+    multiTurnSuccessRate,
+    multiTurnRefusalRate,
+    singleTurnCount: singleTurnRows.length,
+    multiTurnCount: multiTurnRows.length
+  };
 }; 
