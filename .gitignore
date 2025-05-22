@@ -22,8 +22,6 @@ plot_outputs_model/
 # Ignore logs
 logs/
 *.log
-*.md
-*.txt
 *.png
 
 # VS Code

@@ -1,0 +1,219 @@
+User:
+This endpoint\\'s maximum context length is 32000 tokens. However, you requested about 33088 tokens (1088 of text input, 32000 in the output). Please reduce the length of either one, or use the \"middle-out\" transform to compress your prompt automatically.
+
+I'm getting this error for some models. Is it possible to set the token usage so that it outputs at most 32k tokens, but if the context window is smaller, it just outputs that instead?
+
+-----
+
+Assistant:
+OpenRouter (and the OpenAI-compatible SDKs that point to it) will always reject a request whose **input tokens + `max_tokens` > model-context-size**. The error you’re seeing is exactly that: 1 088 prompt tokens + a requested 32 000 completion tokens = 33 088, which is larger than the model’s 32 k window. ([OpenAI GPT-3 API error: "This model's maximum context length is ...](https://stackoverflow.com/questions/75396481/openai-gpt-3-api-error-this-models-maximum-context-length-is-4097-tokens?utm_source=chatgpt.com), [Error code: 400: Max token length - Bugs - OpenAI Developer Forum](https://community.openai.com/t/error-code-400-max-token-length/716391?utm_source=chatgpt.com))  
+
+If you want the model to **use “whatever is left” of the 32 k window instead of a fixed 32 000**, you have three practical options:
+
+---
+
+## 1 Just drop `max_tokens`
+
+When the field is omitted, OpenRouter treats it as “infinite” but still hard-caps the run at the context limit, so the model can only emit *remaining_context* = (context – prompt_tokens) tokens. That gives exactly the flexible behaviour you asked for: short prompts → long answers; long prompts → short answers. ([API Parameters | Configure OpenRouter API Requests | OpenRouter | Documentation](https://openrouter.ai/docs/api-reference/parameters), [Error Encountered When Using max_tokens Parameter with GPT-4 ...](https://community.openai.com/t/error-encountered-when-using-max-tokens-parameter-with-gpt-4-api/436386?utm_source=chatgpt.com))  
+
+**Why it sometimes still errors:** some client libraries pre-fill `max_tokens` with a large default (or copy the context length outright). Make sure your code isn’t doing that behind your back.
+
+---
+
+## 2 Compute `max_tokens` on the fly
+
+If you prefer an explicit ceiling, count the prompt tokens locally and subtract from 32 k:
+
+```python
+import tiktoken, openai
+
+enc = tiktoken.encoding_for_model("openai/o1")   # pick any 32k model
+prompt_tokens = len(enc.encode(prompt_string))
+
+MAX_CTX = 32_000          # window for the target model
+max_tokens = MAX_CTX - prompt_tokens
+
+response = client.chat.completions.create(
+    model="deepseek/deepseek-r1",
+    messages=messages,
+    max_tokens=max(1, max_tokens)    # avoid zero
+)
+```
+
+`tiktoken` is the fastest way to count tokens and is the method OpenAI themselves recommend. ([openai-cookbook/examples/How_to_count_tokens_with_tiktoken ...](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb?utm_source=chatgpt.com), [tiktoken is a fast BPE tokeniser for use with OpenAI's models. - GitHub](https://github.com/openai/tiktoken?utm_source=chatgpt.com))  
+
+---
+
+## 3 Let OpenRouter squeeze the prompt instead
+
+Add the **Middle-Out transform**, which automatically truncates the *middle* of an over-long prompt until it fits, leaving your requested `max_tokens` intact:
+
+```jsonc
+{
+  "model": "deepseek/deepseek-r1",
+  "transforms": ["middle-out"],
+  "max_tokens": 32000,
+  "messages": [...]
+}
+```
+
+Middle-Out keeps the first and last part of the conversation (where LLMs pay most attention) and drops content from the centre. It is enabled by default for endpoints with ≤ 8 k context, but for 32 k models you need to specify it yourself. ([Message Transforms | Pre-process AI Model Inputs with OpenRouter | OpenRouter | Documentation](https://openrouter.ai/docs/features/message-transforms), [OpenRouter: Prompt Transforms · Issue #630 - GitHub](https://github.com/irthomasthomas/undecidability/issues/630?utm_source=chatgpt.com))  
+
+---
+
+## 4 Things that will **not** work
+
+| Attempt | Why it fails |
+|---------|--------------|
+| `max_tokens: 32000` with a non-empty prompt | Prompt + 32 000 always > 32 000 ⇒ error |
+| `reasoning.max_tokens: 0` on “always-thinking” models | Reasoning budgets are clamped to ≥ 1 024 tokens by design. ([Reasoning Tokens | Enhanced AI Model Reasoning with OpenRouter](https://openrouter.ai/docs/use-cases/reasoning-tokens?utm_source=chatgpt.com)) |
+| Hoping OpenRouter will silently downsize `max_tokens` | The router validates before dispatch; oversize requests are rejected, not auto-shrunk. ([Error Encountered When Using max_tokens Parameter with GPT-4 ...](https://community.openai.com/t/error-encountered-when-using-max-tokens-parameter-with-gpt-4-api/436386?utm_source=chatgpt.com)) |
+
+---
+
+## 5 Good practice checklist
+
+* **Pick one strategy**—either omit `max_tokens`, compute it, or use Middle-Out. Combining them is harmless but redundant.  
+* **Still reserve head-room for reasoning tokens** if you enabled CoT; the 1 024-token floor applies on top of your completion budget. ([Reasoning Tokens | Enhanced AI Model Reasoning with OpenRouter](https://openrouter.ai/docs/use-cases/reasoning-tokens?utm_source=chatgpt.com))  
+* **Provider routing is capacity-aware**: if you set a big `max_tokens`, OpenRouter will only choose providers that support at least that output size. ([Provider Routing | Intelligent Multi-Provider Request Routing | OpenRouter | Documentation](https://openrouter.ai/docs/features/provider-routing))  
+* **Monitor usage**: invisible reasoning tokens (DeepSeek R1, o-series, etc.) are billed as output even if you hide them. ([Reasoning Tokens for Thinking Models - OpenRouter](https://openrouter.ai/announcements/reasoning-tokens-for-thinking-models?utm_source=chatgpt.com), [rogerchang1108/OpenAI-API-Token-Counter-with-Tiktoken - GitHub](https://github.com/rogerchang1108/OpenAI-API-Token-Counter-with-Tiktoken?utm_source=chatgpt.com))  
+
+With one of these patterns in place, your requests will always fit inside the 32 k context window—whether the prompt is tiny or huge—without hitting the “context length exceeded” error.
+
+-----
+
+User:
+Is there to extract the context window of the model, or do I need to hardcode it for each model I'm interested in running? I'd also be interested in storing how many reasoning tokens the model actually ends up using.
+
+-----
+
+Assistant:
+Below is everything you need to make your code **self-discover a model’s context window** and **record exactly how many “thinking” tokens it spent**—no hard-coding required.
+
+---
+
+## Quick summary  
+*Call `GET /api/v1/models` (or the OpenAI-SDK equivalent) once at start-up; each entry contains a `context_length` integer so you always know the window.*  ([List available models | OpenRouter | Documentation](https://openrouter.ai/docs/api-reference/list-available-models?utm_source=chatgpt.com))  
+*In every completion response OpenRouter returns a `usage` object; when a model supports chain-of-thought you’ll find the count in `usage.completion_tokens_details.reasoning_tokens`.*  ([Usage Accounting | Track AI Model Usage with OpenRouter](https://openrouter.ai/docs/use-cases/usage-accounting?utm_source=chatgpt.com), [Support for Reasoning in OpenRouter and DeepSeek Providers](https://github.com/continuedev/continue/issues/5049?utm_source=chatgpt.com))  
+You can therefore (1) pull context-length programmatically, (2) set `max_tokens` to `context_length – prompt_tokens`, and (3) log the reasoning budget the model actually used.
+
+---
+
+## 1 Getting the context window dynamically
+
+### 1.1 List **all** models, then index locally  
+```python
+import requests, os, json
+
+BASE = "https://openrouter.ai/api/v1"
+HEAD = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}"}
+
+models = requests.get(f"{BASE}/models", headers=HEAD).json()["data"]
+
+# Build a quick lookup: {model_id: context_length}
+CTX = {m["id"]: m["context_length"] for m in models}
+print("o1 context:", CTX["openai/o1"])            # e.g. 200_000   (changes over time)
+print("deepseek-r1 context:", CTX["deepseek/deepseek-r1"])  # 32_000
+```
+`context_length` appears on every element of the list returned by **/models**.  ([List available models | OpenRouter | Documentation](https://openrouter.ai/docs/api-reference/list-available-models?utm_source=chatgpt.com))  
+
+### 1.2 Query just one model  
+If you only need a single entry, hit  
+```
+GET /api/v1/models/<model-id>
+```  
+or the helper endpoint  
+```
+GET /api/v1/models/<provider>/<slug>
+```  
+which yields a JSON that again contains `context_length`.  ([List endpoints for a model | OpenRouter | Documentation](https://openrouter.ai/docs/api-reference/list-endpoints-for-a-model?utm_source=chatgpt.com))  
+
+### 1.3 Doing it with **openai-python**  
+```python
+from openai import OpenAI
+client = OpenAI(base_url="https://openrouter.ai/api/v1",
+                api_key=os.environ["OPENROUTER_API_KEY"])
+
+mdl = client.models.retrieve("deepseek/deepseek-r1")
+r1_ctx = mdl.context_length              # property exposed by the SDK
+```
+The OpenAI SDK simply forwards the `/models/<id>` call so you never leave the OpenAI spec.  ([OpenRouter API Reference | Complete API Documentation](https://openrouter.ai/docs/api-reference/overview?utm_source=chatgpt.com))  
+
+---
+
+## 2 Computing a safe `max_tokens` on the fly  
+
+```python
+import tiktoken                     # OpenAI’s official tokenizer lib
+enc = tiktoken.encoding_for_model("deepseek/deepseek-r1")
+
+prompt_tokens = len(enc.encode(prompt_text))
+ctx_window    = CTX["deepseek/deepseek-r1"]
+max_tokens    = max(1, ctx_window - prompt_tokens)   # leave ≥1
+
+resp = client.chat.completions.create(
+    model="deepseek/deepseek-r1",
+    messages=[{"role": "user", "content": prompt_text}],
+    max_tokens=max_tokens,
+    reasoning={"exclude": True}      # hide CoT if you don't need to print it
+)
+```
+If you omit `max_tokens` entirely the run stops as soon as the context is full, but many teams prefer an explicit ceiling for cost tracking.  ([Message Transforms | Pre-process AI Model Inputs with OpenRouter](https://openrouter.ai/docs/features/message-transforms?utm_source=chatgpt.com))  
+
+---
+
+## 3 Capturing the **real** reasoning-token count
+
+### 3.1 Non-streaming calls  
+Every completion response contains a `usage` stanza:  
+
+```json
+"usage": {
+  "prompt_tokens": 1088,
+  "completion_tokens": 2297,
+  "completion_tokens_details": {
+    "reasoning_tokens": 1532,
+    "accepted_prediction_tokens": 765
+  },
+  "total_tokens": 3385
+}
+```  
+`reasoning_tokens` is the exact number of CoT tokens billed.  ([Support for Reasoning in OpenRouter and DeepSeek Providers](https://github.com/continuedev/continue/issues/5049?utm_source=chatgpt.com), [openrouter API doesn't return any response of some models #375](https://github.com/openai/openai-go/issues/375?utm_source=chatgpt.com))  
+
+### 3.2 Streaming calls  
+With `stream=True`, OpenRouter appends a final **`[DONE]`** chunk that contains the same `usage` payload—save that JSON, or sum the `delta` sizes yourself.  ([Reasoning Tokens | Enhanced AI Model Reasoning with OpenRouter](https://openrouter.ai/docs/use-cases/reasoning-tokens?utm_source=chatgpt.com))  
+
+### 3.3 Persisting it  
+```python
+import sqlite3, time
+u = resp.usage
+with sqlite3.connect("usage.db") as db:
+    db.execute("""INSERT INTO usage_log(ts, model, prompt, prompt_t, comp_t,
+                reasoning_t, cost) VALUES (?,?,?,?,?,?,?)""",
+               (int(time.time()), resp.model, prompt_text,
+                u.prompt_tokens, u.completion_tokens,
+                u.completion_tokens_details.reasoning_tokens,
+                resp.headers["x-openrouter-cost-usd"]))
+```
+That gives you an audit trail for both cost **and** invisible thinking.
+
+---
+
+## 4 What if the model ignores reasoning budgets?
+
+DeepSeek-R1 and older o-series always reserve **at least 1 024** thinking tokens even if you pass `reasoning.max_tokens: 0`; OpenRouter clamps the value by design.  ([OpenRouter API Reference | Complete API Documentation](https://openrouter.ai/docs/api-reference/overview?utm_source=chatgpt.com), [Reasoning Tokens for Thinking Models - OpenRouter](https://openrouter.ai/announcements/reasoning-tokens-for-thinking-models?utm_source=chatgpt.com))  
+You can still read the real total from the `usage` object to understand how much was consumed (and billed) on any given call.  ([O1 models hidden reasoning tokens : r/OpenAI - Reddit](https://www.reddit.com/r/OpenAI/comments/1hrhdbp/o1_models_hidden_reasoning_tokens/?utm_source=chatgpt.com))  
+
+---
+
+## 5 Good practice checklist  
+
+| Task | Why it matters | Docs |
+|------|----------------|------|
+| Query `/models` once and cache results | avoids hard-coding and adapts if a provider ups the window |  ([List available models | OpenRouter | Documentation](https://openrouter.ai/docs/api-reference/list-available-models?utm_source=chatgpt.com)) |
+| Subtract prompt length before setting `max_tokens` | prevents “context length exceeded” errors |  |
+| Log `usage…reasoning_tokens` | lets you spot unexpectedly large CoT bills |  ([Usage Accounting | Track AI Model Usage with OpenRouter](https://openrouter.ai/docs/use-cases/usage-accounting?utm_source=chatgpt.com), [O1 models hidden reasoning tokens : r/OpenAI - Reddit](https://www.reddit.com/r/OpenAI/comments/1hrhdbp/o1_models_hidden_reasoning_tokens/?utm_source=chatgpt.com)) |
+| Add `reasoning.exclude:true` when you don’t need to show CoT | saves bandwidth without affecting billing |  ([Reasoning Tokens | Enhanced AI Model Reasoning with OpenRouter](https://openrouter.ai/docs/use-cases/reasoning-tokens?utm_source=chatgpt.com)) |
+| Enable the **Middle-Out** transform for very long chats | auto-truncates the prompt instead of erroring |  ([Message Transforms | Pre-process AI Model Inputs with OpenRouter](https://openrouter.ai/docs/features/message-transforms?utm_source=chatgpt.com)) |
+
+Using these endpoints and fields keeps your code **model-agnostic** and your cost data **exhaustively recorded**—no more magic numbers in config files.
