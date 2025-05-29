@@ -26,6 +26,7 @@ logs/
 
 # VS Code
 .vscode/
+.cursor/
 
 # DS_Store
 .DS_Store
