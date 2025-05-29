@@ -43,7 +43,12 @@ const CombinedVisualization = () => {
     'master_results.csv',
     'enhanced_master_data.csv',
     'results_test_runs.csv',
+    'batch_4A_results.csv',
+    'batch_4B_results.csv',
     'batch_4B_fixed_20250501_results.csv',
+    'batch_thinking_results.csv',
+    'model_comparison.csv',
+    'sample_results.csv',
     'results_final_3samples.csv'
   ]);
   

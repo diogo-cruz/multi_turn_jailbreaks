@@ -34,5 +34,22 @@ logs/
 .ipynb_checkpoints/
 
 # Node modules and dist directories
-interactive_analysis/node_modules/
+node_modules/
+**/node_modules/
 interactive_analysis/dist/
+general_analysis/node_modules/
+dist/
+**/dist/
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+build/
+**/build/
+
+.claude
+.cursor
+.ruff_cache
