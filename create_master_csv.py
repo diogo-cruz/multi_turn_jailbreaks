@@ -118,15 +118,9 @@ def main():
     base_dir = Path('.')
     final_runs_dir = base_dir / "clean_results" / "final_runs"
     csv_results_dir = base_dir / "csv_results"
-    interactive_analysis_dir = base_dir / "interactive_analysis" / "public"
-    evaluator_analysis_dir = base_dir / "evaluator_analysis" / "public"
-    general_analysis_dir = base_dir / "general_analysis" / "public" / "data"
     
-    # Create directories if they don't exist
+    # Create directory if it doesn't exist
     csv_results_dir.mkdir(exist_ok=True)
-    interactive_analysis_dir.mkdir(parents=True, exist_ok=True)
-    evaluator_analysis_dir.mkdir(parents=True, exist_ok=True)
-    general_analysis_dir.mkdir(parents=True, exist_ok=True)
     # List all subfolders in final_runs
     subfolders = [f for f in final_runs_dir.iterdir() if f.is_dir()]
     
@@ -291,26 +285,11 @@ def main():
         # Combine all DataFrames
         master_df = pd.concat(all_dfs, ignore_index=True)
         
-        # Save the master CSV to all required directories
+        # Save the master CSV
         master_csv_path = csv_results_dir / "master_results.csv"
         master_df.to_csv(master_csv_path, index=False)
         
-        # Save to interactive_analysis/public
-        interactive_path = interactive_analysis_dir / "master_results.csv"
-        master_df.to_csv(interactive_path, index=False)
-        
-        # Save to evaluator_analysis/public
-        evaluator_path = evaluator_analysis_dir / "master_results.csv"
-        master_df.to_csv(evaluator_path, index=False)
-        
-        # Save to general_analysis/public
-        general_path = general_analysis_dir / "master_results.csv"
-        master_df.to_csv(general_path, index=False)
-        
-        print(f"Created master CSV file and saved to:")
-        print(f"- {master_csv_path}")
-        print(f"- {interactive_path}")
-        print(f"- {evaluator_path}")
+        print(f"Created master CSV file: {master_csv_path}")
         print(f"Total rows: {len(master_df)}")
     else:
         print("No data to combine. Check for errors above.")
