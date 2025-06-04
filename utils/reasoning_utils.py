@@ -1,9 +1,9 @@
 import re
+import json
 
 def extract_reasoning_content(response, model_name=""):
     """
-    Enhanced function to extract reasoning content from various model responses,
-    with specific handling for Claude.
+    Extract reasoning content from various model responses, with specific handling for Claude.
     
     Parameters:
     - response: The response object or text from the model
@@ -15,6 +15,7 @@ def extract_reasoning_content(response, model_name=""):
     reasoning_content = None
     model_name = model_name.lower() if model_name else ""
     
+    # TODO: remove debug prints
     # Debug information
     print(f"DEBUG: Extracting reasoning from response type: {type(response)}")
     
@@ -55,7 +56,6 @@ def extract_reasoning_content(response, model_name=""):
                 
                 # Try to find reasoning in JSON format within the content
                 try:
-                    import json
                     # Check if the content is valid JSON
                     if content.strip().startswith("{") and content.strip().endswith("}"):
                         content_json = json.loads(content)
@@ -88,7 +88,6 @@ def extract_reasoning_content(response, model_name=""):
         if hasattr(response.choices[0].message, "content"):
             content = response.choices[0].message.content
             try:
-                import json
                 # Try to parse content as JSON if it appears to be JSON
                 if content.strip().startswith("{") and content.strip().endswith("}"):
                     content_json = json.loads(content)
@@ -105,7 +104,7 @@ def extract_reasoning_content(response, model_name=""):
 
 def get_reasoning_tokens(response, model_name=""):
     """
-    Extract reasoning token count from response usage data
+    Extract reasoning token count from response usage data.
     
     Parameters:
     - response: The response object from the model
