@@ -69,9 +69,8 @@ Arguments:
 --jailbreak-tactic: [tactic to use. ex) "crescendomation"]
 --test-case: [test-case to test on. file name without .json. ex) "how_to_make_meth"]
 --target-model: [target model to test. OpenAI API style. ex) "gpt-4"]
---target-base-url: [base url for target model. Default OpenAI URL if not provided.]
+--model-base-url: [base url for model. Default OpenAI URL if not provided.]
 --attacker-model: [attacker model to generate attack. OpenAI API Style. ex) "gpt-4o"]
---attacker-base-url: [base url for attacker model. Default OpenAI URL if not provided.]
 ````
 
 Currently only gpt-4o is supported for both Attacker and Target AI.

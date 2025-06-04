@@ -154,8 +154,7 @@ attacker_models=(
 )
 
 # Static values
-target_base_url="https://openrouter.ai/api/v1"
-attacker_base_url="https://openrouter.ai/api/v1"
+model_base_url="https://openrouter.ai/api/v1"
 
 # Evaluator
 evaluator_model="openai/gpt-4.1-mini"
@@ -193,8 +192,7 @@ generate_commands() {
                                 --test-case \"$test_case\" \
                                 --target-model \"$target_model\" \
                                 --attacker-model \"$attacker_model\" \
-                                --target-base-url \"$target_base_url\" \
-                                --attacker-base-url \"$attacker_base_url\" \
+                                --model-base-url \"$model_base_url\" \
                                 --target-temp $temp \
                                 --attacker-temp $ATTACK_TEMP \
                                 --turn-type \"$turn_type\"" \

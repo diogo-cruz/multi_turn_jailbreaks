@@ -41,17 +41,15 @@ load_dotenv()
 JAILBREAK_TACTICS = [d for d in os.listdir('jailbreaks') 
                     if os.path.isdir(os.path.join('jailbreaks', d))]
 
-# Get available test cases, include subdirectories in 'old' as well
+# Get available test cases
 TEST_CASES = [d for d in os.listdir('test_cases')
-              if os.path.isdir(os.path.join('test_cases', d))] + \
-              ['old/' + d for d in os.listdir('test_cases/old')
-              if os.path.isdir(os.path.join('test_cases/old', d))]
+              if os.path.isdir(os.path.join('test_cases', d))]
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--target-base-url", 
+    "--model-base-url", 
     type=str, 
-    help="The target model's base URL for the OpenAI API", 
+    help="The model base URL for the OpenAI API", 
     default="https://openrouter.ai/api/v1",
 )
 parser.add_argument(
@@ -65,12 +63,6 @@ parser.add_argument(
     type=float, 
     help="The temperature to use for the target model", 
     default=0.0,
-)
-parser.add_argument(
-    "--attacker-base-url",
-    type=str,
-    help="The attacker model's base URL for the OpenAI API",
-    default="https://openrouter.ai/api/v1",
 )
 parser.add_argument(
     "--attacker-model", type=str, help="The attacker model name", default="gpt-4o-mini"
@@ -142,13 +134,22 @@ if not run.has_single_turn(args.jailbreak_tactic) and args.turn_type == 'single_
     # Exit the program
     exit(0)
 
-target_client = openai.OpenAI(base_url=args.target_base_url)
+target_client = openai.OpenAI(base_url=args.model_base_url)
 target_model = args.target_model
 target_temp = args.target_temp
 reasoning = args.reasoning
 
-# Check compatibility between the model and reasoning settings before starting
-def validate_model_reasoning_compatibility(model, reasoning):
+def validate_model_reasoning_compatibility(model: str, reasoning: str) -> bool:
+    """
+    Validate if the given model supports the specified reasoning mode.
+
+    Args:
+        model (str): The model name to validate.
+        reasoning (str): The reasoning mode to validate against the model.
+    
+    Returns:
+        bool: True if the model supports the reasoning mode, False otherwise.
+    """
     if reasoning == "none":
         valid_none_models = NO_REASONING_SUPPORTED_MODELS + ALWAYS_REASONING_MODELS + THINKING_VARIANTS + QWEN_MODELS
         if model not in valid_none_models:
@@ -159,22 +160,20 @@ def validate_model_reasoning_compatibility(model, reasoning):
             return False
     return True
 
-def safe_target_generate(messages, **kwargs):
+def target_generate(messages, **kwargs):
     try:
         return generate(messages, client=target_client, model=target_model, temperature=target_temp, reasoning=reasoning, **kwargs)
     except ValueError as e:
+        #TODO: do we still need this check since we validate reasoning compatibility above?
         print(f"ERROR: {str(e)}")
         print("Exiting due to incompatible reasoning settings with the selected model.")
         exit(1)
 
-target_generate = safe_target_generate
-
-
-attacker_client = openai.OpenAI(base_url=args.attacker_base_url)
+attacker_client = openai.OpenAI(base_url=args.model_base_url)
 attacker_model = args.attacker_model
 attacker_temp = args.attacker_temp
 
-evaluator_client = openai.OpenAI(base_url=args.attacker_base_url)
+evaluator_client = openai.OpenAI(base_url=args.model_base_url)
 evaluator_model = args.evaluator_model
 evaluator_temp = args.evaluator_temp
 
@@ -224,7 +223,7 @@ timestamp = {"timestamp": current_time}
 target_model_name = args.target_model.split("/")[-1]
 
 # Before running the attack, validate the model and reasoning compatibility
-if reasoning is not None and not validate_model_reasoning_compatibility(target_model, reasoning):
+if (reasoning is not None) and (not validate_model_reasoning_compatibility(target_model, reasoning)):
     print("Exiting due to incompatible reasoning settings with the selected model.")
     exit(1)
 
@@ -237,7 +236,7 @@ async def run_sample(sample_num):
         f"./clean_results/final_runs/{args.output_folder}/{args.jailbreak_tactic}/{args.jailbreak_tactic}_{args.test_case}_{target_model_name}_{args.turn_type}{reasoning_suffix}_sample{sample_num}_{current_time}.jsonl"
     )
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
-    print(f"Generated Output file path for sample {sample_num}:", output_file_path)
+    print(f"Generated output file path for sample {sample_num}:", output_file_path)
 
     # save all parameters to the output file
     with open(output_file_path, "w") as f:
