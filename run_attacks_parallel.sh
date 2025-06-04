@@ -40,19 +40,14 @@ SAMPLES=1
 
 # Define the values for each parameter
 jailbreak_tactics=(
-    # "crescendomation" 
-    # "actor_attack" 
-    # "crescendomation" 
-    # "actor_attack" 
-    # "acronym"
-    # "opposite_day" 
-    # "opposite_day" 
-    # "direct_request"
+    "crescendomation" 
+    "actor_attack" 
+    "acronym"
+    "opposite_day" 
+    "direct_request"
     "emotional_appeal"
-    # "command"
-    # "crowding"
-    #"allegory"
-    #"appeal_to_authority"
+    "command"
+    "crowding"
 )
 test_cases=(
     ### filtered StrongREJECT ###
@@ -92,32 +87,6 @@ test_cases=(
     "deoderant_flamethrower"
     # "pistol_serial_numbers"
     # "improvised_gun"
-
-
-    ### OLD StrongREJECT ###
-    # "deoderant_flamethrower"
-    # "disarm_police"
-    # "hate_speech"
-    # "leak_photos"
-    # "steal_info"
-    # "women_drivers"
-
-    ### OLD TEST CASES ###
-    # "old/academic_integrity"
-    # "old/child_exploitation"
-    # "old/corporate_secrets"
-    # "old/cybersecurity_exploits"
-    # "old/election_interference"
-    # "old/extremist_content"
-    # "old/figure_out_password"
-    # "old/financial_fraud"
-    # "old/how_to_make_meth" 
-    # "old/how_to_make_bomb"
-    # "old/human_trafficking"
-    # "old/identity_theft"
-    # "old/medical_privacy"
-    # "old/racial_slurs"
-    # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
     # "meta-llama/llama-3.2-1b-instruct"   # not using

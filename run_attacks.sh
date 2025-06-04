@@ -37,8 +37,6 @@ jailbreak_tactics=(
     "emotional_appeal"
     "command"
     "crowding"
-    #"allegory"
-    #"appeal_to_authority"
 )
 test_cases=(
     ### StrongREJECT ###
@@ -48,24 +46,6 @@ test_cases=(
     "leak_photos"
     "steal_info"
     "women_drivers"
-
-
-    ### OLD TEST CASES ###
-    # "old/academic_integrity"
-    # "old/child_exploitation"
-    # "old/corporate_secrets"
-    # "old/cybersecurity_exploits"
-    # "old/election_interference"
-    # "old/extremist_content"
-    # "old/figure_out_password"
-    # "old/financial_fraud"
-    # "old/how_to_make_meth" 
-    # "old/how_to_make_bomb"
-    # "old/human_trafficking"
-    # "old/identity_theft"
-    # "old/medical_privacy"
-    # "old/racial_slurs"
-    # "old/misinformation_annexation_of_crimea_russia"
 )
 target_models=(
     "meta-llama/llama-3.1-8b-instruct"
@@ -75,7 +55,6 @@ target_models=(
     "meta-llama/llama-3.2-3b-instruct"
     "meta-llama/llama-3.3-70b-instruct"
     "gpt-4o-mini-2024-07-18"
-
 )
 temperatures=(
     # "0.0"
