@@ -413,7 +413,7 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
             
             # For "none" reasoning on thinking variants, convert to the base model
             original_model = model
-            if reasoning == "none" and is_thinking:
+            if reasoning == "none" and is_thinking: #TODO: should it be reasoning is None here
                 model = get_base_model(model)
                 base_args["model"] = model
                 print(f"DEBUG: Converted thinking variant '{original_model}' to base model '{model}' for reasoning=none")

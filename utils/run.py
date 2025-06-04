@@ -18,11 +18,11 @@ allowing researchers to easily compare their effectiveness against various targe
 while maintaining a consistent evaluation methodology.
 """
 
-# This is an template implementation for running jailbreaks which will be used for all
+# This is a template implementation for running jailbreaks which will be used for all
 # attack techniques unless they have a custom run.py file.
 import importlib
 import json
-from utils.run_claude_fix import extract_reasoning_content, get_reasoning_tokens
+from utils.reasoning_utils import extract_reasoning_content, get_reasoning_tokens
 from utils import (
     check_refusal,
     evaluate_with_strongreject,
@@ -62,7 +62,7 @@ def generate_step(
 
     result = attacker_generate(messages, json_format=True)
     
-    # Handle the result which may now include token usage data
+    # Handle the result which may include token usage data
     if isinstance(result, tuple) and len(result) >= 2:
         data = result[0]
         token_usage = result[1]
@@ -83,15 +83,30 @@ def generate_step(
         else:
             return None, data
 
-def has_single_turn(jailbreak_tactic):
+def has_single_turn(jailbreak_tactic: str) -> bool:
+    """Check if the specified jailbreak tactic has a single turn implementation.
+
+    Args:
+        jailbreak_tactic (str): The name of the jailbreak tactic.
+
+    Returns:
+        bool: True if the tactic has a single turn implementation, False otherwise.
+    """
     try:
         importlib.import_module(f"jailbreaks.{jailbreak_tactic}.prompt_single_turn")
         return True
     except ModuleNotFoundError:
         return False
 
-# Get custom run file if it exists
-def get_custom_run(jailbreak_tactic):
+def get_custom_run(jailbreak_tactic: str):
+    """Get the custom run function for the specified jailbreak tactic if it exists.
+
+    Args:
+        jailbreak_tactic (str): The name of the jailbreak tactic.
+
+    Returns:
+        function: The run function for the specified jailbreak tactic, or None if not found.
+    """
     try:
         jailbreak_module = importlib.import_module(f"jailbreaks.{jailbreak_tactic}.run")
         run_function = getattr(jailbreak_module, f"run_{jailbreak_tactic}")
@@ -99,23 +114,21 @@ def get_custom_run(jailbreak_tactic):
     except ModuleNotFoundError:
         return None
 
-def run_attack(test_case, output_file_path, target_generate, attacker_generate, jailbreak_tactic, evaluator_generate=None):
+def run_attack(test_case: dict | str, output_file_path: str, target_generate: callable, attacker_generate: callable, jailbreak_tactic: str, evaluator_generate: callable):
     """
     Run a jailbreak attack on a target model using a specified jailbreak tactic.
     
-    Parameters:
-    - test_case: The test case to use for the attack (either a dict or a file path)
-    - output_file_path: The path to save the output
-    - target_generate: A function that generates text from the target model
-    - attacker_generate: A function that generates text from the attacker model
-    - jailbreak_tactic: The jailbreak tactic to use
-    - evaluator_generate: A function that generates a score for the attack
-    
-    Returns:
-    - score: The score of the attack
-    - rejected: Whether the attack was rejected
+    Args:
+        test_case (dict | str): The test case to use for the attack (either a dict or a file path).
+        output_file_path (str): The path to the output file where results will be saved.
+        target_generate (callable): Function to generate responses from the target model.
+        attacker_generate (callable): Function to generate prompts from the attacker model.
+        jailbreak_tactic (str): The name of the jailbreak tactic to use.
+        evaluator_generate (callable): Function to generate a score for the attack.
+    Raises:
+        ValueError: If the test case cannot be loaded or if the evaluator_generate function is not provided.
+        Exception: If the jailbreak tactic does not support single turn implementation when required.
     """
-
     # Load the test case - either from file or use the provided dict
     if isinstance(test_case, dict):
         test_case_data = test_case
@@ -127,21 +140,14 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             raise ValueError(f"Could not load test case from {test_case}")
 
     # Extract test case data
-    if "task" in test_case_data:
-        goal = test_case_data["task"]  # Legacy format
-    else:
-        goal = test_case_data.get("goal", "Unknown goal")
+    goal = test_case_data.get("task", test_case_data.get("goal", "Unknown goal"))
         
     # Get target model information if available
     target_model = test_case_data.get("target_model", "unknown")
-    print(f"Goal: {goal}")
-    
-    if evaluator_generate is None:
-        raise ValueError("Evaluator generate function is required for the attack.")
     
     # Get turn type and max rounds with fallbacks for both formats
     turn_type = test_case_data.get("turn_type", test_case_data.get("type", "multi"))
-    max_rounds = test_case_data.get("max_rounds", test_case_data.get("maxRounds", 10))
+    max_rounds = test_case_data.get("max_rounds", test_case_data.get("maxRounds", 10)) #TODO: should be 8
 
     if not has_single_turn(jailbreak_tactic) and turn_type == "single":
         raise Exception(f"Jailbreak tactic {jailbreak_tactic} does not have a single turn implementation.")
@@ -152,13 +158,15 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
     print(f"Starting {jailbreak_tactic} attack")
     print("Goal:", goal)
 
+    # history of the attacker model
     history_a = {
         "round_number": [], 
         "attacker": [], # save the attacker's prompts
         "target": [], # save the summarized target's responses
         "score": []
     }
-    history_t = [] # history of the chat with the target system
+    # history of the target model, used to keep track of the conversation with the target model
+    history_t = []
     C_refused = 0
     response = ""
     round_number = 0
@@ -169,27 +177,29 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
         )
         
         # Handle the returned tuple from generate_step, which may include token usage data
-        if isinstance(prompt_result, tuple) and len(prompt_result) >= 2:
-            prompt, response_summary = prompt_result[0], prompt_result[1]
-            attacker_token_usage = prompt_result[2] if len(prompt_result) > 2 else None
+        if isinstance(prompt_result, tuple):
+            if len(prompt_result) > 2:
+                prompt, response_summary = prompt_result[0], prompt_result[1]
+                attacker_token_usage = prompt_result[2]
+            else:
+                prompt, response_summary = prompt_result[0], prompt_result[1]
+                attacker_token_usage = None
         else:
-            prompt, response_summary = prompt_result, None
-            attacker_token_usage = None
+            raise ValueError("Expected generate_step to return a tuple with prompt and response summary")
 
         if prompt is None:
             error_message = "Attacker refused to generate prompt"
             print(error_message)
-            if response_summary is not None and isinstance(response_summary, str):
-                error_message += ": " + response_summary
+            if response_summary is not None:
+                error_message += ": " + str(response_summary)
             with open(output_file_path, 'a') as f:
                 f.write(json.dumps({"round": round_number, "error": error_message}) + '\n')
             return
 
         history_t.append({"role": "user", "content": prompt})
-        
+
         # Get response and potentially token usage from target_generate
         target_result = target_generate(history_t)
-        
         # Handle the returned tuple from target_generate, which may include token usage data
         if isinstance(target_result, tuple) and len(target_result) >= 2:
             response = target_result[0]
@@ -198,10 +208,11 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             response = target_result
             target_token_usage = None
 
+        # TODO: remove debug print
         # DEBUG: Print the raw response for inspection
         print(f"DEBUG: Raw response type: {type(response)}")
         
-        # Extract and save reasoning content immediately to prevent loss
+        # Extract and save reasoning content
         reasoning_content = extract_reasoning_content(response, target_model)
         if reasoning_content:
             print(f"DEBUG: Successfully extracted reasoning content, length={len(str(reasoning_content))}")
@@ -273,8 +284,8 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             if prompt is None:
                 error_message = "Attacker refused to generate prompt"
                 print(error_message)
-                if response_summary is not None and isinstance(response_summary, str):
-                    error_message += ": " + response_summary
+                if response_summary is not None:
+                    error_message += ": " + str(response_summary)
                 with open(output_file_path, 'a') as f:
                     f.write(json.dumps({"round": round_number, "error": error_message}) + '\n')
                 return
@@ -293,9 +304,10 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
                 target_token_usage = None
             
         if C_refused >= 10:
-            print("Target LLM refusal limit reached")
+            error_message = "Target LLM refusal limit reached"
+            print(error_message)
             with open(output_file_path, "a") as f:
-                f.write(json.dumps({"round": round_number, "error": "Target LLM refusal limit reached"}) + '\n')
+                f.write(json.dumps({"round": round_number, "error": error_message}) + '\n')
             return
 
         history_a["attacker"].append(prompt)
@@ -332,7 +344,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             
         history_a["score"].append(score)
 
-        print(f"Round {round_number} - Loss: {score}")
+        print(f"Round {round_number} - Score: {score}")
         
         # DEBUG: Print the raw response for inspection
         print(f"DEBUG: Raw response type for evaluation: {type(response)}")
@@ -340,6 +352,7 @@ def run_attack(test_case, output_file_path, target_generate, attacker_generate, 
             print(f"DEBUG: Response keys for evaluation: {response.keys()}")
             
         # Enhanced reasoning extraction for evaluated responses
+        # TODO: pretty sure this won't work, since evaluation_result is supposed to be a tuple?
         evaluator_reasoning_content = None
         if isinstance(evaluation_result, dict) and "reasoning" in evaluation_result:
             evaluator_reasoning_content = evaluation_result.get("reasoning")
