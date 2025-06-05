@@ -172,6 +172,66 @@ def get_model_context_window(client, model):
         # Don't store in cache if we got an error - use default but don't save it
         return MAX_TOKENS  # Fallback to default without caching the failure
 
+def calculate_token_limits(client, model, messages):
+    """Calculate available tokens for completion based on context window and prompt tokens."""
+    context_window = get_model_context_window(client, model)
+    
+    # Create a probe request to measure prompt tokens
+    probe_args = {
+        "model": model,
+        "messages": messages.copy(),
+        "max_tokens": 1,  # Just need enough to get a response
+        "temperature": 0,
+    }
+    
+    try:
+        # Make a minimal probe request to get token counts
+        probe_response = client.chat.completions.create(**probe_args)
+        if hasattr(probe_response, 'usage') and hasattr(probe_response.usage, 'prompt_tokens'):
+            prompt_tokens = probe_response.usage.prompt_tokens
+        else:
+            # If no usage data, make a conservative estimate
+            prompt_tokens = int(context_window * 0.2)  # Assume 20% of context used for prompt
+    except Exception as e:
+        print(f"Error in probe request: {e}")
+        # Conservative fallback
+        prompt_tokens = int(context_window * 0.2)
+    
+    # Calculate available tokens for the response
+    max_completion_tokens = min(16000, int(context_window * 0.75))  # Cap at 16k or 75% of context
+    available_tokens = min(max_completion_tokens, max(1, context_window - prompt_tokens - 100))  # -100 for safety
+    
+    print(f"Prompt token count: {prompt_tokens}")
+    print(f"Available tokens for completion: {available_tokens}")
+    
+    return available_tokens
+
+def extract_reasoning_from_response(response, model_name):
+    """Extract reasoning content from model response if available."""
+    if not hasattr(response, 'choices') or not response.choices:
+        return None
+        
+    message = response.choices[0].message
+    reasoning_content = None
+    
+    # Check for reasoning in message attributes
+    if hasattr(message, 'reasoning'):
+        reasoning_content = message.reasoning
+        print(f"DEBUG: Extracted reasoning from message.reasoning attribute")
+    elif hasattr(message, 'thinking'):
+        reasoning_content = message.thinking
+        print(f"DEBUG: Extracted reasoning from message.thinking attribute")
+    elif 'qwen' in model_name.lower() and hasattr(message, 'content'):
+        # Look for Qwen-specific reasoning format in content
+        content = message.content
+        if content:
+            thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
+            if thinking_match:
+                reasoning_content = thinking_match.group(1)
+                print(f"DEBUG: Extracted Qwen reasoning from <thinking> tags in content")
+    
+    return reasoning_content
+
 def extract_usage_data(response):
     """Extract token usage data from a response."""
     if not hasattr(response, 'usage'):
@@ -196,83 +256,17 @@ def extract_usage_data(response):
         usage_data['reasoning_tokens'] = reasoning_tokens
         print(f"DEBUG: Found reasoning_tokens in completion_tokens_details: {reasoning_tokens}")
     else:
-        print("DEBUG: No reasoning_tokens found in completion_tokens_details")
-        
-        # If this is a DeepSeek or Qwen model, check if we have reasoning content and estimate tokens
+        # Model-specific reasoning token estimation
         model_name = usage_data['model'].lower()
-        if ('deepseek' in model_name or 'qwen' in model_name) and hasattr(response, 'choices') and response.choices:
-            # Check if reasoning exists as a direct attribute
-            if hasattr(response.choices[0].message, 'reasoning'):
-                reasoning_content = response.choices[0].message.reasoning
-                # Estimate token count based on string length (rough approximation: ~4 chars per token)
-                estimated_tokens = len(reasoning_content) // 4
-                usage_data['reasoning_tokens'] = estimated_tokens
-                print(f"DEBUG: Estimated reasoning tokens from content length: ~{estimated_tokens}")
-                print(f"DEBUG: Reasoning content first 100 chars: {reasoning_content[:100]}...")
-            
-            # Check if reasoning exists in a 'thinking' attribute (Qwen might use this)
-            elif hasattr(response.choices[0].message, 'thinking'):
-                reasoning_content = response.choices[0].message.thinking
-                estimated_tokens = len(reasoning_content) // 4
-                usage_data['reasoning_tokens'] = estimated_tokens
-                print(f"DEBUG: Found 'thinking' field in message content, estimated tokens: ~{estimated_tokens}")
-                print(f"DEBUG: Thinking content first 100 chars: {reasoning_content[:100]}...")
-            
-            # Check if content contains reasoning wrapped in a special format for Qwen
-            elif hasattr(response.choices[0].message, 'content'):
-                content = response.choices[0].message.content
-                
-                # Try to find reasoning in Qwen's format: <thinking>...</thinking>
-                thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
-                if thinking_match:
-                    reasoning_content = thinking_match.group(1)
-                    estimated_tokens = len(reasoning_content) // 4
-                    usage_data['reasoning_tokens'] = estimated_tokens
-                    print(f"DEBUG: Found reasoning in <thinking> tags, estimated tokens: ~{estimated_tokens}")
-                
-    # Enhanced model-specific checks
-    model_name = usage_data['model'].lower()
-    if 'deepseek' in model_name:
-        print("DEBUG: DeepSeek model detected, checking for reasoning field")
-        if hasattr(response, 'choices') and response.choices and hasattr(response.choices[0], 'message'):
-            message = response.choices[0].message
-            
-            # Check if reasoning exists directly in the message
-            if hasattr(message, 'reasoning'):
-                print(f"DEBUG: Found reasoning field in message (length={len(message.reasoning)})")
-            
-            # Check if content contains reasoning in a structured format
-            if hasattr(message, 'content'):
-                content = message.content
-                print(f"DEBUG: Message content first 100 chars: {content[:100]}...")
+        reasoning_content = extract_reasoning_from_response(response, model_name)
+        
+        if reasoning_content:
+            # Estimate token count based on string length (rough approximation: ~4 chars per token)
+            estimated_tokens = len(reasoning_content) // 4
+            usage_data['reasoning_tokens'] = estimated_tokens
+            print(f"DEBUG: Estimated reasoning tokens from content length: ~{estimated_tokens}")
     
-    elif 'qwen' in model_name:
-        print("DEBUG: Qwen model detected, checking for reasoning field")
-        if hasattr(response, 'choices') and response.choices and hasattr(response.choices[0], 'message'):
-            message = response.choices[0].message
-            
-            # Check all attributes of the message to find reasoning
-            for attr_name in dir(message):
-                if attr_name.startswith('_'):  # Skip private attributes
-                    continue
-                    
-                attr_value = getattr(message, attr_name, None)
-                if attr_value and isinstance(attr_value, str) and len(attr_value) > 10:
-                    print(f"DEBUG: Found potential reasoning in attribute '{attr_name}' (length={len(attr_value)})")
-                    # First 50 chars of the attribute
-                    print(f"DEBUG: {attr_name} content sample: {attr_value[:50]}...")
-            
-            # Check if content contains reasoning in Qwen's format
-            if hasattr(message, 'content'):
-                content = message.content
-                print(f"DEBUG: Message content first 100 chars: {content[:100]}...")
-                
-                # Explicit pattern matching for Qwen reasoning formats
-                thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
-                if thinking_match:
-                    print(f"DEBUG: Found <thinking> tags in content")
-    
-    # Print the usage data (can be modified to save to file/database)
+    # Print the usage data
     print(f"Token usage: {json.dumps(usage_data, indent=2)}")
     
     return usage_data
@@ -283,39 +277,134 @@ def get_base_model(model):
         return model.split(":thinking")[0]
     return model
 
-def generate(messages, client, model, temperature=0, top_p=1, json_format=False, reasoning=None):
-    # Get the model's context window
-    context_window = get_model_context_window(client, model)
+def process_response(response, json_format=False):
+    """Process API response and extract content and usage data."""
+    # Extract and save usage data
+    usage_data = extract_usage_data(response)
     
-    # Create a probe request to measure prompt tokens
-    # We'll use max_tokens=1 to minimize token usage while still getting prompt_tokens count
-    probe_args = {
-        "model": model,
-        "messages": messages.copy(),
-        "max_tokens": 1,  # Just need enough to get a response
-        "temperature": 0,
-    }
+    if response.choices is None or len(response.choices) == 0:
+        error_msg = getattr(response, 'error', 'No choices returned and no error message')
+        print(f"ERROR: No valid response choices returned: {error_msg}")
+        return "I apologize, but I cannot provide the information you're looking for.", usage_data
+        
+    content = response.choices[0].message.content
+    model_name = usage_data.get('model', '').lower()
     
-    try:
-        # Make a minimal probe request to get token counts
-        probe_response = client.chat.completions.create(**probe_args)
-        if hasattr(probe_response, 'usage') and hasattr(probe_response.usage, 'prompt_tokens'):
-            prompt_tokens = probe_response.usage.prompt_tokens
-            print(f"Prompt token count: {prompt_tokens}")
+    # Extract reasoning content
+    reasoning_content = extract_reasoning_from_response(response, model_name)
+    
+    # Handle Qwen models - remove thinking tags from visible content
+    if 'qwen' in model_name and reasoning_content and content:
+        content = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL)
+        print(f"DEBUG: Removed thinking tags from content")
+    
+    # Check for empty or null content
+    if content is None or content.strip() == "":
+        print("WARNING: Empty response content received")
+        return "I apologize, but I received an empty response.", usage_data
+    
+    # If we found reasoning content, return both content and reasoning
+    if reasoning_content:
+        print(f"DEBUG: Creating combined response with content and reasoning")
+        return {"content": content, "reasoning": reasoning_content}, usage_data
+    
+    # Handle JSON format if requested
+    if json_format:
+        try:
+            return json.loads(content), usage_data
+        except json.JSONDecodeError as e:
+            # A common error is the response trying to escape speech marks
+            if "Invalid \\escape" in e.msg:
+                print("Invalid escape character found, attempting to fix...")
+                content = content.replace("\\'", "'").replace('\\"', '"')
+                try:
+                    return json.loads(content), usage_data
+                except:
+                    print(f"Failed to parse JSON after escape fix: {content}")
+                    return extract_json(content), usage_data
+            else:
+                print(f"JSON decode error: {e.msg}")
+                print(f"Content: {content}")
+                return extract_json(content), usage_data
+    
+    return content, usage_data
+
+def build_reasoning_args(reasoning, model_family, available_tokens):
+    """Build reasoning arguments for API request based on model family and reasoning level."""
+    reasoning_args = {}
+    
+    if reasoning == "none":
+        reasoning_args = {
+            "reasoning": {
+                "exclude": False  # Hide reasoning in output
+            }
+        }
+    elif reasoning in ["low", "medium", "high"]:
+        # Calculate reasoning tokens based on available tokens and effort level
+        ratio = EFFORT_RATIOS[reasoning]
+        reasoning_tokens = max(1024, min(int(available_tokens * ratio), 32000))
+        
+        # For OpenAI models, use the effort parameter
+        if model_family == "openai":
+            reasoning_args = {
+                "reasoning": {
+                    "effort": reasoning,
+                    "exclude": False  # Include reasoning in output
+                }
+            }
+        # For other models, use max_tokens for reasoning
         else:
-            # If no usage data, make a conservative estimate
-            prompt_tokens = int(context_window * 0.2)  # Assume 20% of context used for prompt
-            print(f"No usage data available, estimating prompt tokens: {prompt_tokens}")
-    except Exception as e:
-        print(f"Error in probe request: {e}")
-        # Conservative fallback
-        prompt_tokens = int(context_window * 0.2)
-        print(f"Error measuring prompt tokens, using estimate: {prompt_tokens}")
+            reasoning_args = {
+                "reasoning": {
+                    "max_tokens": reasoning_tokens,
+                    "exclude": False  # Include reasoning in output
+                }
+            }
     
-    # Calculate available tokens for the response, ensure we don't exceed reasonable limits
-    max_completion_tokens = min(16000, int(context_window * 0.75))  # Cap at 16k or 75% of context
-    available_tokens = min(max_completion_tokens, max(1, context_window - prompt_tokens - 100))  # -100 for safety
-    print(f"Available tokens for completion: {available_tokens}")
+    return reasoning_args
+
+def handle_qwen_reasoning(messages, reasoning):
+    """Handle Qwen-specific reasoning control using prompt tags."""
+    modified_messages = messages.copy()
+    
+    if reasoning == "none":
+        # For Qwen3, inject the /no_think tag in the system message or prepend it to the first message
+        if modified_messages[0]["role"] == "system":
+            modified_messages[0]["content"] = "/no_think " + modified_messages[0]["content"]
+        else:
+            # Insert a system message with the /no_think tag
+            modified_messages.insert(0, {"role": "system", "content": "/no_think"})
+    elif reasoning in ["low", "medium", "high"]:
+        # For explicit reasoning levels, use the /think tag
+        if modified_messages[0]["role"] == "system":
+            modified_messages[0]["content"] = "/think " + modified_messages[0]["content"]
+        else:
+            # Insert a system message with the /think tag
+            modified_messages.insert(0, {"role": "system", "content": "/think"})
+    
+    return modified_messages
+
+def make_api_request_with_retry(client, base_args, max_retries=3, retry_delay=5):
+    """Make API request with retry logic."""
+    for retry_count in range(max_retries):
+        try:
+            response = client.chat.completions.create(**base_args)
+            return process_response(response, base_args.get("response_format", {}).get("type") == "json_object")
+        except Exception as e:
+            if retry_count < max_retries - 1:
+                print(f"API error (attempt {retry_count+1}/{max_retries}): {str(e)}")
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"Failed after {max_retries} attempts. Last error: {str(e)}")
+                usage_data = {"available": False, "reason": f"API error after {max_retries} retries: {str(e)}"}
+                return f"I encountered an error while processing your request: {str(e)}", usage_data
+
+def generate(messages, client, model, temperature=0, top_p=1, json_format=False, reasoning=None):
+    """Generate response from language model with optional reasoning control."""
+    # Calculate available tokens for the response
+    available_tokens = calculate_token_limits(client, model, messages)
     
     # Base args for all requests
     base_args = {
@@ -327,252 +416,58 @@ def generate(messages, client, model, temperature=0, top_p=1, json_format=False,
         "max_tokens": available_tokens,
     }
     
-    # Helper function to process the response
-    def process_response(response):
-        # Extract and save usage data
-        usage_data = extract_usage_data(response)
-        
-        if response.choices is None or len(response.choices) == 0:
-            error_msg = getattr(response, 'error', 'No choices returned and no error message')
-            print(f"ERROR: No valid response choices returned: {error_msg}")
-            return "I apologize, but I cannot provide the information you're looking for.", usage_data
-            
-        content = response.choices[0].message.content
-        
-        # Generic reasoning extraction that works with multiple models
-        reasoning_content = None
-        model_name = usage_data.get('model', '').lower()
-        
-        # Enhanced reasoning extraction with explicit handling per model type
-        if hasattr(response.choices[0].message, 'reasoning'):
-            reasoning_content = response.choices[0].message.reasoning
-            print(f"DEBUG: Extracted reasoning from message.reasoning attribute")
-        elif hasattr(response.choices[0].message, 'thinking'):
-            reasoning_content = response.choices[0].message.thinking
-            print(f"DEBUG: Extracted reasoning from message.thinking attribute")
-        elif 'qwen' in model_name:
-            # Look for Qwen-specific reasoning format in content
-            if content:
-                thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
-                if thinking_match:
-                    reasoning_content = thinking_match.group(1)
-                    print(f"DEBUG: Extracted Qwen reasoning from <thinking> tags in content")
-                    # Remove the tags from the visible content
-                    content = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL)
-                    print(f"DEBUG: Removed thinking tags from content")
-        
-        # If we found any reasoning content, return both content and reasoning
-        if reasoning_content:
-            print(f"DEBUG: Creating combined response with content and reasoning")
-            return {"content": content, "reasoning": reasoning_content}, usage_data
-        
-        # Check for empty or null content
-        if content is None or content.strip() == "":
-            print("WARNING: Empty response content received")
-            return "I apologize, but I received an empty response.", usage_data
-        
-        if json_format:
-            try:
-                return json.loads(content), usage_data
-            except json.JSONDecodeError as e:
-                # A common error is the response trying to escape speech marks
-                if "Invalid \\escape" in e.msg:
-                    print("Invalid escape character found, attempting to fix...")
-                    content = content.replace("\\'", "'").replace('\\"', '"')
-                    try:
-                        return json.loads(content), usage_data
-                    except:
-                        print(f"Failed to parse JSON after escape fix: {content}")
-                        return extract_json(content), usage_data
-                else:
-                    print(f"JSON decode error: {e.msg}")
-                    print(f"Content: {content}")
-                    return extract_json(content), usage_data
-        
-        return content, usage_data
+    # If reasoning is None, make a standard request
+    if reasoning is None:
+        return make_api_request_with_retry(client, base_args)
     
-    # Try to make the actual request with error handling and retry logic
-    max_retries = 3
-    retry_delay = 5  # seconds
+    # Handle reasoning requests
+    model_family = get_model_family(model)
+    is_thinking = is_thinking_variant(model)
+    original_model = model
     
-    for retry_count in range(max_retries):
-        try:
-            # If reasoning is None, make a standard request
-            if reasoning is None:
-                response = client.chat.completions.create(**base_args)
-                return process_response(response)
-            
-            # For reasoning requests, follow the existing code path...
-            # Get model family and check if it's a thinking variant
-            model_family = get_model_family(model)
-            is_thinking = is_thinking_variant(model)
-            
-            # More explicit validation for unknown models
-            if model_family == "unknown" and reasoning == "none":
-                raise ValueError(f"Model {model} is not in the known list of models that support no-reasoning mode")
-            
-            # For "none" reasoning on thinking variants, convert to the base model
-            original_model = model
-            if reasoning == "none" and is_thinking: #TODO: should it be reasoning is None here
-                model = get_base_model(model)
-                base_args["model"] = model
-                print(f"DEBUG: Converted thinking variant '{original_model}' to base model '{model}' for reasoning=none")
-            
-            # Calculate reasoning tokens based on available tokens and effort level
-            if reasoning in ["low", "medium", "high"]:
-                ratio = EFFORT_RATIOS[reasoning]
-                reasoning_tokens = max(1024, min(int(available_tokens * ratio), 32000))
-            else:
-                reasoning_tokens = 0
-            
-            # Special handling for Qwen models (using prompt tags)
-            if model_family == "qwen" and is_qwen3_model(model):
-                if reasoning == "none":
-                    # For Qwen3, inject the /no_think tag in the system message or prepend it to the first message
-                    if base_args["messages"][0]["role"] == "system":
-                        base_args["messages"][0]["content"] = "/no_think " + base_args["messages"][0]["content"]
-                    else:
-                        # Insert a system message with the /no_think tag
-                        base_args["messages"].insert(0, {"role": "system", "content": "/no_think"})
-                    
-                    try:
-                        response = client.chat.completions.create(**base_args)
-                        return process_response(response)
-                    except Exception as e:
-                        if retry_count < max_retries - 1:
-                            print(f"API error with Qwen (attempt {retry_count+1}/{max_retries}): {str(e)}")
-                            print(f"Retrying in {retry_delay} seconds...")
-                            time.sleep(retry_delay)
-                            continue
-                        else:
-                            print(f"Failed after {max_retries} attempts. Last error: {str(e)}")
-                            usage_data = {"available": False, "reason": f"API error after {max_retries} retries: {str(e)}"}
-                            return f"I encountered an error while processing your request: {str(e)}", usage_data
-                
-                elif reasoning in ["low", "medium", "high"]:
-                    # For explicit reasoning levels, use the /think tag and add reasoning token controls
-                    if base_args["messages"][0]["role"] == "system":
-                        base_args["messages"][0]["content"] = "/think " + base_args["messages"][0]["content"]
-                    else:
-                        # Insert a system message with the /think tag
-                        base_args["messages"].insert(0, {"role": "system", "content": "/think"})
-                    
-                    # Add reasoning parameters for token budget control
-                    reasoning_args = {
-                        "reasoning": {
-                            "max_tokens": reasoning_tokens,
-                            "exclude": False,  # Include reasoning in output
-                            "include_reasoning": True  # Redundant but might help with some API versions
-                        }
-                    }
-                    base_args["extra_body"] = reasoning_args
-                    
-                    # Add debug logging to see what parameters we're sending
-                    print(f"DEBUG: Qwen3 request with /think tag and parameters: {json.dumps(base_args, default=str)}")
-                    
-                    try:
-                        response = client.chat.completions.create(**base_args)
-                        return process_response(response)
-                    except Exception as e:
-                        if retry_count < max_retries - 1:
-                            print(f"API error with Qwen reasoning (attempt {retry_count+1}/{max_retries}): {str(e)}")
-                            print(f"Retrying in {retry_delay} seconds...")
-                            time.sleep(retry_delay)
-                            continue
-                        else:
-                            print(f"Failed after {max_retries} attempts with reasoning. Last error: {str(e)}")
-                            usage_data = {"available": False, "reason": f"API error after {max_retries} retries: {str(e)}"}
-                            return f"I encountered an error while processing your request: {str(e)}", usage_data
-            
-            # Handle "none" reasoning level - true "no reasoning" for supported models
-            if reasoning == "none":
-                # For models that support no reasoning at all
-                if model in NO_REASONING_SUPPORTED_MODELS:
-                    # Already using the non-thinking variant, so we're good
-                    response = client.chat.completions.create(**base_args)
-                    return process_response(response)
-                
-                # For thinking variants of models that support no-reasoning
-                # (This block is kept for compatibility with models that aren't in THINKING_VARIANTS
-                # but might still use the :thinking suffix convention)
-                elif is_thinking_variant(model):
-                    # Use exclude parameter to hide reasoning
-                    reasoning_args = {
-                        "reasoning": {
-                            "exclude": False  # Hide reasoning in output
-                        }
-                    }
-                    base_args["extra_body"] = reasoning_args
-                    response = client.chat.completions.create(**base_args)
-                    return process_response(response)
-                
-                # For models that always think but can hide it
-                elif model in ALWAYS_REASONING_MODELS:
-                    reasoning_args = {
-                        "reasoning": {
-                            "exclude": False  # Hide reasoning in output
-                        }
-                    }
-                    base_args["extra_body"] = reasoning_args
-                    response = client.chat.completions.create(**base_args)
-                    return process_response(response)
-                    
-                # For unsupported models, raise an error
-                else:
-                    raise ValueError(f"Model {model} does not support no-reasoning mode")
-            
-            # Handle specific reasoning effort levels
-            elif reasoning in ["low", "medium", "high"]:
-                # For OpenAI models, use the effort parameter
-                if model_family == "openai":
-                    reasoning_args = {
-                        "reasoning": {
-                            "effort": reasoning,
-                            "exclude": False  # Include reasoning in output
-                        }
-                    }
-                
-                # For other models, use max_tokens for reasoning
-                else:
-                    reasoning_args = {
-                        "reasoning": {
-                            "max_tokens": reasoning_tokens,
-                            "exclude": False  # Include reasoning in output
-                        }
-                    }
-                
-                base_args["extra_body"] = reasoning_args
-                
-                try:
-                    response = client.chat.completions.create(**base_args)
-                    return process_response(response)
-                except Exception as e:
-                    if retry_count < max_retries - 1:
-                        print(f"API error (attempt {retry_count+1}/{max_retries}): {str(e)}")
-                        print(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                        continue
-                    else:
-                        print(f"Failed after {max_retries} attempts. Last error: {str(e)}")
-                        usage_data = {"available": False, "reason": f"API error after {max_retries} retries: {str(e)}"}
-                        return f"I encountered an error while processing your request: {str(e)}", usage_data
-            
-            # Invalid reasoning value
-            else:
-                raise ValueError(f"Invalid reasoning value: {reasoning}. Must be one of: none, low, medium, high")
-        except Exception as e:
-            if retry_count < max_retries - 1:
-                print(f"Error during API call (attempt {retry_count+1}/{max_retries}): {str(e)}")
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-                continue
-            else:
-                print(f"ERROR in generate request (failed after {max_retries} attempts): {str(e)}")
-                # Return a fallback response with empty usage data
-                usage_data = {"available": False, "reason": f"API error after {max_retries} retries: {str(e)}"}
-                return f"I encountered an error while processing your request: {str(e)}", usage_data
+    # Validate model support for no-reasoning mode
+    if model_family == "unknown" and reasoning == "none":
+        raise ValueError(f"Model {model} is not in the known list of models that support no-reasoning mode")
+    
+    # For "none" reasoning on thinking variants, convert to the base model
+    if reasoning == "none" and is_thinking:
+        model = get_base_model(model)
+        base_args["model"] = model
+        print(f"DEBUG: Converted thinking variant '{original_model}' to base model '{model}' for reasoning=none")
+    
+    # Special handling for Qwen models (using prompt tags)
+    if model_family == "qwen" and is_qwen3_model(model):
+        base_args["messages"] = handle_qwen_reasoning(base_args["messages"], reasoning)
+        
+        if reasoning in ["low", "medium", "high"]:
+            # Add reasoning parameters for token budget control
+            reasoning_args = build_reasoning_args(reasoning, model_family, available_tokens)
+            base_args["extra_body"] = reasoning_args
+            print(f"DEBUG: Qwen3 request with reasoning parameters: {json.dumps(base_args, default=str)}")
+        
+        return make_api_request_with_retry(client, base_args)
+    
+    # Handle "none" reasoning level for supported models
+    if reasoning == "none":
+        if model in NO_REASONING_SUPPORTED_MODELS or is_thinking_variant(model) or model in ALWAYS_REASONING_MODELS:
+            reasoning_args = build_reasoning_args(reasoning, model_family, available_tokens)
+            base_args["extra_body"] = reasoning_args
+            return make_api_request_with_retry(client, base_args)
+        else:
+            raise ValueError(f"Model {model} does not support no-reasoning mode")
+    
+    # Handle specific reasoning effort levels
+    elif reasoning in ["low", "medium", "high"]:
+        reasoning_args = build_reasoning_args(reasoning, model_family, available_tokens)
+        base_args["extra_body"] = reasoning_args
+        return make_api_request_with_retry(client, base_args)
+    
+    # Invalid reasoning value
+    else:
+        raise ValueError(f"Invalid reasoning value: {reasoning}. Must be one of: none, low, medium, high")
 
 def extract_json(text):
+    """Extract JSON content from text that may contain code blocks or other formatting."""
     # Try to find JSON-like content within triple backticks
     json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if json_match:
