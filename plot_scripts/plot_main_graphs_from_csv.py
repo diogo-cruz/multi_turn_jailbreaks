@@ -1079,9 +1079,9 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             capsize=5
         )
     
-    # Set x-axis labels
+    # Set x-axis labels with smaller font size
     ax.set_xticks(indices)
-    ax.set_xticklabels(ordered_display_names, fontsize=20, rotation=45, ha='right')
+    ax.set_xticklabels(ordered_display_names, fontsize=12, rotation=45, ha='right')
     
     # Add model size underneath model names
     for i, model_name in enumerate(ordered_models):
@@ -1092,7 +1092,7 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
             xytext=(0, 0),  # No offset since we're using absolute position
             xycoords=('data', 'axes fraction'),
             textcoords='offset points',
-            size=15,
+            size=10,
             va='top',
             ha='center',
             rotation=45,
@@ -1106,21 +1106,21 @@ def create_model_bar_plot(df, output_dir, output_filename='success_rate_by_model
         ax.set_ylim(0, 1.0)
         metric_label = "Best Score"
     
-    ax.set_xlabel('Model Name (Parameter Size)', fontsize=25)
-    ax.set_ylabel(metric_label, fontsize=25)  # Use the metric_label we set above
-    ax.tick_params(axis='y', labelsize=20)  # Set y-tick label size to 20
+    ax.set_xlabel('Model Name (Parameter Size)', fontsize=14)
+    ax.set_ylabel(metric_label, fontsize=14)  # Use the metric_label we set above
+    ax.tick_params(axis='y', labelsize=12)  # Set y-tick label size to 12
     
     # Add legend
-    ax.legend(loc='upper right', fontsize=20)
+    ax.legend(loc='upper right', fontsize=12)
     
     # Add grid for better readability
     ax.grid(True, linestyle='--', alpha=0.7, axis='y')
     
     # Add title with threshold information when using success_rate metric
     if metric == 'success_rate':
-        plt.title(f'Attack {metric_label} by Model Name and Turn Type\n(threshold ≥ {threshold})', fontsize=20, pad=20)
+        plt.title(f'Attack {metric_label} by Model Name and Turn Type\n(threshold ≥ {threshold})', fontsize=14, pad=15)
     else:
-        plt.title(f'Attack {metric_label} by Model Name and Turn Type', fontsize=20, pad=20)
+        plt.title(f'Attack {metric_label} by Model Name and Turn Type', fontsize=14, pad=15)
     
     # Save and show
     plt.subplots_adjust(bottom=0.25)

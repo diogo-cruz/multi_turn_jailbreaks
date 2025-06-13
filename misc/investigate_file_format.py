@@ -113,8 +113,8 @@ def main():
     else:
         # Find a sample file
         directories = [
-            "clean_results/final_runs/batch3A/crowding",
-            "clean_results/final_runs/batch3A/direct_request"
+            "../clean_results/final_runs/batch3A/crowding",
+            "../clean_results/final_runs/batch3A/direct_request"
         ]
         
         for directory in directories:
