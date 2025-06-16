@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
       },
       finalRound: {
         round: jailbrokenRound.round,
-        user: jailbrokenRound.user,
-        assistant: jailbrokenRound.assistant,
+        user: jailbrokenRound.user || jailbrokenRound.tactic_prompt || '',
+        assistant: jailbrokenRound.assistant || jailbrokenRound.target_response || '',
         score: jailbrokenRound.score
       },
       filename,
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
       evaluator,
       decision,
       note,
-      jailbroken_output: finalRoundData.assistant || '',
+      jailbroken_output: finalRoundData.assistant || finalRoundData.target_response || '',
       timestamp
     };
 
