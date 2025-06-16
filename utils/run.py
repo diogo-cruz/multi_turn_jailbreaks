@@ -169,14 +169,15 @@ def create_response_summary(response, attacker_generate, round_number):
     return None
 
 
-def create_output_data(goal, target_model, jailbreak_tactic, prompt, response, score, reasoning_content):
+def create_output_data(goal, target_model, jailbreak_tactic, prompt, response, score, reasoning_content, round_number):
     """Create the base output data structure."""
     return {
+        "round":round_number,
         "goal": goal,
         "target_model": target_model,
         "jailbreak_tactic": jailbreak_tactic,
-        "tactic_prompt": prompt,
-        "target_response": response,
+        "user": prompt,
+        "assistant": response,
         "score": score,
         "rejected": False,
         "reasoning": False,  # This will be changed to true if reasoning content is found
@@ -486,7 +487,7 @@ def run_attack(test_case: dict | str, output_file_path: str, target_generate: ca
         print(f"Round {round_number} - Score: {score}")
         
         # Create and populate output data
-        output_data = create_output_data(goal, target_model, jailbreak_tactic, prompt, response, score, reasoning_content)
+        output_data = create_output_data(goal, target_model, jailbreak_tactic, prompt, response, score, reasoning_content, round_number)
         
         # Add token usage information
         add_token_usage_to_output(output_data, target_token_usage, target_model, reasoning_content, response)

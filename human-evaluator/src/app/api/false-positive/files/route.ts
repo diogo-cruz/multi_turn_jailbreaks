@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
         else if (data.goal_achieved !== undefined) {
           goalAchieved = data.goal_achieved;
         }
-        // Conversation turns
-        else if (data.round !== undefined && data.user && data.assistant) {
+        // Conversation turns (entries with score field)
+        else if (data.score !== undefined) {
           turns.push(data);
           
           // Check for existing false positive annotation in any turn
@@ -76,17 +76,29 @@ export async function GET(request: NextRequest) {
     console.log(`Parsed ${turns.length} conversation turns, goalAchieved: ${goalAchieved}`);
     console.log(`All scores in file:`, turns.map(t => t.score));
     
-    // Find the jailbroken response (score = 1.0)
-    // Since we now filter for both goal_achieved: true AND score = 1.0, this should always exist
-    const jailbrokenRounds = turns.filter(turn => turn.score === 1.0);
+    // Find the jailbroken response (score = 1.0, or any non-refused if no score = 1.0)
+    // Since we now filter only for goal_achieved: true, we need to find the best round
+    let jailbrokenRounds = turns.filter(turn => turn.score === 1.0);
     console.log(`Found ${jailbrokenRounds.length} rounds with score = 1.0`);
     
+    // If no score = 1.0, look for any non-refused turn with a numeric score
     if (jailbrokenRounds.length === 0) {
-      console.log(`ERROR: No score = 1.0 found despite filtering - this shouldn't happen!`);
-      return NextResponse.json({ error: 'No jailbroken response found (score = 1.0)' }, { status: 400 });
+      jailbrokenRounds = turns.filter(turn => typeof turn.score === 'number' && turn.score !== "refused");
+      console.log(`No score = 1.0 found, using ${jailbrokenRounds.length} rounds with numeric scores`);
     }
     
-    // Use the first round that achieved score = 1.0
+    // If still no suitable rounds, use the last turn
+    if (jailbrokenRounds.length === 0 && turns.length > 0) {
+      jailbrokenRounds = [turns[turns.length - 1]];
+      console.log(`Using last turn as fallback`);
+    }
+    
+    if (jailbrokenRounds.length === 0) {
+      console.log(`ERROR: No suitable conversation turns found`);
+      return NextResponse.json({ error: 'No suitable conversation turns found' }, { status: 400 });
+    }
+    
+    // Use the first suitable round
     const jailbrokenRound = jailbrokenRounds[0];
 
     // Calculate relative path from clean_results/final_runs/
@@ -153,7 +165,11 @@ export async function POST(request: NextRequest) {
         const data = JSON.parse(line);
         
         // Add FP annotation to the final round that was jailbroken
-        if (data.round !== undefined && data.round === finalRound) {
+        // Match by round number if available, otherwise use score/content matching
+        const isTargetRound = (data.round !== undefined && data.round === finalRound) ||
+                             (data.round === undefined && data.score === 1.0 && data.user && data.assistant);
+        
+        if (isTargetRound) {
           data.fp_decision = decision;
           data.fp_note = note;
           data.fp_evaluator = evaluator;
@@ -180,7 +196,9 @@ export async function POST(request: NextRequest) {
     const finalRoundData = JSON.parse(lines.find(line => {
       try {
         const data = JSON.parse(line);
-        return data.round === finalRound;
+        // Match by round number if available, otherwise find score = 1.0 entry
+        return (data.round === finalRound) || 
+               (data.round === undefined && data.score === 1.0 && data.user && data.assistant);
       } catch {
         return false;
       }

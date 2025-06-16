@@ -65,10 +65,9 @@ export async function GET(request: NextRequest) {
           const content = fs.readFileSync(fullPath, 'utf-8');
           const lines = content.trim().split('\n');
           
-          // Check if file has goal_achieved field and score = 1.0
+          // Check if file has goal_achieved field
           let hasGoalAchieved = false;
           let goalAchieved = false;
-          let hasScore1 = false;
           let fpAnnotated = false;
           let fpEvaluator = undefined;
           let fpDecision = undefined;
@@ -81,11 +80,6 @@ export async function GET(request: NextRequest) {
               if (data.goal_achieved !== undefined) {
                 hasGoalAchieved = true;
                 goalAchieved = data.goal_achieved;
-              }
-              
-              // Check for score = 1.0 in conversation turns
-              if (data.round !== undefined && data.score === 1.0) {
-                hasScore1 = true;
               }
               
               // Check for existing false positive annotation
@@ -105,7 +99,6 @@ export async function GET(request: NextRequest) {
             relativePath,
             hasGoalAchieved,
             goalAchieved,
-            hasScore1,
             fpAnnotated,
             fpEvaluator,
             fpDecision,
@@ -119,14 +112,13 @@ export async function GET(request: NextRequest) {
             relativePath,
             hasGoalAchieved: false,
             goalAchieved: false,
-            hasScore1: false,
             fpAnnotated: false,
             isCorrupted: true
           };
         }
       })
       .filter(file => !file.isCorrupted) // Skip corrupted files
-      .filter(file => file.goalAchieved && file.hasScore1); // Both goal_achieved: true AND score = 1.0
+      .filter(file => file.goalAchieved); // Only goal_achieved: true
 
     console.log(`After filtering: ${files.length} successful jailbreaks found`);
     const totalSuccessfulFiles = files.length;
