@@ -165,11 +165,8 @@ export async function POST(request: NextRequest) {
         const data = JSON.parse(line);
         
         // Add FP annotation to the final round that was jailbroken
-        // Match by round number if available, otherwise use score/content matching
-        const isTargetRound = (data.round !== undefined && data.round === finalRound) ||
-                             (data.round === undefined && data.score === 1.0 && data.user && data.assistant);
-        
-        if (isTargetRound) {
+        // Match entries with score = 1.0
+        if (data.score === 1.0) {
           data.fp_decision = decision;
           data.fp_note = note;
           data.fp_evaluator = evaluator;
@@ -196,9 +193,8 @@ export async function POST(request: NextRequest) {
     const finalRoundData = JSON.parse(lines.find(line => {
       try {
         const data = JSON.parse(line);
-        // Match by round number if available, otherwise find score = 1.0 entry
-        return (data.round === finalRound) || 
-               (data.round === undefined && data.score === 1.0 && data.user && data.assistant);
+        // Find entry with score = 1.0
+        return data.score === 1.0;
       } catch {
         return false;
       }
