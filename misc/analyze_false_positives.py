@@ -146,7 +146,7 @@ def main():
     st.markdown("Analysis of jailbreak evaluation accuracy based on human annotations")
     
     # File path
-    file_path = "clean_results/false_positive_annotations.jsonl"
+    file_path = "../clean_results/false_positive_annotations.jsonl"
     
     try:
         # Load data
