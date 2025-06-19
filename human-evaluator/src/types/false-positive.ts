@@ -20,6 +20,15 @@ export interface SuccessfulJailbreak {
     score: number | string;
   };
   
+  // Multiple turns display (when no score = 1.0)
+  showAllTurns: boolean;
+  allTurns: {
+    round: number;
+    user: string;
+    assistant: string;
+    score: number | string;
+  }[];
+  
   // File information
   filename: string;
   relativePath: string; // relative to clean_results/final_runs/
