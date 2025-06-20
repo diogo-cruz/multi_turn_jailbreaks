@@ -208,19 +208,52 @@ export default function AnnotatePage() {
               </div>
             </div>
 
-            {/* Final Jailbroken Response */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center text-orange-600">
-                <MessageSquare className="w-5 h-5 mr-2" />
-                Final Response (Round {currentFile.finalRound.round})
-              </h3>
-              <div className="bg-orange-50 p-4 rounded-md text-gray-900 max-h-96 overflow-y-auto">
-                {currentFile.finalRound.assistant}
+            {/* Response Section */}
+            {currentFile.showAllTurns ? (
+              /* Show All Turns */
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center text-orange-600">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  All Conversation Turns (No Score = 1.0 Found)
+                </h3>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {currentFile.allTurns.map((turn, index) => (
+                    <div key={index} className="border border-gray-200 rounded-md p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-gray-900">Round {turn.round}</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          Score: {typeof turn.score === 'number' ? turn.score.toFixed(3) : turn.score}
+                        </span>
+                      </div>
+                      {turn.user && (
+                        <div className="mb-2">
+                          <div className="text-xs font-medium text-gray-600 mb-1">User:</div>
+                          <div className="text-sm text-gray-800 bg-blue-50 p-2 rounded">{turn.user}</div>
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-1">Assistant:</div>
+                        <div className="text-sm text-gray-800 bg-orange-50 p-2 rounded">{turn.assistant}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="mt-3 text-sm text-gray-700">
-                <strong>Original Score:</strong> {typeof currentFile.finalRound.score === 'number' ? currentFile.finalRound.score.toFixed(3) : currentFile.finalRound.score}
+            ) : (
+              /* Show Single Final Response */
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center text-orange-600">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Final Response (Round {currentFile.finalRound.round})
+                </h3>
+                <div className="bg-orange-50 p-4 rounded-md text-gray-900 max-h-96 overflow-y-auto">
+                  {currentFile.finalRound.assistant}
+                </div>
+                <div className="mt-3 text-sm text-gray-700">
+                  <strong>Original Score:</strong> {typeof currentFile.finalRound.score === 'number' ? currentFile.finalRound.score.toFixed(3) : currentFile.finalRound.score}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right Panel - Annotation Interface */}

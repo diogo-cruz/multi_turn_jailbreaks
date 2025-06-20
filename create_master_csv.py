@@ -34,19 +34,23 @@ import json
 
 def read_jsonl_for_info(file_path):
     """
-    Read the JSONL file and extract evaluator_model, original_evaluator_model, and reasoning information.
+    Read the JSONL file and extract evaluator_model, original_evaluator_model, reasoning, and false positive annotation information.
     
     Args:
         file_path: Path to the JSONL file
         
     Returns:
-        tuple: (evaluator_model, original_evaluator_model, reasoning)
+        tuple: (evaluator_model, original_evaluator_model, reasoning, fp_decision, fp_evaluator, fp_note, fp_timestamp)
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             evaluator_model = None
             original_evaluator_model = None
             reasoning = None
+            fp_decision = None
+            fp_evaluator = None
+            fp_note = None
+            fp_timestamp = None
             
             for line in f:
                 try:
@@ -63,15 +67,23 @@ def read_jsonl_for_info(file_path):
                         # Only use reasoning if it's a string and not None
                         if isinstance(reasoning_value, str):
                             reasoning = reasoning_value
+                    
+                    # Get false positive annotation info if present
+                    if fp_decision is None and data.get('fp_decision'):
+                        fp_decision = data.get('fp_decision')
+                        fp_evaluator = data.get('fp_evaluator')
+                        fp_note = data.get('fp_note')
+                        fp_timestamp = data.get('fp_timestamp')
+                        
                 except json.JSONDecodeError:
                     continue
             
-            return evaluator_model, original_evaluator_model, reasoning
+            return evaluator_model, original_evaluator_model, reasoning, fp_decision, fp_evaluator, fp_note, fp_timestamp
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
     
     # Return None if we couldn't find the information
-    return None, None, None
+    return None, None, None, None, None, None, None
 
 def extract_evaluator_model_from_filename(filename, batch_name):
     """
@@ -184,12 +196,16 @@ def main():
                     key = (tactic, test_case, model, turn_type)
                     file_mapping[key] = file_path
                 
-                # Add source_file, attacker_model, evaluator_model, original_evaluator_model, and reasoning columns
+                # Add source_file, attacker_model, evaluator_model, original_evaluator_model, reasoning, and false positive annotation columns
                 source_files = []
                 attacker_models = []
                 evaluator_models = []
                 original_evaluator_models = []
                 reasonings = []
+                fp_decisions = []
+                fp_evaluators = []
+                fp_notes = []
+                fp_timestamps = []
                 
                 for _, row in df.iterrows():
                     tactic = row.get('jailbreak_tactic', '')
@@ -211,10 +227,14 @@ def main():
                         source_files.append(matched_file.name)
                         
                         # Try to extract information from the JSONL file
-                        eval_model, orig_eval_model, reasoning = read_jsonl_for_info(matched_file)
+                        eval_model, orig_eval_model, reasoning, fp_decision, fp_evaluator, fp_note, fp_timestamp = read_jsonl_for_info(matched_file)
                         
-                        # Add reasoning
+                        # Add reasoning and false positive annotation info
                         reasonings.append(reasoning)
+                        fp_decisions.append(fp_decision)
+                        fp_evaluators.append(fp_evaluator)
+                        fp_notes.append(fp_note)
+                        fp_timestamps.append(fp_timestamp)
                         
                         if eval_model:
                             # Use values from JSONL if available
@@ -241,6 +261,10 @@ def main():
                     else:
                         source_files.append(None)
                         reasonings.append(None)
+                        fp_decisions.append(None)
+                        fp_evaluators.append(None)
+                        fp_notes.append(None)
+                        fp_timestamps.append(None)
                         # Default evaluator model based on batch
                         if batch_name == "batch3A":
                             current_evaluator_model = "openai/gpt-4.1-mini"
@@ -260,6 +284,10 @@ def main():
                 df['evaluator_model'] = evaluator_models
                 df['original_evaluator_model'] = original_evaluator_models
                 df['reasoning'] = reasonings
+                df['fp_decision'] = fp_decisions
+                df['fp_evaluator'] = fp_evaluators
+                df['fp_note'] = fp_notes
+                df['fp_timestamp'] = fp_timestamps
                 
                 # Ensure the DataFrame has the required columns
                 # Based on enhanced_master_data.csv structure
@@ -267,7 +295,8 @@ def main():
                     "jailbreak_tactic", "test_case", "turn_type", "target_model",
                     "target_temp", "max_round", "goal_achieved", "scores", 
                     "refused", "timestamp", "batch", "source_file", "attacker_model", 
-                    "evaluator_model", "original_evaluator_model", "reasoning"
+                    "evaluator_model", "original_evaluator_model", "reasoning",
+                    "fp_decision", "fp_evaluator", "fp_note", "fp_timestamp"
                 ]
                 
                 # Add missing columns with None values
@@ -285,8 +314,8 @@ def main():
         # Combine all DataFrames
         master_df = pd.concat(all_dfs, ignore_index=True)
         
-        # Save the master CSV
-        master_csv_path = csv_results_dir / "master_results.csv"
+        # Save the master CSV with false positive annotations
+        master_csv_path = csv_results_dir / "master_results_with_fp.csv"
         master_df.to_csv(master_csv_path, index=False)
         
         print(f"Created master CSV file: {master_csv_path}")

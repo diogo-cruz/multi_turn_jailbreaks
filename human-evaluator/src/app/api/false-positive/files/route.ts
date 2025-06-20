@@ -76,30 +76,40 @@ export async function GET(request: NextRequest) {
     console.log(`Parsed ${turns.length} conversation turns, goalAchieved: ${goalAchieved}`);
     console.log(`All scores in file:`, turns.map(t => t.score));
     
-    // Find the jailbroken response (score = 1.0, or any non-refused if no score = 1.0)
-    // Since we now filter only for goal_achieved: true, we need to find the best round
+    // Find the jailbroken response (score = 1.0, or show all turns if no score = 1.0)
     let jailbrokenRounds = turns.filter(turn => turn.score === 1.0);
     console.log(`Found ${jailbrokenRounds.length} rounds with score = 1.0`);
     
-    // If no score = 1.0, look for any non-refused turn with a numeric score
-    if (jailbrokenRounds.length === 0) {
-      jailbrokenRounds = turns.filter(turn => typeof turn.score === 'number' && turn.score !== "refused");
-      console.log(`No score = 1.0 found, using ${jailbrokenRounds.length} rounds with numeric scores`);
-    }
+    let showAllTurns = false;
+    let jailbrokenRound;
+    let allTurns: any[] = [];
     
-    // If still no suitable rounds, use the last turn
-    if (jailbrokenRounds.length === 0 && turns.length > 0) {
-      jailbrokenRounds = [turns[turns.length - 1]];
-      console.log(`Using last turn as fallback`);
+    if (jailbrokenRounds.length > 0) {
+      // Use the first round with score = 1.0
+      jailbrokenRound = jailbrokenRounds[0];
+    } else {
+      // No score = 1.0 found, show all turns
+      showAllTurns = true;
+      allTurns = turns.map(turn => ({
+        round: turn.round || 0,
+        user: turn.user || turn.tactic_prompt || '',
+        assistant: turn.assistant || turn.target_response || '',
+        score: turn.score
+      }));
+      
+      // Still need a "primary" round for the interface - use best scoring turn or last turn
+      const numericScoredTurns = turns.filter(turn => typeof turn.score === 'number' && turn.score !== "refused");
+      if (numericScoredTurns.length > 0) {
+        jailbrokenRound = numericScoredTurns[0];
+      } else if (turns.length > 0) {
+        jailbrokenRound = turns[turns.length - 1];
+      } else {
+        console.log(`ERROR: No suitable conversation turns found`);
+        return NextResponse.json({ error: 'No suitable conversation turns found' }, { status: 400 });
+      }
+      
+      console.log(`No score = 1.0 found, showing all ${allTurns.length} turns`);
     }
-    
-    if (jailbrokenRounds.length === 0) {
-      console.log(`ERROR: No suitable conversation turns found`);
-      return NextResponse.json({ error: 'No suitable conversation turns found' }, { status: 400 });
-    }
-    
-    // Use the first suitable round
-    const jailbrokenRound = jailbrokenRounds[0];
 
     // Calculate relative path from clean_results/final_runs/
     const baseResultsPath = '/Users/jaeha/repos/multi_turn_jailbreaks/clean_results/final_runs/';
@@ -116,11 +126,13 @@ export async function GET(request: NextRequest) {
         turn_type: config.turn_type
       },
       finalRound: {
-        round: jailbrokenRound.round,
+        round: jailbrokenRound.round || 0,
         user: jailbrokenRound.user || jailbrokenRound.tactic_prompt || '',
         assistant: jailbrokenRound.assistant || jailbrokenRound.target_response || '',
         score: jailbrokenRound.score
       },
+      showAllTurns,
+      allTurns,
       filename,
       relativePath,
       goalAchieved,
@@ -165,8 +177,8 @@ export async function POST(request: NextRequest) {
         const data = JSON.parse(line);
         
         // Add FP annotation to the final round that was jailbroken
-        // Match entries with score = 1.0
-        if (data.score === 1.0) {
+        // Match entries with score = 1.0 or score = 1
+        if (data.score === 1.0 || data.score === 1) {
           data.fp_decision = decision;
           data.fp_note = note;
           data.fp_evaluator = evaluator;
@@ -193,8 +205,8 @@ export async function POST(request: NextRequest) {
     const finalRoundData = JSON.parse(lines.find(line => {
       try {
         const data = JSON.parse(line);
-        // Find entry with score = 1.0
-        return data.score === 1.0;
+        // Find entry with score = 1.0 or score = 1
+        return data.score === 1.0 || data.score === 1;
       } catch {
         return false;
       }
