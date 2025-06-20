@@ -27,6 +27,10 @@ def load_batch3a_data():
     # Drop the unnamed index column if it exists
     if 'Unnamed: 0' in df.columns:
         df = df.drop('Unnamed: 0', axis=1)
+    
+    # Exclude fake_online_profile test case as it's problematic
+    df = df[df['test_case'] != 'fake_online_profile']
+    
     return df
 
 def calculate_asr_by_dimension(df, dimension_col):
@@ -140,6 +144,11 @@ def create_comparison_plot(df, title, x_col, category_name):
                 pos = base_pos + (0 if turn_type == 'single' else 1)
                 x_positions.append(pos)
                 x_labels.append(f"{category}\n({turn_type})")
+                # Calculate FP rate
+                fp_count = turn_data['false_positives'].iloc[0]
+                original_successes = turn_data['original_successes'].iloc[0]
+                fp_rate = (fp_count / original_successes * 100) if original_successes > 0 else 0
+                
                 category_data[turn_type].append({
                     'x_pos': pos,
                     'label': f"{category} ({turn_type})",
@@ -149,7 +158,8 @@ def create_comparison_plot(df, title, x_col, category_name):
                     'original_successes': turn_data['original_successes'].iloc[0],
                     'adjusted_successes': turn_data['adjusted_successes'].iloc[0],
                     'total_experiments': turn_data['total_experiments'].iloc[0],
-                    'false_positives': turn_data['false_positives'].iloc[0]
+                    'false_positives': turn_data['false_positives'].iloc[0],
+                    'fp_rate': fp_rate
                 })
     
     # Color mapping for turn types
@@ -197,21 +207,21 @@ def create_comparison_plot(df, title, x_col, category_name):
                 row=1, col=2
             )
     
-    # Add FP count as scatter plot on right subplot
+    # Add FP rate as scatter plot on right subplot
     all_data = category_data['single'] + category_data['multi']
     if all_data:
         fig.add_trace(
             go.Scatter(
-                name='False Positives',
+                name='False Positive Rate',
                 x=[d['x_pos'] for d in all_data],
-                y=[d['false_positives'] for d in all_data],
+                y=[d['fp_rate'] for d in all_data],
                 mode='markers+text',
-                text=[d['false_positives'] for d in all_data],
+                text=[f"{d['fp_rate']:.1f}% ({d['false_positives']})" for d in all_data],
                 textposition='top center',
                 marker=dict(size=12, color='red', symbol='diamond'),
                 yaxis='y2',
-                hovertemplate='<b>%{customdata}</b><br>False Positives: %{y}<extra></extra>',
-                customdata=[d['label'] for d in all_data]
+                hovertemplate='<b>%{customdata[0]}</b><br>FP Rate: %{y:.1f}%<br>FP Count: %{customdata[1]}<extra></extra>',
+                customdata=[[d['label'], d['false_positives']] for d in all_data]
             ),
             row=1, col=2
         )
@@ -256,9 +266,9 @@ def create_comparison_plot(df, title, x_col, category_name):
         )
     
     # Update y-axes
-    fig.update_yaxes(title_text="Attack Success Rate (%)", row=1, col=1)
-    fig.update_yaxes(title_text="Attack Success Rate (%)", row=1, col=2)
-    fig.update_yaxes(title_text="False Positives Count", secondary_y=True, row=1, col=2)
+    fig.update_yaxes(title_text="Attack Success Rate (%)", row=1, col=1, range=[0, 100])
+    fig.update_yaxes(title_text="Attack Success Rate (%)", row=1, col=2, range=[0, 100])
+    fig.update_yaxes(title_text="False Positive Rate (%)", secondary_y=True, row=1, col=2)
     
     return fig
 
