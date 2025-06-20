@@ -177,8 +177,8 @@ export async function POST(request: NextRequest) {
         const data = JSON.parse(line);
         
         // Add FP annotation to the final round that was jailbroken
-        // Match entries with score = 1.0
-        if (data.score === 1.0) {
+        // Match entries with score = 1.0 or score = 1
+        if (data.score === 1.0 || data.score === 1) {
           data.fp_decision = decision;
           data.fp_note = note;
           data.fp_evaluator = evaluator;
@@ -205,8 +205,8 @@ export async function POST(request: NextRequest) {
     const finalRoundData = JSON.parse(lines.find(line => {
       try {
         const data = JSON.parse(line);
-        // Find entry with score = 1.0
-        return data.score === 1.0;
+        // Find entry with score = 1.0 or score = 1
+        return data.score === 1.0 || data.score === 1;
       } catch {
         return false;
       }
