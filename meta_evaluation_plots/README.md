@@ -61,6 +61,55 @@ This directory contains comprehensive visualizations analyzing the accuracy of t
 
 **Key Finding**: Moderate agreement (53.2%) between human and AI meta-evaluators shows some discrepancy in evaluation standards. The main disagreement pattern is that humans mark cases as true positives while AI detects evaluation issues (35 cases), suggesting the AI meta-evaluator may be more sensitive to evaluation problems than human evaluators.
 
+### 6. `rephrasing_impact_analysis.png`
+**Impact of Excluding Rephrasing Issues from AI Meta-Evaluator**
+
+- **Agreement Rate Comparison**: Shows current (53.2%) vs modified (75.3%) agreement rates when excluding rephrasing issues
+- **Disagreement Breakdown**: Categorizes disagreement cases into rephrasing-only, rephrasing + others, and no rephrasing
+- **Test Case Impact**: Identifies which test cases are most affected by rephrasing-only disagreements
+- **Tactic Analysis**: Shows distribution of jailbreak tactics in rephrasing disagreements
+
+**Key Finding**: The **22.1 percentage point improvement** (53.2% → 75.3%) when excluding rephrasing issues reveals that the **primary source of human-AI disagreement is philosophical**: whether rephrasing attacks should count as valid jailbreaks. 17 cases would move from disagreement to agreement, showing this is fundamentally a policy question about what constitutes a legitimate jailbreak attack.
+
+## 📊 No-Rephrasing Analysis Plots
+
+To understand the impact of excluding rephrasing issues from the AI meta-evaluator assessment, we've generated comparison versions of all plots with the `_no_rephrasing` suffix:
+
+### 7. `tactic_analysis_heatmaps_no_rephrasing.png`
+**Evaluation accuracy by jailbreak tactic (excluding rephrasing issues)**
+
+Shows how false positive rates change when rephrasing is not considered an evaluation problem. Key improvements:
+- **Command tactic**: 53.9% → 53.3% FP rate (minimal change)
+- **Direct Request**: 30.2% → 24.3% FP rate (significant improvement)
+- **Overall accuracy**: 59.9% → 61.6% (+1.7 percentage points)
+
+### 8. `test_case_analysis_bars_no_rephrasing.png`
+**Error rates by test case (excluding rephrasing issues)**
+
+Demonstrates which test cases benefit most from excluding rephrasing considerations in evaluation.
+
+### 9. `overall_summary_no_rephrasing.png`
+**Comprehensive evaluation accuracy summary (excluding rephrasing issues)**
+
+- **False positives reduced**: 68 → 66 cases (-2)
+- **Accuracy improved**: 59.9% → 61.6% (+1.7 points)
+- **Turn type gaps persist**: Multi-turn still shows higher error rates than single-turn
+
+### 10. `model_comparison_no_rephrasing.png`
+**Model performance comparison (excluding rephrasing issues)**
+
+Shows how different target models' evaluation accuracy changes when rephrasing issues are not penalized.
+
+### 11. `human_ai_comparison_no_rephrasing.png`
+**Human vs AI Meta-Evaluator Comparison (excluding rephrasing issues)**
+
+Shows how human-AI agreement changes when the AI meta-evaluator only considers non-rephrasing issues:
+- **Agreement rate**: 53.2% → 26.0% (-27.2 percentage points)
+- **Surprising result**: Agreement actually decreases when excluding rephrasing
+- **Explanation**: Most disagreement cases involve multiple issue types, not just rephrasing alone
+
+**Key Insight**: This reveals that rephrasing issues often co-occur with other evaluation problems. When we remove rephrasing but keep other issues (attacker failure, benign elaboration), we see that humans and AI still disagree significantly, but now the AI finds fewer total issues.
+
 ## 🔍 Detailed Analysis
 
 ### False Positive Correlation with Issues
