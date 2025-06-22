@@ -145,3 +145,15 @@ python detailed_disagreement_analysis.py
 - Results are stored in JSONL format with conversation history and evaluation scores
 - Meta-evaluation helps identify false positives and evaluation issues
 - Human evaluation interface provides ground truth for automated evaluation validation
+
+## Research Documentation
+
+### LOGBOOK.md
+Use `LOGBOOK.md` to track major research milestones, experimental findings, and significant changes to the codebase. This file should be updated whenever:
+- Running major experiments or analysis
+- Making significant changes to the framework
+- Discovering important research insights
+- Implementing new features or methodologies
+- Identifying issues with evaluation or meta-evaluation systems
+
+The logbook provides a research timeline separate from git commits, focusing on scientific insights rather than technical implementation details.

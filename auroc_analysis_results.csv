@@ -1,0 +1,11 @@
+method,type,auc,optimal_threshold,accuracy,f1
+multi_step_issues,individual,0.32,inf,0.3333333333333333,0
+general_information_only,individual,0.21000000000000002,inf,0.3333333333333333,0
+no_harmful_intent,individual,0.3,inf,0.3333333333333333,0
+soft_refusal,individual,0.4,inf,0.3333333333333333,0
+legitimate_use_framing,individual,0.26,inf,0.3333333333333333,0
+simple_sum,combination,0.2375,inf,,
+content_focused,combination,0.2425,inf,,
+framing_focused,combination,0.21749999999999997,inf,,
+max_score,combination,0.2825,inf,,
+weighted_average,combination,0.2425,inf,,
