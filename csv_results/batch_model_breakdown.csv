@@ -1,4 +1,5 @@
 batch,model,count
+batch,target_model,1
 batch2B,claude-3-haiku,160
 batch2B,deepseek-chat-v3-0324,160
 batch2B,gemini-2.0-flash-001,160
@@ -20,11 +21,8 @@ batch2C,llama-3.1-70b-instruct,86
 batch2C,llama-3.1-8b-instruct,87
 batch2D,llama-3.1-70b-instruct,160
 batch2D,llama-3.1-8b-instruct,160
-batch2D_2,claude-3.7-sonnet:thinking,1
-batch2D_2,deepseek-r1,7
 batch2D_2,llama-3.1-70b-instruct,160
 batch2D_2,llama-3.1-8b-instruct,160
-batch2D_2,o3-mini,2
 batch3A,claude-3.5-sonnet,80
 batch3A,claude-3.7-sonnet,81
 batch3A,deepseek-chat-v3-0324,79
@@ -54,6 +52,5 @@ batch_thinking,claude-3.7-sonnet,317
 batch_thinking,gemini-2.5-flash-preview,317
 batch_thinking,gemini-2.5-pro-preview,315
 batch_thinking,o1-mini,318
-batch_thinking,o3-mini,317
 batch_thinking,o4-mini,318
 batch_thinking,qwen3-8b,315

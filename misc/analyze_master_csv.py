@@ -9,7 +9,7 @@ from collections import defaultdict
 
 def main():
     # Load the master CSV
-    df = pd.read_csv('csv_results/master_results_verified.csv')
+    df = pd.read_csv('csv_results/master_results_verified_clean.csv')
     print(f"Loaded {len(df)} total experiments from master CSV")
     
     # Clean model names for better readability
@@ -78,22 +78,22 @@ def main():
     print(f"Unique test cases: {len(df['test_case'].unique())}")
     print(f"Unique tactics: {len(df['jailbreak_tactic'].unique())}")
     
-    # Top models across all batches
-    print(f"\nTop 10 models across all batches:")
-    top_models = df['model_clean'].value_counts().head(10)
-    for model, count in top_models.items():
+    # All models across all batches
+    print(f"\nAll models across all batches:")
+    all_models = df['model_clean'].value_counts().sort_values(ascending=False)
+    for model, count in all_models.items():
         print(f"  {model}: {count}")
     
-    # Top test cases across all batches
-    print(f"\nTop 10 test cases across all batches:")
-    top_test_cases = df['test_case'].value_counts().head(10)
-    for test_case, count in top_test_cases.items():
+    # All test cases across all batches
+    print(f"\nAll test cases across all batches:")
+    all_test_cases = df['test_case'].value_counts().sort_values(ascending=False)
+    for test_case, count in all_test_cases.items():
         print(f"  {test_case}: {count}")
     
-    # Top tactics across all batches
-    print(f"\nTop 10 tactics across all batches:")
-    top_tactics = df['jailbreak_tactic'].value_counts().head(10)
-    for tactic, count in top_tactics.items():
+    # All tactics across all batches
+    print(f"\nAll tactics across all batches:")
+    all_tactics = df['jailbreak_tactic'].value_counts().sort_values(ascending=False)
+    for tactic, count in all_tactics.items():
         print(f"  {tactic}: {count}")
     
     # 4. Save detailed breakdowns to CSV files
