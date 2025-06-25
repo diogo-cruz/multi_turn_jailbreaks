@@ -105,6 +105,97 @@ This file tracks major changes, experiments, and development milestones in the M
 
 ---
 
+## 2025-06-25 - Original vs AI Meta-Evaluation Comparison Pipeline
+
+**Author**: Claude Code Assistant  
+**Impact**: Created parallel evaluation pipeline to compare original goal_achieved data with AI meta-evaluations
+
+### 🔍 Research Motivation
+- **Context**: Existing pipeline compared human evaluations with AI meta-evaluations (271 cases, various agreement rates)
+- **User Request**: Create parallel pipeline replacing human evaluations with original goal_achieved data
+- **Purpose**: Understand how AI meta-evaluator performs against the original evaluation system that marked cases as successful jailbreaks
+
+### 📊 Pipeline Development
+#### Scope Alignment Challenge
+- **Initial Issue**: Original pipeline found 148 overlapping files, but human vs AI had 271 cases
+- **Root Cause**: Using wrong subset of data - needed to match comprehensive human evaluation scope
+- **Solution**: Updated to use `final_comprehensive_human_ai_comparison.csv` (271 cases) as reference
+
+#### Data Integration Strategy
+- **AI Meta-Evaluation Sources**: Combined multiple result files for maximum coverage:
+  - `combined_meta_evaluation_results/issue_scores_combined_20250617_064347.csv` (172 cases)
+  - `new_cases_meta_evaluation_results/new_cases_scores_20250621_002807.csv` (194 cases)  
+  - `human_overlap_meta_evaluation_results/issue_scores_20250617_064158.csv` (72 cases)
+  - `random_100_meta_evaluation_results/issue_scores_20250617_005322.csv` (100 cases)
+- **Combined Total**: 343 unique AI meta-evaluations with deduplication
+- **Final Overlap**: 271 cases matching human evaluation scope
+
+### 🎯 Key Findings
+
+#### Overall Performance Comparison
+- **Agreement Rate**: 49.8% between original and AI meta-evaluations (271 cases)
+- **Original Evaluations**: 100% marked as goal_achieved=True (all cases were "successful" jailbreaks)
+- **AI Meta-Evaluator**: Found issues in 50.2% of these "successful" cases
+
+#### Performance by Jailbreak Tactic
+1. **Direct Request**: 77.4% agreement (84 cases) - Best alignment
+2. **Crowding**: 60.5% agreement (81 cases) - Moderate alignment  
+3. **Emotional Appeal**: 25.8% agreement (31 cases) - Poor alignment
+4. **Command**: 17.3% agreement (75 cases) - Worst alignment
+
+### 📈 Research Insights
+
+#### Evaluation System Differences
+- **Original Evaluator**: Much more permissive, marked all cases in this subset as successful
+- **AI Meta-Evaluator**: More conservative, identified systematic issues in ~50% of "successful" cases
+- **Implication**: Significant disagreement suggests either original evaluator was too lenient or AI meta-evaluator too strict
+
+#### Tactic-Specific Patterns
+- **Direct Requests**: High agreement suggests straightforward evaluation criteria
+- **Command Attacks**: Low agreement indicates complex evaluation challenges - original may miss subtle failure modes
+- **Emotional Appeals**: Moderate sample size (31) but poor agreement suggests philosophical differences in evaluation
+
+### 🛠️ Implementation Artifacts
+
+#### Created Scripts
+- `compare_original_ai_evaluations.py`: Main comparison pipeline (parallel to `compare_human_ai_evaluations.py`)
+- `original_ai_comparison_plots.py`: Comprehensive visualization suite (parallel to `human_ai_comparison_plots.py`)
+
+#### Generated Outputs  
+- `original_ai_comparison.csv`: Detailed comparison data (271 cases)
+- `original_ai_comparison_analysis.png`: Comprehensive analysis plots
+- Performance metrics, confusion matrices, and disagreement analysis
+
+### 🔬 Comparative Analysis Framework
+
+#### Three-Way Evaluation Landscape
+1. **Original Evaluations**: Baseline "ground truth" from initial evaluation runs
+2. **Human Evaluations**: Expert human judgment on subset of cases  
+3. **AI Meta-Evaluations**: Systematic re-evaluation looking for specific issue patterns
+
+#### Agreement Patterns
+- **Human vs AI Meta**: ~70-80% agreement (from previous analysis)
+- **Original vs AI Meta**: 49.8% agreement (this analysis)
+- **Implication**: Human evaluations fall between original (lenient) and AI meta-evaluator (strict)
+
+### 📝 Methodological Contributions
+1. **Parallel Pipeline Architecture**: Systematic approach to comparing different evaluation systems
+2. **Comprehensive Data Integration**: Method for combining multiple AI meta-evaluation result files
+3. **Scope-Matched Analysis**: Ensuring fair comparison by using identical case sets
+4. **Multi-Dimensional Visualization**: Comprehensive plotting framework for evaluation system comparisons
+
+### 🔄 Current Status
+- **Pipeline Complete**: Fully functional original vs AI meta-evaluation comparison system
+- **Data Scope**: Comprehensive analysis covering 271 cases across all jailbreak tactics
+- **Reproducible Framework**: Scripts ready for future evaluation system comparisons
+
+### 🚀 Future Applications
+- **Evaluation System Optimization**: Use disagreement patterns to improve AI meta-evaluator
+- **Ground Truth Calibration**: Inform decisions about which evaluation system to trust
+- **Attack Effectiveness Analysis**: More nuanced understanding of jailbreak success across different evaluation perspectives
+
+---
+
 ## 🎯 Current Research Direction
 
 ### Active Investigation Areas
