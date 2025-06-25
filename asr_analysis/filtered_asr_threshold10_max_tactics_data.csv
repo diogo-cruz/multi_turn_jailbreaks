@@ -1,0 +1,4 @@
+model,model_clean,single_asr,multi_asr,multi_only_asr
+meta-llama/llama-3.1-8b-instruct,Llama 3.1 8B,0.9,1.0,0.09999999999999998
+meta-llama/llama-3.1-70b-instruct,Llama 3.1 70B,0.95,1.0,0.050000000000000044
+google/gemini-2.0-flash-lite-001,Gemini 2.0 Flash Lite,0.8,1.0,0.19999999999999996

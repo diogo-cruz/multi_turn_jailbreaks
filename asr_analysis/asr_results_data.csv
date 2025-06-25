@@ -1,0 +1,10 @@
+model,model_clean,single_asr,multi_asr,multi_only_asr
+anthropic/claude-3.5-sonnet,Claude 3.5 Sonnet,0.05,0.1,0.05
+anthropic/claude-3.7-sonnet,Claude 3.7 Sonnet,0.27586206896551724,0.3050847457627119,0.029222676797194647
+qwen/qwen3-8b,Qwen3 8B,0.8205128205128205,0.45,0.0
+meta-llama/llama-3.1-8b-instruct,Llama 3.1 8B,0.6125,0.76875,0.15625
+meta-llama/llama-3.1-70b-instruct,Llama 3.1 70B,0.71875,0.78125,0.0625
+meta-llama/llama-3.2-1b-instruct,Llama 3.2 1B,0.6888888888888889,0.8666666666666667,0.1777777777777778
+meta-llama/llama-3.2-3b-instruct,Llama 3.2 3B,0.7333333333333333,0.9111111111111111,0.1777777777777778
+gpt-4o-mini-2024-07-18,GPT-4o Mini,0.8,0.9222222222222223,0.12222222222222223
+google/gemini-2.0-flash-lite-001,Gemini 2.0 Flash Lite,0.75,0.95,0.19999999999999996

@@ -1,0 +1,6 @@
+model,model_clean,single_asr,multi_asr,multi_only_asr
+anthropic/claude-3.5-sonnet,Claude 3.5 Sonnet,0.125,0.3625,0.2375
+anthropic/claude-3.7-sonnet,Claude 3.7 Sonnet,0.2,0.8,0.6000000000000001
+meta-llama/llama-3.1-70b-instruct,Llama 3.1 70B,0.99375,1.0,0.006249999999999978
+meta-llama/llama-3.1-8b-instruct,Llama 3.1 8B,0.98125,1.0,0.018750000000000044
+google/gemini-2.0-flash-lite-001,Gemini 2.0 Flash Lite,0.95625,1.0,0.043749999999999956
