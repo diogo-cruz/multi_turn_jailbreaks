@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Create ASR plot similar to filtered_asr_max_score_direct_request.png 
-but using ALL models available in the data, not just a filtered subset.
+Create ASR plot for batch3A only, using direct_request tactic.
+This matches the analysis done in the notebook.
 """
 
 import pandas as pd
@@ -144,17 +144,17 @@ def main():
     df_full = pd.read_csv('/home/dcruz/multi_turn_jailbreaks/csv_results/master_results.csv')
     print(f"Loaded {len(df_full)} total experiments")
     
-    # Filter for only the specified batches (same as filtered version)
-    target_batches = ['batch2B', 'batch2D', 'batch3A']
-    df = df_full[df_full['batch'].isin(target_batches)].copy()
-    print(f"After filtering for batches {target_batches}: {len(df)} experiments")
+    # Filter for only batch3A to match notebook analysis
+    target_batch = 'batch3A'
+    df = df_full[df_full['batch'] == target_batch].copy()
+    print(f"After filtering for batch {target_batch}: {len(df)} experiments")
     
     if len(df) == 0:
         print("No data found after batch filtering!")
         return
     
     print(f"\n{'='*60}")
-    print(f"Creating ASR plot for ALL models (no model filtering)")
+    print(f"Creating ASR plot for batch3A models only")
     print(f"{'='*60}")
     
     results_df = analyze_data(df, tactic_filter='direct_request')
@@ -164,8 +164,8 @@ def main():
     
     create_plot(
         results_df, 
-        'Attack Success Rate: Single-turn vs Multi-turn\n(Direct Request Tactic, Max Score Average) - All Models (Unfiltered)',
-        'asr_max_score_direct_request_all_models_unfiltered.png'
+        'Attack Success Rate: Single-turn vs Multi-turn\n(Direct Request Tactic, Max Score Average) - Batch3A Only',
+        'asr_max_score_direct_request_batch3A_only.png'
     )
     
     # Print summary statistics

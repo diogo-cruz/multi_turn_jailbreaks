@@ -1,0 +1,10 @@
+model,model_clean,single_asr,multi_asr,multi_only_asr
+deepseek/deepseek-chat-v3-0324,deepseek/deepseek-chat-v3-0324,0.18125,0.26875,0.0875
+anthropic/claude-3.5-sonnet,Claude 3.5 Sonnet,0.0375,0.2875,0.24999999999999997
+anthropic/claude-3.7-sonnet,Claude 3.7 Sonnet,0.3,0.71875,0.41875
+google/gemini-2.5-pro-preview-03-25,google/gemini-2.5-pro-preview-03-25,0.5,0.7375,0.23750000000000004
+openai/gpt-4.1,openai/gpt-4.1,0.45,0.7976190476190477,0.34761904761904766
+google/gemini-2.5-flash-preview,google/gemini-2.5-flash-preview,0.4,0.83125,0.43125
+openai/gpt-4.1-mini,openai/gpt-4.1-mini,0.525,0.88125,0.35624999999999996
+openai/gpt-4o,openai/gpt-4o,0.575,0.8875,0.3125
+openai/gpt-4.1-nano,openai/gpt-4.1-nano,0.5125,0.9,0.38750000000000007
