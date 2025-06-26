@@ -1,0 +1,28 @@
+model,model_clean,single_asr,multi_asr,multi_only_asr
+google/gemini-2.5-flash-preview,google/gemini-2.5-flash-preview,0.0,0.0625,0.0625
+google/gemini-2.5-pro-preview-03-25,google/gemini-2.5-pro-preview-03-25,0.0125,0.075,0.0625
+openai/gpt-4.1,openai/gpt-4.1,0.0,0.1,0.1
+openai/gpt-4.1-mini,openai/gpt-4.1-mini,0.1625,0.2,0.037500000000000006
+openai/gpt-4o,openai/gpt-4o,0.0375,0.2125,0.175
+openai/gpt-4.1-nano,openai/gpt-4.1-nano,0.1375,0.225,0.0875
+anthropic/claude-3.7-sonnet,Claude 3.7 Sonnet,0.05,0.2375,0.1875
+anthropic/claude-3.5-sonnet,Claude 3.5 Sonnet,0.075,0.3125,0.2375
+deepseek/deepseek-chat-v3-0324,deepseek/deepseek-chat-v3-0324,0.6083333333333333,0.6708333333333333,0.0625
+anthropic/claude-3-haiku,anthropic/claude-3-haiku,0.55,0.8,0.25
+google/gemma-2-9b-it,google/gemma-2-9b-it,0.375,0.8375,0.4625
+meta-llama/llama-4-maverick,meta-llama/llama-4-maverick,0.79375,0.85,0.05625000000000002
+mistralai/mistral-7b-instruct-v0.3,mistralai/mistral-7b-instruct-v0.3,0.79375,0.9,0.10625000000000007
+meta-llama/llama-3.1-70b-instruct,Llama 3.1 70B,0.90625,0.9,0.0
+google/gemini-flash-1.5,google/gemini-flash-1.5,0.66875,0.90625,0.23750000000000004
+google/gemini-2.0-flash-001,google/gemini-2.0-flash-001,0.6375,0.9125,0.275
+mistralai/mistral-nemo,mistralai/mistral-nemo,0.85625,0.93125,0.07500000000000007
+google/gemma-3-27b-it,google/gemma-3-27b-it,0.825,0.94375,0.11875000000000002
+google/gemini-2.0-flash-lite-001,Gemini 2.0 Flash Lite,0.7125,0.95625,0.24375000000000002
+x-ai/grok-3-mini-beta,x-ai/grok-3-mini-beta,0.75,0.96875,0.21875
+google/gemma-3-12b-it,google/gemma-3-12b-it,0.74375,0.975,0.23124999999999996
+qwen/qwen-2.5-72b-instruct,qwen/qwen-2.5-72b-instruct,0.63125,0.975,0.34375
+qwen/qwen-2.5-7b-instruct,qwen/qwen-2.5-7b-instruct,0.8375,0.98125,0.14374999999999993
+mistralai/mistral-tiny,mistralai/mistral-tiny,0.76875,0.9875,0.21875
+meta-llama/llama-3.1-8b-instruct,Llama 3.1 8B,0.73125,0.9875,0.2562500000000001
+mistralai/mistral-small-3.1-24b-instruct,mistralai/mistral-small-3.1-24b-instruct,0.76875,0.9875,0.21875
+meta-llama/llama-4-scout,meta-llama/llama-4-scout,0.81875,1.0,0.18125000000000002
