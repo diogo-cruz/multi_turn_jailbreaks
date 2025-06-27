@@ -21,7 +21,11 @@ import ast
 plt.rcParams.update({
     'text.usetex': True,
     'font.family': 'serif',
-    'font.size': 12
+    'font.size': 24,
+    'axes.labelsize': 24,
+    'xtick.labelsize': 20,
+    'ytick.labelsize': 20,
+    'legend.fontsize': 18
 })
 
 
@@ -65,19 +69,28 @@ def get_max_score_by_round(data, max_rounds):
         if 'score' in entry and isinstance(entry.get('score'), (int, float)):
             evaluation_entries.append(entry)
     
+    # If no evaluation entries found, return empty result (conversation failed)
+    if not evaluation_entries:
+        return {}
+    
     # Calculate max score over first r rounds
     result = {}
+    
+    # First, calculate the actual max scores for available rounds
+    available_max_scores = []
+    for r in range(1, len(evaluation_entries) + 1):
+        scores_up_to_r = [eval_entry['score'] for eval_entry in evaluation_entries[:r]]
+        max_score = max(scores_up_to_r) if scores_up_to_r else 0.0
+        available_max_scores.append(max_score)
+    
+    # Now generate results for all requested rounds, extending the last value if needed
     for r in range(1, max_rounds + 1):
-        if r <= len(evaluation_entries):
-            # Get scores from first r evaluation entries
-            scores_up_to_r = [eval_entry['score'] for eval_entry in evaluation_entries[:r]]
-            max_score = max(scores_up_to_r) if scores_up_to_r else 0.0
+        if r <= len(available_max_scores):
+            # Use actual calculated max score
+            result[f'max_score_by_{r}_rounds'] = available_max_scores[r - 1]
         else:
-            # If we don't have r evaluation entries, use all available scores
-            all_scores = [eval_entry['score'] for eval_entry in evaluation_entries]
-            max_score = max(all_scores) if all_scores else 0.0
-        
-        result[f'max_score_by_{r}_rounds'] = max_score
+            # Extend with the last available max score
+            result[f'max_score_by_{r}_rounds'] = available_max_scores[-1] if available_max_scores else 0.0
     
     return result
 
@@ -85,14 +98,14 @@ def get_max_score_by_round(data, max_rounds):
 def get_max_score_by_round_with_refusals(data, max_rounds):
     """
     Get the maximum StrongREJECT score over the first r rounds, treating refusals as additional rounds with score 0.0.
-    This means if there are 8 actual rounds with some refusals, we treat each refusal as adding an extra round.
+    This preserves the chronological order of refusals and numeric scores.
     
     Args:
         data: a JSON string containing the attack entries
         max_rounds: Maximum number of actual rounds to consider (but we can go beyond this with refusals)
         
     Returns:
-        Dictionary with max scores by round (including refusals as 0.0 rounds)
+        Dictionary with max scores by round (including refusals as 0.0 rounds in chronological order)
     """
     # Parse data if it's a string
     if isinstance(data, str):
@@ -104,9 +117,8 @@ def get_max_score_by_round_with_refusals(data, max_rounds):
                 except json.JSONDecodeError:
                     continue
 
-    # For multi-turn, we need to extract scores from evaluation entries after each round
-    evaluation_entries = []
-    refusal_count = 0
+    # Collect all scoring entries (both numeric and refusals) in chronological order
+    round_scores = []
     
     for entry in entries:
         # Skip metadata entry (contains target_base_url, etc.)
@@ -116,29 +128,57 @@ def get_max_score_by_round_with_refusals(data, max_rounds):
         if 'goal_achieved' in entry:
             continue
         
-        # Count refusals
-        if 'score' in entry and entry.get('score') == "refused":
-            refusal_count += 1
-        
-        # Evaluation entries have numeric score and evaluation metadata (typically have 'goal' field)
-        if 'score' in entry and isinstance(entry.get('score'), (int, float)):
-            evaluation_entries.append(entry)
+        # Look for entries with score field
+        if 'score' in entry:
+            score_value = entry.get('score')
+            round_num = entry.get('round', None)  # Try to get round number if available
+            
+            if score_value == "refused":
+                # Refusal counts as 0.0 score
+                round_scores.append({
+                    'round': round_num,
+                    'score': 0.0,
+                    'type': 'refusal'
+                })
+            elif isinstance(score_value, (int, float)):
+                # Numeric score
+                round_scores.append({
+                    'round': round_num,
+                    'score': float(score_value),
+                    'type': 'numeric'
+                })
     
-    # Get regular round scores (as in original function)
-    regular_scores = [eval_entry['score'] for eval_entry in evaluation_entries]
+    # Sort by round number if available, otherwise preserve order from file
+    if all(entry['round'] is not None for entry in round_scores):
+        round_scores.sort(key=lambda x: x['round'])
     
-    # Create extended sequence: regular scores followed by 0.0s for each refusal
-    all_round_scores = regular_scores + [0.0] * refusal_count
+    # Extract just the scores in chronological order
+    all_round_scores = [entry['score'] for entry in round_scores]
     
-    # Calculate max score over first r rounds (including refusals as additional rounds)
+    # If no scoring entries found, return empty result (conversation failed)
+    if not all_round_scores:
+        return {}
+    
+    # Calculate max score over first r rounds (including refusals as 0.0 in proper order)
     result = {}
     total_rounds = len(all_round_scores)
     
-    # Generate scores for all available rounds (not limited by max_rounds for refusal variant)
+    # First, calculate the actual max scores for available rounds
+    available_max_scores = []
     for r in range(1, total_rounds + 1):
         scores_up_to_r = all_round_scores[:r]
         max_score = max(scores_up_to_r) if scores_up_to_r else 0.0
-        result[f'max_score_by_{r}_rounds'] = max_score
+        available_max_scores.append(max_score)
+    
+    # Generate scores for requested rounds, extending if we have fewer rounds than max_rounds
+    max_rounds_to_generate = max(max_rounds, total_rounds)
+    for r in range(1, max_rounds_to_generate + 1):
+        if r <= len(available_max_scores):
+            # Use actual calculated max score
+            result[f'max_score_by_{r}_rounds'] = available_max_scores[r - 1]
+        else:
+            # Extend with the last available max score
+            result[f'max_score_by_{r}_rounds'] = available_max_scores[-1] if available_max_scores else 0.0
     
     return result
 
@@ -152,7 +192,7 @@ def get_final_score(data):
         data: a JSON string containing the attack entries
         
     Returns:
-        Final StrongREJECT score (float)
+        Final StrongREJECT score (float) or None if no score found
     """
     # Parse data if it's a string
     if isinstance(data, str):
@@ -176,7 +216,7 @@ def get_final_score(data):
         if 'score' in entry and isinstance(entry.get('score'), (int, float)):
             return entry.get('score', 0.0)
     
-    return 0.0
+    return None  # Return None if no score found (empty conversation)
 
 
 def get_all_scores_including_refusals(data):
@@ -339,7 +379,7 @@ def get_tactic_style_and_batch_color(tactic, batch, turn_type, batch_name_settin
     else:  # multi-turn
         base_color = '#ff7f0e'  # orange for multi-turn
     
-    # Line styles based on batch when plotting both batches
+    # Line styles and batch labels based on batch when plotting multiple batches
     if batch_name_setting == "both":
         # batch6A = solid lines, batch6B = dashed lines
         if batch == 'batch6A':
@@ -348,6 +388,17 @@ def get_tactic_style_and_batch_color(tactic, batch, turn_type, batch_name_settin
         else:  # batch6B
             linestyle = '--'  # dashed
             batch_label = "Claude"
+    elif batch_name_setting == "all":
+        # batch6A = solid, batch6B = dashed, batch6C = dotted
+        if batch == 'batch6A':
+            linestyle = '-'  # solid
+            batch_label = "Gemini (6A)"
+        elif batch == 'batch6B':
+            linestyle = '--'  # dashed
+            batch_label = "Claude (6B)"
+        else:  # batch6C
+            linestyle = ':'  # dotted
+            batch_label = "Batch6C"
     else:
         # When plotting single batch, tactic determines line style
         if tactic == 'direct_request':
@@ -405,6 +456,367 @@ def get_data_range(df, data_type='samples'):
     return max_value
 
 
+def determine_plotting_range(single_turn_df, multi_turn_df, single_turn_with_refusals_df, multi_turn_with_refusals_df, 
+                           extend_xaxis_for_refusals, max_samples_param, max_rounds_param):
+    """
+    Determine the actual plotting range that will be used based on available data and settings.
+    
+    Returns:
+        tuple: (max_samples_plotting, max_rounds_plotting, max_samples_plotting_ref, max_rounds_plotting_ref)
+    """
+    if extend_xaxis_for_refusals:
+        # For extended axis, we need to check the raw data to see maximum available
+        # For single-turn with refusals, check the maximum number of attempts across all test cases
+        max_samples_plotting = 8  # default
+        max_rounds_plotting = 8   # default
+        max_samples_plotting_ref = 8
+        max_rounds_plotting_ref = 8
+        
+        if len(single_turn_with_refusals_df) > 0:
+            # Group by test case and find max samples available
+            group_cols = ['test_case', 'target_model', 'jailbreak_tactic']
+            if 'batch' in single_turn_with_refusals_df.columns:
+                group_cols.append('batch')
+            
+            grouped = single_turn_with_refusals_df.groupby(group_cols)
+            max_samples_per_group = []
+            for _, group in grouped:
+                max_samples_per_group.append(len(group))
+            
+            if max_samples_per_group:
+                max_samples_plotting_ref = max(max_samples_per_group)
+                max_samples_plotting = min(max_samples_plotting_ref, 8)  # Original variant capped at available or 8
+        
+        if len(multi_turn_with_refusals_df) > 0:
+            # For multi-turn, we need to check the raw data for maximum rounds including refusals
+            max_rounds_available = []
+            for _, row in multi_turn_with_refusals_df.iterrows():
+                # Count columns that have data
+                round_count = 0
+                for col in row.index:
+                    if 'max_score_by_' in col and '_rounds' in col:
+                        try:
+                            round_num = int(col.replace('max_score_by_', '').replace('_rounds', ''))
+                            if not pd.isna(row[col]):
+                                round_count = max(round_count, round_num)
+                        except:
+                            continue
+                if round_count > 0:
+                    max_rounds_available.append(round_count)
+            
+            if max_rounds_available:
+                max_rounds_plotting_ref = max(max_rounds_available)
+                max_rounds_plotting = min(max_rounds_plotting_ref, 8)  # Original variant capped at 8
+    else:
+        # For non-extended axis, use fixed values
+        max_samples_plotting = 8
+        max_rounds_plotting = 8
+        max_samples_plotting_ref = 8
+        max_rounds_plotting_ref = 8
+    
+    return max_samples_plotting, max_rounds_plotting, max_samples_plotting_ref, max_rounds_plotting_ref
+
+
+# ============================================================================
+# Data Analysis Functions
+# ============================================================================
+
+def extract_batch_metadata(batch_paths: List[str], max_rounds: int = 8, include_command: bool = False) -> Dict[str, pd.DataFrame]:
+    """
+    Extract metadata from batch files, separating single-turn and multi-turn data.
+    Now supports multiple batches and tactics filtering.
+    
+    Args:
+        batch_paths: List of directory paths to search for JSONL files
+        max_rounds: Maximum number of rounds to analyze for multi-turn
+        
+    Returns:
+        Dictionary with 'single_turn', 'single_turn_with_refusals', 'multi_turn', and 'multi_turn_with_refusals' DataFrames
+    """
+    single_turn_data = []
+    single_turn_with_refusals_data = []  # Include refusals as 0.0 scores
+    multi_turn_data = []
+    multi_turn_with_refusals_data = []  # Include refusals as 0.0 rounds
+    
+    # Determine which tactics to include based on the include_command parameter
+    tactics_to_include = ['direct_request']
+    if include_command:
+        tactics_to_include.append('command')
+    
+    processed_count = 0
+    tactic_counts = {}
+    batch_counts = {}
+    
+    for batch_path in batch_paths:
+        batch_name = Path(batch_path).name  # Extract batch name from path
+        batch_counts[batch_name] = 0
+        
+        # Use pathlib to recursively find all .jsonl files
+        root_path = Path(batch_path)
+        jsonl_files = list(root_path.rglob('*.jsonl'))
+        
+        print(f"Found {len(jsonl_files)} JSONL files in {batch_name}...")
+        
+        for file_path in jsonl_files:
+            metadata = load_jsonl_metadata(str(file_path))
+            if metadata:
+                tactic = metadata.get('jailbreak_tactic')
+                
+                # Process files with selected tactics
+                if tactic in tactics_to_include:
+                    # Count tactics and batches
+                    tactic_counts[tactic] = tactic_counts.get(tactic, 0) + 1
+                    batch_counts[batch_name] += 1
+                    
+                    # Add the file path and batch info for reference
+                    metadata['file_path'] = str(file_path)
+                    metadata['batch'] = batch_name
+                    
+                    # Extract sample ID from filename if not in metadata
+                    if 'sample_id' not in metadata or metadata['sample_id'] is None:
+                        metadata['sample_id'] = extract_sample_id_from_filename(file_path.name)
+                    
+                    # Read the file data
+                    data = read_json_file(str(file_path))
+                    
+                    if metadata.get('turn_type') == 'single':
+                        # For single-turn, get the final StrongREJECT score from evaluation entry
+                        final_score = get_final_score(data)
+                        all_scores = get_all_scores_including_refusals(data)
+                        
+                        # Only include if there's actual scoring data (not just metadata)
+                        if final_score is not None or all_scores:
+                            if final_score is not None:
+                                metadata['final_score'] = final_score
+                                single_turn_data.append(metadata.copy())
+                            
+                            # Also get all scores including refusals for the alternative analysis
+                            if all_scores:
+                                for i, score in enumerate(all_scores):
+                                    refusal_metadata = metadata.copy()
+                                    refusal_metadata['final_score'] = score
+                                    refusal_metadata['sample_id'] = f"{metadata['sample_id']}_attempt_{i+1}"
+                                    single_turn_with_refusals_data.append(refusal_metadata)
+                        else:
+                            print(f"Skipping empty single-turn conversation: {file_path}")
+                        
+                    elif metadata.get('turn_type') == 'multi':
+                        # For multi-turn, get scores by rounds (original method)
+                        round_scores = get_max_score_by_round(data, max_rounds)
+                        
+                        # Check if this conversation actually has any rounds (not just metadata)
+                        has_actual_rounds = any(f'max_score_by_{r}_rounds' in round_scores 
+                                              for r in range(1, max_rounds + 1) 
+                                              if round_scores.get(f'max_score_by_{r}_rounds') is not None)
+                        
+                        if has_actual_rounds:
+                            metadata_original = metadata.copy()
+                            metadata_original.update(round_scores)
+                            multi_turn_data.append(metadata_original)
+                            
+                            # Also get scores by rounds including refusals as 0.0
+                            round_scores_with_refusals = get_max_score_by_round_with_refusals(data, max_rounds)
+                            
+                            # Check if the refusal variant also has actual data
+                            if round_scores_with_refusals:
+                                metadata_with_refusals = metadata.copy()
+                                metadata_with_refusals.update(round_scores_with_refusals)
+                                multi_turn_with_refusals_data.append(metadata_with_refusals)
+                        else:
+                            print(f"Skipping empty conversation: {file_path}")
+                    
+                    processed_count += 1
+    
+    # Create DataFrames
+    single_turn_df = pd.DataFrame(single_turn_data)
+    single_turn_with_refusals_df = pd.DataFrame(single_turn_with_refusals_data)
+    multi_turn_df = pd.DataFrame(multi_turn_data)
+    multi_turn_with_refusals_df = pd.DataFrame(multi_turn_with_refusals_data)
+    
+    print(f"Successfully processed {processed_count} files")
+    print(f"Batch counts: {batch_counts}")
+    print(f"Tactic counts: {tactic_counts}")
+    print(f"Tactics included: {tactics_to_include}")
+    print(f"Single-turn files: {len(single_turn_df)}")
+    print(f"Single-turn entries (with refusals): {len(single_turn_with_refusals_df)}")
+    print(f"Multi-turn files: {len(multi_turn_df)}")
+    print(f"Multi-turn files (with refusals): {len(multi_turn_with_refusals_df)}")
+    
+    return {
+        'single_turn': single_turn_df,
+        'single_turn_with_refusals': single_turn_with_refusals_df,
+        'multi_turn': multi_turn_df,
+        'multi_turn_with_refusals': multi_turn_with_refusals_df
+    }
+
+
+def analyze_single_turn_by_samples(df: pd.DataFrame, max_samples: int = None, include_command: bool = False, extend_to_samples: int = None) -> pd.DataFrame:
+    """
+    Analyze single-turn data by number of samples using continuous StrongREJECT scores.
+    Calculate expected maximum StrongREJECT score for s samples.
+    Now supports multiple tactics, batches, and dynamic max_samples.
+    """
+    # Filter tactics if needed
+    if not include_command:
+        df = df[df['jailbreak_tactic'] == 'direct_request']
+    
+    # Check if batch column exists and include it in grouping
+    group_cols = ['test_case', 'target_model', 'jailbreak_tactic']
+    if 'batch' in df.columns:
+        group_cols.append('batch')
+    
+    grouped = df.groupby(group_cols)
+    
+    results = []
+    
+    for group_key, group in grouped:
+        # Get all scores for this combination
+        scores = group['final_score'].tolist()
+        n = len(scores)
+        
+        # Only process if we have enough samples
+        if n >= 3:  # Minimum 3 samples
+            result_row = {
+                'test_case': group_key[0],
+                'target_model': group_key[1],
+                'jailbreak_tactic': group_key[2],
+                'n_samples_available': n
+            }
+            
+            # Add batch info if available
+            if len(group_key) > 3:
+                result_row['batch'] = group_key[3]
+            
+            # Determine the range to calculate and extend
+            if max_samples is None:
+                upper_limit = n
+                extend_limit = extend_to_samples if extend_to_samples is not None else n
+            else:
+                upper_limit = min(n, max_samples)
+                extend_limit = extend_to_samples if extend_to_samples is not None else max_samples
+            
+            # Calculate expected max scores for s = 1 to upper_limit
+            calculated_scores = []
+            for s in range(1, upper_limit + 1):
+                expected_max = expected_max_formula(scores, s, n)
+                calculated_scores.append(expected_max)
+                result_row[f'expected_max_score_{s}_samples'] = expected_max
+            
+            # Extend with the last calculated score if needed
+            if extend_limit > upper_limit and calculated_scores:
+                last_score = calculated_scores[-1]
+                for s in range(upper_limit + 1, extend_limit + 1):
+                    result_row[f'expected_max_score_{s}_samples'] = last_score
+            
+            results.append(result_row)
+    
+    return pd.DataFrame(results)
+
+
+def analyze_multi_turn_by_rounds(df: pd.DataFrame, max_rounds: int = None, include_command: bool = False, extend_to_rounds: int = None) -> pd.DataFrame:
+    """
+    Analyze multi-turn data by number of rounds using continuous StrongREJECT scores.
+    For each conversation: calculate max score over first r rounds.
+    Then average these max scores across conversations.
+    Now supports multiple tactics, batches, and dynamic max_rounds.
+    """
+    # Filter tactics if needed
+    if not include_command:
+        df = df[df['jailbreak_tactic'] == 'direct_request']
+    
+    # Check if batch column exists and include it in grouping
+    group_cols = ['test_case', 'target_model', 'jailbreak_tactic']
+    if 'batch' in df.columns:
+        group_cols.append('batch')
+    
+    grouped = df.groupby(group_cols)
+    
+    results = []
+    
+    for group_key, group in grouped:
+        if len(group) > 0:
+            result_row = {
+                'test_case': group_key[0],
+                'target_model': group_key[1],
+                'jailbreak_tactic': group_key[2],
+                'n_conversations': len(group)
+            }
+            
+            # Add batch info if available
+            if len(group_key) > 3:
+                result_row['batch'] = group_key[3]
+            
+            # Determine the maximum number of rounds available in the data
+            max_rounds_available = 0
+            for _, conversation in group.iterrows():
+                for col in conversation.index:
+                    if 'max_score_by_' in col and '_rounds' in col:
+                        try:
+                            round_num = int(col.replace('max_score_by_', '').replace('_rounds', ''))
+                            if not pd.isna(conversation[col]):
+                                max_rounds_available = max(max_rounds_available, round_num)
+                        except:
+                            continue
+            
+            # Determine the range to calculate and extend
+            if max_rounds is None:
+                upper_limit = max_rounds_available
+                extend_limit = extend_to_rounds if extend_to_rounds is not None else max_rounds_available
+            else:
+                upper_limit = max(max_rounds_available, max_rounds)  # Process all available data
+                extend_limit = extend_to_rounds if extend_to_rounds is not None else max_rounds
+            
+            # Store calculated average scores for extension
+            calculated_avg_scores = []
+            
+            # For each round r, calculate max over first r rounds per conversation, then average
+            for r in range(1, upper_limit + 1):
+                max_scores_for_round_r = []
+                
+                # For each conversation
+                for _, conversation in group.iterrows():
+                    # Get scores from rounds 1 to r for this conversation
+                    scores_up_to_r = []
+                    for round_num in range(1, r + 1):
+                        score_col = f'max_score_by_{round_num}_rounds'
+                        if score_col in conversation and not pd.isna(conversation[score_col]):
+                            scores_up_to_r.append(conversation[score_col])
+                    
+                    # Calculate max score over first r rounds for this conversation
+                    if scores_up_to_r:
+                        max_score_up_to_r = max(scores_up_to_r)
+                        max_scores_for_round_r.append(max_score_up_to_r)
+                    else:
+                        # If no data for this round, extend with previous max score
+                        if calculated_avg_scores:
+                            max_scores_for_round_r.append(calculated_avg_scores[-1])
+                        else:
+                            max_scores_for_round_r.append(0.0)
+                
+                # Average the max scores across all conversations
+                if max_scores_for_round_r:
+                    avg_max_score = sum(max_scores_for_round_r) / len(max_scores_for_round_r)
+                    calculated_avg_scores.append(avg_max_score)
+                    
+                    # Only store if within requested range
+                    if r <= extend_limit:
+                        result_row[f'max_score_{r}_rounds'] = avg_max_score
+                else:
+                    calculated_avg_scores.append(0.0)
+                    if r <= extend_limit:
+                        result_row[f'max_score_{r}_rounds'] = 0.0
+            
+            # If we need more rounds than available data, extend with last calculated average
+            if extend_limit > len(calculated_avg_scores) and calculated_avg_scores:
+                last_avg_score = calculated_avg_scores[-1]
+                for r in range(len(calculated_avg_scores) + 1, extend_limit + 1):
+                    result_row[f'max_score_{r}_rounds'] = last_avg_score
+            
+            results.append(result_row)
+    
+    return pd.DataFrame(results)
+
+
 # ============================================================================
 # Main Visualization Functions
 # ============================================================================
@@ -418,6 +830,16 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     Now supports multiple tactics, batches with different colors, and dynamic x-axis range.
     Fits are excluded from legend but printed to console.
     """
+    # Force LaTeX and font settings
+    plt.rcParams.update({
+        'text.usetex': True,
+        'font.family': 'serif',
+        'font.size': 24,
+        'axes.labelsize': 24,
+        'xtick.labelsize': 20,
+        'ytick.labelsize': 20,
+        'legend.fontsize': 18
+    })
     # Get unique test cases (should be the same for both)
     test_cases = sorted(set(single_turn_results['test_case'].unique()) & 
                        set(multi_turn_results['test_case'].unique()))
@@ -462,8 +884,8 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             if not include_command and tactic == 'command':
                 continue
             
-            # Group by batch if plotting both batches
-            if batch_name_setting == "both" and 'batch' in tactic_data.columns:
+            # Group by batch if plotting multiple batches
+            if batch_name_setting in ["both", "all"] and 'batch' in tactic_data.columns:
                 batch_groups = tactic_data.groupby('batch')
             else:
                 batch_groups = [(batch_name_setting, tactic_data)]
@@ -486,7 +908,7 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                     
                     if samples:
                         # Create label
-                        if batch_name_setting == "both":
+                        if batch_name_setting in ["both", "all"]:
                             label = f'{style["batch_label"]} (single)'
                         else:
                             label = f'{tactic} (single)'
@@ -515,8 +937,8 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             if not include_command and tactic == 'command':
                 continue
             
-            # Group by batch if plotting both batches
-            if batch_name_setting == "both" and 'batch' in tactic_data.columns:
+            # Group by batch if plotting multiple batches
+            if batch_name_setting in ["both", "all"] and 'batch' in tactic_data.columns:
                 batch_groups = tactic_data.groupby('batch')
             else:
                 batch_groups = [(batch_name_setting, tactic_data)]
@@ -539,7 +961,7 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                     
                     if rounds:
                         # Create label
-                        if batch_name_setting == "both":
+                        if batch_name_setting in ["both", "all"]:
                             label = f'{style["batch_label"]} (multi)'
                         else:
                             label = f'{tactic} (multi)'
@@ -559,16 +981,37 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                                 print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
         
         # Customize the plot (no title)
-        ax.set_xlabel('Number of Samples/Rounds', fontsize=10)
-        ax.set_ylabel('ASR (StrongREJECT Score)', fontsize=10)
+        ax.set_xlabel(r'Number of Samples/Rounds', fontsize=24)
+        ax.set_ylabel(r'StrongREJECT Score', fontsize=24)
+        ax.tick_params(axis='both', which='major', labelsize=20)
         ax.grid(True, alpha=0.3)
-        ax.set_ylim(0, 1.1)  # StrongREJECT scores between 0 and 1
-        ax.legend(fontsize=8, loc='lower right')  # Move legend to bottom right
+        ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
         
-        # Set x-axis ticks based on control variable
+        # Set x-axis ticks and limits based on control variable
         if max_x > 0:
             ax.set_xticks(range(1, max_x + 1))
-            ax.set_xlim(0.5, max_x + 0.5)
+            ax.set_xlim(1, max_x)
+        
+        # Create custom legend with lines instead of points
+        handles, labels = ax.get_legend_handles_labels()
+        line_handles = []
+        for handle, label in zip(handles, labels):
+            # Get the style information from the handle
+            color = handle.get_facecolor()[0] if hasattr(handle, 'get_facecolor') else handle.get_color()
+            
+            # Determine line style based on label content
+            if 'Claude' in label or 'batch6B' in label:
+                linestyle = '--'
+            elif 'Batch6C' in label or 'batch6C' in label:
+                linestyle = ':'
+            else:
+                linestyle = '-'
+            
+            # Create line handle
+            line_handle = plt.Line2D([0], [0], color=color, linestyle=linestyle, linewidth=3)
+            line_handles.append(line_handle)
+        
+        ax.legend(line_handles, labels, loc='lower right', fontsize=18)
     
     # Hide unused subplots
     for i in range(n_plots, len(axes)):
@@ -593,6 +1036,16 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     Now supports multiple tactics, batches with different colors, error bars, and dynamic x-axis range.
     Fits are excluded from legend but printed to console.
     """
+    # Force LaTeX and font settings
+    plt.rcParams.update({
+        'text.usetex': True,
+        'font.family': 'serif',
+        'font.size': 24,
+        'axes.labelsize': 24,
+        'xtick.labelsize': 20,
+        'ytick.labelsize': 20,
+        'legend.fontsize': 18
+    })
     fig, ax = plt.subplots(figsize=figsize)
     
     # Determine the maximum range for x-axis
@@ -613,8 +1066,8 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             
         tactic_data = single_turn_results[single_turn_results['jailbreak_tactic'] == tactic]
         
-        # Group by batch if plotting both batches
-        if batch_name_setting == "both" and 'batch' in tactic_data.columns:
+        # Group by batch if plotting multiple batches
+        if batch_name_setting in ["both", "all"] and 'batch' in tactic_data.columns:
             batch_groups = tactic_data.groupby('batch')
         else:
             batch_groups = [(batch_name_setting, tactic_data)]
@@ -642,16 +1095,22 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             # Plot single-turn data points only (no connecting lines)
             if samples_range:
                 # Create label
-                if batch_name_setting == "both":
+                if batch_name_setting in ["both", "all"]:
                     label = f'{style["batch_label"]} (single)'
                 else:
                     label = f'{tactic} (single)'
                 
-                # Plot data points with error bars but no connecting lines
-                ax.errorbar(samples_range, single_turn_avg_scores, yerr=single_turn_std_errors,
-                           color=style['color'], fmt=style['marker'], markersize=8, alpha=0.8, capsize=5,
-                           linestyle='None', linewidth=0,  # No connecting lines for data points
-                           label=label, zorder=5)
+                # Plot data points without connecting lines
+                ax.scatter(samples_range, single_turn_avg_scores, 
+                          color=style['color'], marker=style['marker'], s=64, alpha=0.8,
+                          label=label, zorder=5)
+                
+                # Add shaded region for standard deviation
+                if single_turn_std_errors and len(single_turn_std_errors) > 0:
+                    upper_bound = [avg + std for avg, std in zip(single_turn_avg_scores, single_turn_std_errors)]
+                    lower_bound = [avg - std for avg, std in zip(single_turn_avg_scores, single_turn_std_errors)]
+                    ax.fill_between(samples_range, lower_bound, upper_bound, 
+                                   color=style['color'], alpha=0.2, zorder=1)
                 
                 # Fit curve for single-turn with higher resolution
                 if len(samples_range) >= 3:
@@ -672,8 +1131,8 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             
         tactic_data = multi_turn_results[multi_turn_results['jailbreak_tactic'] == tactic]
         
-        # Group by batch if plotting both batches
-        if batch_name_setting == "both" and 'batch' in tactic_data.columns:
+        # Group by batch if plotting multiple batches
+        if batch_name_setting in ["both", "all"] and 'batch' in tactic_data.columns:
             batch_groups = tactic_data.groupby('batch')
         else:
             batch_groups = [(batch_name_setting, tactic_data)]
@@ -701,16 +1160,22 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
             # Plot multi-turn data points only (no connecting lines)
             if rounds_range:
                 # Create label
-                if batch_name_setting == "both":
+                if batch_name_setting in ["both", "all"]:
                     label = f'{style["batch_label"]} (multi)'
                 else:
                     label = f'{tactic} (multi)'
                 
-                # Plot data points with error bars but no connecting lines
-                ax.errorbar(rounds_range, multi_turn_avg_scores, yerr=multi_turn_std_errors,
-                           color=style['color'], fmt=style['marker'], markersize=8, alpha=0.8, capsize=5,
-                           linestyle='None', linewidth=0,  # No connecting lines for data points
-                           label=label, zorder=5)
+                # Plot data points without connecting lines
+                ax.scatter(rounds_range, multi_turn_avg_scores, 
+                          color=style['color'], marker=style['marker'], s=64, alpha=0.8,
+                          label=label, zorder=5)
+                
+                # Add shaded region for standard deviation
+                if multi_turn_std_errors and len(multi_turn_std_errors) > 0:
+                    upper_bound = [avg + std for avg, std in zip(multi_turn_avg_scores, multi_turn_std_errors)]
+                    lower_bound = [avg - std for avg, std in zip(multi_turn_avg_scores, multi_turn_std_errors)]
+                    ax.fill_between(rounds_range, lower_bound, upper_bound, 
+                                   color=style['color'], alpha=0.2, zorder=1)
                 
                 # Fit curve for multi-turn with higher resolution
                 if len(rounds_range) >= 3:
@@ -724,16 +1189,37 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                         print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
     
     # Customize the plot (no title)
-    ax.set_xlabel('Number of Samples/Rounds', fontsize=12)
-    ax.set_ylabel('Average ASR (StrongREJECT Score)', fontsize=12)
+    ax.set_xlabel(r'Number of Samples/Rounds', fontsize=24)
+    ax.set_ylabel(r'Average StrongREJECT Score', fontsize=24)
+    ax.tick_params(axis='both', which='major', labelsize=20)
     ax.grid(True, alpha=0.3)
-    ax.set_ylim(0, 1.1)  # StrongREJECT scores between 0 and 1
-    ax.legend(fontsize=10, loc='lower right')  # Move legend to bottom right
+    ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
     
-    # Set x-axis ticks based on control variable
+    # Set x-axis ticks and limits based on control variable
     if max_x > 0:
         ax.set_xticks(range(1, max_x + 1))
-        ax.set_xlim(0.5, max_x + 0.5)
+        ax.set_xlim(1, max_x)
+    
+    # Create custom legend with lines instead of points
+    handles, labels = ax.get_legend_handles_labels()
+    line_handles = []
+    for handle, label in zip(handles, labels):
+        # Get the style information from the handle
+        color = handle.get_facecolor()[0] if hasattr(handle, 'get_facecolor') else handle.get_color()
+        
+        # Determine line style based on label content
+        if 'Claude' in label or 'batch6B' in label:
+            linestyle = '--'
+        elif 'Batch6C' in label or 'batch6C' in label:
+            linestyle = ':'
+        else:
+            linestyle = '-'
+        
+        # Create line handle
+        line_handle = plt.Line2D([0], [0], color=color, linestyle=linestyle, linewidth=3)
+        line_handles.append(line_handle)
+    
+    ax.legend(line_handles, labels, loc='lower right', fontsize=18)
     
     plt.tight_layout()
 
