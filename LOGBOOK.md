@@ -1111,20 +1111,174 @@ def clean_test_case_name(raw_test_case):
 
 ---
 
+## 2025-06-27 - Advanced ASR Analysis Framework with Multi-Batch Support
+
+**Author**: Claude Code Assistant  
+**Impact**: Comprehensive ASR analysis framework with three refusal handling variants, multi-batch support, and dynamic visualization capabilities
+
+### 🔍 Research Context
+- **Session Continuation**: Resumed work from previous conversation that reached context limits
+- **Goal**: Complete implementation of advanced ASR analysis notebook with enhanced refusal handling and visualization features
+- **Data Scope**: Batch6A and Batch6B data containing gemini-2.5-flash-lite-preview-06-17 model experiments
+
+### 🛠️ Implementation Framework
+
+#### Global Control Variables
+```python
+EXTEND_XAXIS_FOR_REFUSALS = True  # Set to False to cap at 8 rounds/samples
+BATCH_NAME = "batch6A"  # Options: "batch6A", "batch6B", "both" 
+INCLUDE_COMMAND = True  # Set to False to only include direct_request tactic
+```
+
+#### Three Analysis Variants Implemented
+1. **Original Method**: Only successful attempts (no refusals counted)
+2. **Single-turn with Refusals**: Refusals treated as additional samples with score 0.0
+3. **Multi-turn with Refusals**: Refusals treated as additional rounds with score 0.0
+
+### 📊 Key Technical Features
+
+#### Enhanced Refusal Handling
+- **Proper Multi-turn Processing**: Fixed `get_max_score_by_round_with_refusals()` to correctly handle refusals as additional rounds
+- **Extended Data Range**: Multi-turn with refusals extends to 18 rounds, single-turn with refusals to 34 samples
+- **Score Sequence Logic**: Successful scores followed by 0.0s for each refusal
+
+#### Multi-Batch Support Implementation
+- **Dynamic Data Loading**: Supports "batch6A", "batch6B", or "both" options
+- **Color Differentiation**: Different shades when plotting both batches simultaneously
+- **Metadata Integration**: Proper batch identification and filtering throughout pipeline
+
+#### Professional Visualization Enhancements
+- **Color Scheme**: Cool colors (blues) for single-turn, warm colors (oranges) for multi-turn
+  - Batch6A: '#1f77b4' (single), '#ff7f0e' (multi)
+  - Batch6B: '#4292c6' (single), '#ffbb78' (multi)
+- **Legend Positioning**: All legends moved to bottom right
+- **Fit Parameter Display**: Parameters printed to console, excluded from legends
+- **Error Bars**: Standard error bars on averaged plots
+- **High-Resolution Fitting**: 100-point curves vs experimental data points
+- **Parameter Constraints**: A and B parameters bounded between 0 and 1
+
+### 🎯 Analysis Results Summary
+
+#### Batch6A Performance (Both Tactics)
+- **Single-turn (Original)**: 0.979 ASR at 8 samples
+- **Single-turn (with Refusals)**: 0.903 ASR at 8 samples
+- **Multi-turn (Original)**: 0.914 ASR at 8 rounds  
+- **Multi-turn (with Refusals)**: 0.899 ASR at 8 rounds
+
+#### Key Findings
+- **Refusal Impact**: Including refusals reduces apparent ASR by 0.076 (single-turn) and 0.015 (multi-turn)
+- **Multi-turn Advantage**: Consistent across all methodologies and test cases
+- **Extended Range**: Refusal variants show data points extending well beyond 8 rounds/samples
+
+### 🔬 Methodological Contributions
+
+#### 1. Comprehensive Refusal Treatment
+- **Theoretical Framework**: Three different approaches to handling refused responses
+- **Extended Analysis Range**: Dynamic x-axis scaling based on actual data availability
+- **Comparative Methodology**: Side-by-side analysis of different refusal handling approaches
+
+#### 2. Multi-Batch Analysis Infrastructure
+- **Flexible Data Sources**: Seamless switching between single and multi-batch analysis
+- **Visual Differentiation**: Clear batch identification through color coding
+- **Consistent Methodology**: Identical analysis pipeline regardless of batch selection
+
+#### 3. Enhanced Curve Fitting Framework
+- **Constrained Optimization**: Physically meaningful parameter bounds (A, B ∈ [0,1])
+- **High-Resolution Visualization**: Smooth curves independent of data point density
+- **Console Output**: Clear parameter reporting without cluttering legends
+
+### 🛠️ Technical Implementation
+
+#### Data Processing Pipeline
+```python
+def get_max_score_by_round_with_refusals(data, max_rounds):
+    # Extract successful scores and count refusals separately
+    successful_scores = []
+    refusal_count = 0
+    
+    # ... processing logic ...
+    
+    # Create extended sequence: successful scores followed by 0.0s for refusals
+    all_round_scores = successful_scores + [0.0] * refusal_count
+    
+    # Generate scores for all available rounds (not limited by max_rounds)
+    for r in range(1, total_rounds + 1):
+        scores_up_to_r = all_round_scores[:r]
+        max_score = max(scores_up_to_r) if scores_up_to_r else 0.0
+        result[f'max_score_by_{r}_rounds'] = max_score
+```
+
+#### Visualization Framework
+- **Dynamic X-axis**: Extends beyond 8 based on `EXTEND_XAXIS_FOR_REFUSALS` setting
+- **Error Bar Support**: Standard error calculation across test cases
+- **Multi-tactic Support**: Configurable inclusion of command vs direct_request only
+- **Batch-aware Styling**: Different colors and labels based on batch selection
+
+### 📈 Research Insights
+
+#### Refusal Analysis Impact
+- **Single-turn**: Dramatic reduction (-32.6% at 1 sample) when including refusals
+- **Multi-turn**: Minimal impact on early rounds, slight variations in later rounds
+- **Extended Range**: True data extent revealed (18 rounds for multi-turn, 34 samples for single-turn)
+
+#### Multi-Batch Comparison Capability
+- **Systematic Differences**: Framework ready to analyze differences between Batch6A and Batch6B
+- **Visual Comparison**: Side-by-side comparison when `BATCH_NAME = "both"`
+- **Methodological Consistency**: Identical analysis pipeline ensures fair comparison
+
+### 🔄 Current Status
+
+#### Completed Implementation
+- **Three Refusal Variants**: All implemented and functional
+- **Multi-batch Support**: Complete with color differentiation and dynamic loading
+- **Enhanced Visualization**: Professional styling with error bars, fit constraints, and console output
+- **Global Controls**: Flexible configuration through global variables
+
+#### Generated Artifacts
+- **Notebook**: `asr_rounds_samples_comparison_batch6A.ipynb` - Complete analysis framework
+- **Plot Files**: Dynamic naming based on batch and tactic selection
+- **Console Output**: Detailed fit parameters and analysis results
+
+### 📝 Research Applications
+
+#### Immediate Uses
+1. **Refusal Impact Assessment**: Quantify how different refusal treatments affect ASR measurements
+2. **Multi-batch Comparison**: Compare attack effectiveness across different experimental batches
+3. **Extended Range Analysis**: Understand attack patterns beyond traditional 8-round/sample limits
+
+#### Methodological Framework
+1. **Refusal Handling Standards**: Established framework for treating refused responses
+2. **Multi-batch Analysis Template**: Reusable framework for comparing experimental batches
+3. **Professional Visualization**: Publication-ready plots with proper error reporting
+
+### 🚀 Future Extensions
+
+#### Research Directions
+- **Cross-batch Pattern Analysis**: Systematic comparison of Batch6A vs Batch6B performance
+- **Refusal Pattern Analysis**: Understanding why certain combinations lead to extended refusal sequences
+- **Attack Strategy Optimization**: Using extended range data to optimize multi-turn attack strategies
+
+#### Technical Enhancements
+- **Automated Batch Detection**: Automatic discovery and inclusion of new batch directories
+- **Advanced Fitting Models**: Alternative curve fitting approaches for different attack patterns
+- **Statistical Significance Testing**: Formal hypothesis testing for batch and methodology differences
+
+---
+
 ## 🎯 Current Research Direction
 
 ### Active Investigation Areas
-1. **Test Case-Focused Analysis**: Understanding attack effectiveness patterns across different scenarios
-2. **Cross-Model Attack Validation**: Identifying robust attack strategies independent of specific models
-3. **Multi-Turn Effectiveness Patterns**: Analyzing which attack types benefit most from iterative approaches
-4. **Reasoning Token Optimization**: Understanding optimal complexity levels for different attack scenarios
-5. **Defense Strategy Prioritization**: Using attack effectiveness data to guide security improvements
+1. **Advanced ASR Methodologies**: Multi-variant refusal handling and extended range analysis
+2. **Multi-Batch Comparative Analysis**: Understanding experimental design evolution and consistency
+3. **Dynamic Visualization Framework**: Professional, publication-ready analysis tools
+4. **Extended Range Attack Patterns**: Analyzing effectiveness beyond traditional limits
+5. **Methodological Framework Development**: Establishing standards for ASR analysis across different scenarios
 
 ### Next Steps
-- [ ] **Immediate**: Extend test case analysis to other tactics beyond direct_request
-- [ ] **Short-term**: Compare test case patterns across different reasoning complexity levels
-- [ ] **Medium-term**: Develop attack-specific reasoning strategies based on effectiveness patterns
-- [ ] **Long-term**: Integration of test case insights into comprehensive jailbreak defense systems
+- [ ] **Immediate**: Conduct Batch6A vs Batch6B comparative analysis using both batches option
+- [ ] **Short-term**: Analyze refusal patterns to understand why certain attacks require extended sequences
+- [ ] **Medium-term**: Develop automated batch discovery and analysis pipeline
+- [ ] **Long-term**: Integration of advanced ASR methodologies into comprehensive attack evaluation frameworks
 
 ---
 
