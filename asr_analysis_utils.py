@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import ast
 
+# Set up matplotlib to use LaTeX
+plt.rcParams.update({
+    'text.usetex': True,
+    'font.family': 'serif',
+    'font.size': 12
+})
+
 
 # ============================================================================
 # Data Processing Functions
@@ -97,27 +104,31 @@ def get_max_score_by_round_with_refusals(data, max_rounds):
                 except json.JSONDecodeError:
                     continue
 
-    # Extract successful scores and count refusals separately
-    successful_scores = []
+    # For multi-turn, we need to extract scores from evaluation entries after each round
+    evaluation_entries = []
     refusal_count = 0
     
     for entry in entries:
-        # Skip metadata entry
+        # Skip metadata entry (contains target_base_url, etc.)
         if 'target_base_url' in entry or 'model_base_url' in entry:
             continue
         # Skip goal_achieved entries
         if 'goal_achieved' in entry:
             continue
-        # Look for score field
-        if 'score' in entry:
-            score = entry.get('score')
-            if isinstance(score, (int, float)):
-                successful_scores.append(score)
-            elif score == "refused":
-                refusal_count += 1
+        
+        # Count refusals
+        if 'score' in entry and entry.get('score') == "refused":
+            refusal_count += 1
+        
+        # Evaluation entries have numeric score and evaluation metadata (typically have 'goal' field)
+        if 'score' in entry and isinstance(entry.get('score'), (int, float)):
+            evaluation_entries.append(entry)
     
-    # Create extended sequence: successful scores followed by 0.0s for refusals
-    all_round_scores = successful_scores + [0.0] * refusal_count
+    # Get regular round scores (as in original function)
+    regular_scores = [eval_entry['score'] for eval_entry in evaluation_entries]
+    
+    # Create extended sequence: regular scores followed by 0.0s for each refusal
+    all_round_scores = regular_scores + [0.0] * refusal_count
     
     # Calculate max score over first r rounds (including refusals as additional rounds)
     result = {}
@@ -547,8 +558,7 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                                        linestyle=style['linestyle'])  # Use batch-specific line style for fit
                                 print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
         
-        # Customize the plot
-        ax.set_title(test_case.replace('_', ' ').title(), fontsize=12, fontweight='bold')
+        # Customize the plot (no title)
         ax.set_xlabel('Number of Samples/Rounds', fontsize=10)
         ax.set_ylabel('ASR (StrongREJECT Score)', fontsize=10)
         ax.grid(True, alpha=0.3)
@@ -567,8 +577,10 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Plot saved to {save_path}")
+        # Save as PDF
+        pdf_path = save_path.replace('.png', '.pdf') if save_path.endswith('.png') else save_path + '.pdf'
+        plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+        print(f"Plot saved to {pdf_path}")
     
     plt.show()
 
@@ -711,8 +723,7 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                                linestyle=style['linestyle'])  # Use batch-specific line style for fit
                         print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
     
-    # Customize the plot
-    ax.set_title(f'Average ASR vs Samples/Rounds ({batch_display_name}){title_suffix}', fontsize=14, fontweight='bold')
+    # Customize the plot (no title)
     ax.set_xlabel('Number of Samples/Rounds', fontsize=12)
     ax.set_ylabel('Average ASR (StrongREJECT Score)', fontsize=12)
     ax.grid(True, alpha=0.3)
@@ -727,7 +738,9 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Plot saved to {save_path}")
+        # Save as PDF
+        pdf_path = save_path.replace('.png', '.pdf') if save_path.endswith('.png') else save_path + '.pdf'
+        plt.savefig(pdf_path, dpi=300, bbox_inches='tight')
+        print(f"Plot saved to {pdf_path}")
     
     plt.show()
