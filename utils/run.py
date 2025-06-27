@@ -367,7 +367,7 @@ def get_custom_run(jailbreak_tactic: str):
         return None
 
 
-def run_attack(test_case: dict | str, output_file_path: str, target_generate: callable, attacker_generate: callable, jailbreak_tactic: str, evaluator_generate: callable):
+def run_attack(test_case, output_file_path: str, target_generate: callable, attacker_generate: callable, jailbreak_tactic: str, evaluator_generate: callable):
     """
     Run a jailbreak attack on a target model using a specified jailbreak tactic.
     
