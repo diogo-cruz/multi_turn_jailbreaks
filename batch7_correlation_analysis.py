@@ -152,15 +152,15 @@ def plot_correlation_matrix(corr_matrix, turn_type, save_path):
     
     for i in range(n_models):
         for j in range(n_models):
-            # Skip masked upper triangle
-            if j <= i:
+            # Only process lower triangle (where data is shown)
+            if j >= i:
                 continue
                 
             model_i = models[i]
             model_j = models[j]
             
             if get_lab(model_i) == get_lab(model_j):
-                # Add thick border for same lab - coordinates are (j, i) due to heatmap orientation
+                # Add thick border for same lab - coordinates are (j, i) for lower triangle
                 rect = patches.Rectangle((j, i), 1, 1, linewidth=3, 
                                        edgecolor='black', facecolor='none')
                 ax.add_patch(rect)

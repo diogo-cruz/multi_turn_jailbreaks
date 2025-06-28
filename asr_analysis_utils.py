@@ -849,8 +849,9 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     n_cols = min(3, n_plots)  # Max 3 columns
     n_rows = (n_plots + n_cols - 1) // n_cols  # Ceiling division
     
-    # Create subplots
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+    # Create subplots with shared axes and no spacing
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, sharex=True, sharey=True, 
+                            gridspec_kw={'hspace': 0, 'wspace': 0})
     
     # Handle case where there's only one subplot
     if n_plots == 1:
@@ -867,6 +868,11 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
         max_x = max(max_samples, max_rounds)
     else:
         max_x = 8  # Cap at 8
+
+    # Track all legend elements for global legend
+    global_legend_handles = []
+    global_legend_labels = []
+    labels_seen = set()
 
     # Plot each test case
     for i, test_case in enumerate(test_cases):
@@ -914,7 +920,21 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                             label = f'{tactic} (single)'
                         
                         ax.scatter(samples, asr_scores, color=style['color'], s=50, alpha=0.7, 
-                                  marker=style['marker'], label=label)
+                                  marker=style['marker'])
+                        
+                        # Add to global legend if not already seen
+                        if label not in labels_seen:
+                            labels_seen.add(label)
+                            # Determine line style based on label content
+                            if 'Claude' in label or 'batch6B' in label:
+                                linestyle = '--'
+                            elif 'Batch6C' in label or 'batch6C' in label:
+                                linestyle = ':'
+                            else:
+                                linestyle = '-'
+                            line_handle = plt.Line2D([0], [0], color=style['color'], linestyle=linestyle, linewidth=3)
+                            global_legend_handles.append(line_handle)
+                            global_legend_labels.append(label)
                         
                         # Fit curve with higher resolution
                         if len(samples) >= 3:
@@ -967,7 +987,21 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                             label = f'{tactic} (multi)'
                         
                         ax.scatter(rounds, asr_scores, color=style['color'], s=50, alpha=0.7, 
-                                  marker=style['marker'], label=label)
+                                  marker=style['marker'])
+                        
+                        # Add to global legend if not already seen
+                        if label not in labels_seen:
+                            labels_seen.add(label)
+                            # Determine line style based on label content
+                            if 'Claude' in label or 'batch6B' in label:
+                                linestyle = '--'
+                            elif 'Batch6C' in label or 'batch6C' in label:
+                                linestyle = ':'
+                            else:
+                                linestyle = '-'
+                            line_handle = plt.Line2D([0], [0], color=style['color'], linestyle=linestyle, linewidth=3)
+                            global_legend_handles.append(line_handle)
+                            global_legend_labels.append(label)
                         
                         # Fit curve with higher resolution
                         if len(rounds) >= 3:
@@ -980,44 +1014,41 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                                        linestyle=style['linestyle'])  # Use batch-specific line style for fit
                                 print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
         
-        # Customize the plot (no title)
-        ax.set_xlabel(r'Number of Samples/Turns', fontsize=24)
-        ax.set_ylabel(r'Score', fontsize=24)
-        ax.tick_params(axis='both', which='major', labelsize=20)
+        # Customize individual subplot with test case name as local legend
         ax.grid(True, alpha=0.3)
-        ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
         
-        # Set x-axis ticks and limits based on control variable
-        if max_x > 0:
-            ax.set_xticks(range(1, max_x + 1))
-            ax.set_xlim(1, max_x)
-        
-        # Create custom legend with lines instead of points
-        handles, labels = ax.get_legend_handles_labels()
-        line_handles = []
-        for handle, label in zip(handles, labels):
-            # Get the style information from the handle
-            color = handle.get_facecolor()[0] if hasattr(handle, 'get_facecolor') else handle.get_color()
-            
-            # Determine line style based on label content
-            if 'Claude' in label or 'batch6B' in label:
-                linestyle = '--'
-            elif 'Batch6C' in label or 'batch6C' in label:
-                linestyle = ':'
-            else:
-                linestyle = '-'
-            
-            # Create line handle
-            line_handle = plt.Line2D([0], [0], color=color, linestyle=linestyle, linewidth=3)
-            line_handles.append(line_handle)
-        
-        ax.legend(line_handles, labels, loc='lower right', fontsize=18)
+        # Add test case name as local legend in top-left corner
+        test_case_formatted = test_case.replace('_', ' ').title()
+        ax.text(0.05, 0.95, test_case_formatted, transform=ax.transAxes, 
+                fontsize=14, verticalalignment='top', horizontalalignment='left',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
     
     # Hide unused subplots
     for i in range(n_plots, len(axes)):
         axes[i].set_visible(False)
     
+    # Global customization for shared axes
+    fig.supxlabel(r'Number of Samples/Turns', fontsize=24, y=0.02)
+    fig.supylabel(r'Score', fontsize=24, x=0.02)
+    
+    # Set shared axis properties
+    for ax in axes[:n_plots]:
+        ax.tick_params(axis='both', which='major', labelsize=20)
+        ax.set_ylim(0, 1)
+        if max_x > 0:
+            ax.set_xticks(range(1, max_x + 1))
+            ax.set_xlim(1, max_x)
+    
+    # Add global legend at bottom center
+    if global_legend_handles:
+        fig.legend(global_legend_handles, global_legend_labels, 
+                  loc='lower center', bbox_to_anchor=(0.5, -0.05), 
+                  ncol=len(global_legend_labels), fontsize=18)
+    
     plt.tight_layout()
+    
+    # Adjust layout to make room for the bottom legend
+    plt.subplots_adjust(bottom=0.15)
 
     if save_path:
         # Save as PDF
