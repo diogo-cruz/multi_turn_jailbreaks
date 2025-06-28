@@ -981,8 +981,8 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                                 print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
         
         # Customize the plot (no title)
-        ax.set_xlabel(r'Number of Samples/Rounds', fontsize=24)
-        ax.set_ylabel(r'StrongREJECT Score', fontsize=24)
+        ax.set_xlabel(r'Number of Samples/Turns', fontsize=24)
+        ax.set_ylabel(r'Score', fontsize=24)
         ax.tick_params(axis='both', which='major', labelsize=20)
         ax.grid(True, alpha=0.3)
         ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
@@ -1189,8 +1189,8 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                         print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
     
     # Customize the plot (no title)
-    ax.set_xlabel(r'Number of Samples/Rounds', fontsize=24)
-    ax.set_ylabel(r'Average StrongREJECT Score', fontsize=24)
+    ax.set_xlabel(r'Number of Samples/Turns', fontsize=24)
+    ax.set_ylabel(r'Average Score', fontsize=24)
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
@@ -1219,7 +1219,7 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
         line_handle = plt.Line2D([0], [0], color=color, linestyle=linestyle, linewidth=3)
         line_handles.append(line_handle)
     
-    ax.legend(line_handles, labels, loc='lower right', fontsize=18)
+    ax.legend(line_handles, labels, loc='center right', fontsize=18)
     
     plt.tight_layout()
 

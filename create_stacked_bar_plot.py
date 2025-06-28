@@ -164,51 +164,53 @@ def create_reasoning_token_bins(df):
     return df
 
 def create_stacked_bar_plot(single_df, multi_df):
-    """Create the stacked bar chart"""
+    """Create the stacked bar chart with single/multi-turn segments"""
     
     # Remove Qwen and Gemini data, and exclude fake_online_profile test case
     single_df = single_df[(single_df['model'] != 'Qwen') & (single_df['model'] != 'Gemini') & (single_df['test_case'] != 'fake_online_profile')]
     multi_df = multi_df[(multi_df['model'] != 'Qwen') & (multi_df['model'] != 'Gemini') & (multi_df['test_case'] != 'fake_online_profile')]
     
-    # Combine single and multi data for this plot
-    combined_df = pd.concat([single_df, multi_df], ignore_index=True)
-    
-    # Create reasoning token bins
-    combined_df = create_reasoning_token_bins(combined_df)
+    # Create reasoning token bins for both datasets
+    single_df = create_reasoning_token_bins(single_df)
+    multi_df = create_reasoning_token_bins(multi_df)
     
     # Remove rows with NaN bins
-    combined_df = combined_df.dropna(subset=['reasoning_bin'])
+    single_df = single_df.dropna(subset=['reasoning_bin'])
+    multi_df = multi_df.dropna(subset=['reasoning_bin'])
     
-    # Get models with sufficient data
+    # Get models with sufficient data (checking combined data)
+    combined_df = pd.concat([single_df, multi_df], ignore_index=True)
     model_counts = combined_df['model'].value_counts()
     valid_models = model_counts[model_counts >= 10].index.tolist()
-    combined_df = combined_df[combined_df['model'].isin(valid_models)]
     
-    # Calculate average scores by model and reasoning bin
-    grouped = combined_df.groupby(['reasoning_bin', 'model'])['max_score'].agg(['mean', 'std', 'count']).reset_index()
-    grouped.columns = ['reasoning_bin', 'model', 'avg_score', 'std_score', 'count']
+    single_df = single_df[single_df['model'].isin(valid_models)]
+    multi_df = multi_df[multi_df['model'].isin(valid_models)]
     
-    # Pivot to get models as columns
-    pivot_data = grouped.pivot(index='reasoning_bin', columns='model', values='avg_score')
-    pivot_std = grouped.pivot(index='reasoning_bin', columns='model', values='std_score')
-    pivot_count = grouped.pivot(index='reasoning_bin', columns='model', values='count')
+    # Calculate average scores by model, reasoning bin, and turn type
+    single_grouped = single_df.groupby(['reasoning_bin', 'model'])['max_score'].agg(['mean', 'std', 'count']).reset_index()
+    single_grouped.columns = ['reasoning_bin', 'model', 'avg_score', 'std_score', 'count']
+    single_grouped['turn_type'] = 'single'
+    
+    multi_grouped = multi_df.groupby(['reasoning_bin', 'model'])['max_score'].agg(['mean', 'std', 'count']).reset_index()
+    multi_grouped.columns = ['reasoning_bin', 'model', 'avg_score', 'std_score', 'count']
+    multi_grouped['turn_type'] = 'multi'
+    
+    # Pivot to get models as columns for each turn type
+    single_pivot = single_grouped.pivot(index='reasoning_bin', columns='model', values='avg_score')
+    multi_pivot = multi_grouped.pivot(index='reasoning_bin', columns='model', values='avg_score')
     
     # Fill NaN values with 0
-    pivot_data = pivot_data.fillna(0)
-    pivot_std = pivot_std.fillna(0)
-    pivot_count = pivot_count.fillna(0)
-    
-    # Calculate standard error
-    pivot_stderr = pivot_std / np.sqrt(pivot_count)
-    pivot_stderr = pivot_stderr.fillna(0)
+    single_pivot = single_pivot.fillna(0)
+    multi_pivot = multi_pivot.fillna(0)
     
     # Define the order of reasoning bins
     bin_order = ['0-200', '200-500', '500-1000', '1000-1500', '1500+']
-    pivot_data = pivot_data.reindex(bin_order)
-    pivot_stderr = pivot_stderr.reindex(bin_order)
+    single_pivot = single_pivot.reindex(bin_order, fill_value=0)
+    multi_pivot = multi_pivot.reindex(bin_order, fill_value=0)
     
     # Get models and assign colors
-    models = pivot_data.columns.tolist()
+    models = list(set(single_pivot.columns.tolist() + multi_pivot.columns.tolist()))
+    models.sort()  # For consistent ordering
     colors = [f'C{i}' for i in range(len(models))]
     
     # Create the plot
@@ -218,24 +220,43 @@ def create_stacked_bar_plot(single_df, multi_df):
     x = np.arange(len(bin_order))
     bar_width = 0.8 / len(models)
     
-    # Create grouped bars
+    # Create stacked bars for each model
     for i, (model, color) in enumerate(zip(models, colors)):
         x_pos = x + (i - len(models)/2 + 0.5) * bar_width
-        values = pivot_data[model].values
-        errors = pivot_stderr[model].values
         
-        ax.bar(x_pos, values, bar_width, 
-               label=model, color=color, 
-               yerr=errors, capsize=3, alpha=0.8)
+        # Get single and multi values for this model
+        single_values = single_pivot[model].values if model in single_pivot.columns else np.zeros(len(bin_order))
+        multi_values = multi_pivot[model].values if model in multi_pivot.columns else np.zeros(len(bin_order))
+        
+        # Create stacked bars
+        ax.bar(x_pos, single_values, bar_width, 
+               label=f'{model} (single)' if i == 0 else None, 
+               color=color, alpha=0.8)
+        ax.bar(x_pos, multi_values, bar_width, 
+               bottom=single_values,
+               label=f'{model} (multi)' if i == 0 else None,
+               color=color, alpha=0.5)
     
     # Customize the plot
     ax.set_xlabel('Reasoning Tokens')
     ax.set_ylabel('StrongREJECT score')
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 2)  # Increased to accommodate stacking
     ax.set_xticks(x)
     ax.set_xticklabels(bin_order)
     ax.grid(True, alpha=0.3, axis='y')
-    ax.legend(loc='upper left')
+    
+    # Create custom legend
+    legend_handles = []
+    
+    # Add model color entries
+    for model, color in zip(models, colors):
+        legend_handles.append(plt.Rectangle((0,0),1,1, color=color, alpha=0.8, label=model))
+    
+    # Add turn type entries
+    legend_handles.append(plt.Rectangle((0,0),1,1, color='gray', alpha=0.8, label='single'))
+    legend_handles.append(plt.Rectangle((0,0),1,1, color='gray', alpha=0.5, label='multi'))
+    
+    ax.legend(handles=legend_handles, loc='upper left')
     
     plt.tight_layout()
     plt.savefig('strongreject_vs_reasoning_tokens_stacked_bars.pdf', dpi=300, bbox_inches='tight')
@@ -245,8 +266,10 @@ def create_stacked_bar_plot(single_df, multi_df):
     print("\nData summary:")
     print(f"Models included: {models}")
     print(f"Reasoning token bins: {bin_order}")
-    print("\nAverage scores by model and bin:")
-    print(pivot_data.round(3))
+    print("\nSingle-turn scores by model and bin:")
+    print(single_pivot.round(3))
+    print("\nMulti-turn scores by model and bin:")
+    print(multi_pivot.round(3))
 
 def main():
     """Main function"""

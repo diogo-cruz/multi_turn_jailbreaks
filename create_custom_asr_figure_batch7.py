@@ -63,10 +63,16 @@ def get_clean_model_name(model_name):
         'openai/gpt-4.1-mini': 'GPT-4.1 Mini',
         'openai/gpt-4.1-nano': 'GPT-4.1 Nano',
         'openai/gpt-4o': 'GPT-4o',
+        'openai/gpt-4o-2024-05-13': 'GPT-4o (old)',
         'google/gemini-2.5-pro-preview-03-25': 'Gemini 2.5 Pro',
+        'google/gemini-2.5-pro': 'Gemini 2.5 Pro',
         'google/gemini-2.5-flash-preview': 'Gemini 2.5 Flash',
+        'google/gemini-2.5-flash': 'Gemini 2.5 Flash',
+        'google/gemini-2.5-flash-lite-preview-06-17': 'Gemini 2.5 Flash Lite',
         'anthropic/claude-3.5-sonnet': 'Claude 3.5 Sonnet',
         'anthropic/claude-3.7-sonnet': 'Claude 3.7 Sonnet',
+        'anthropic/claude-3-sonnet': 'Claude 3 Sonnet',
+        'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
         'meta-llama/llama-3.1-8b-instruct': 'Llama 3.1 8B',
         'meta-llama/llama-3.1-70b-instruct': 'Llama 3.1 70B', 
         'meta-llama/llama-3.2-1b-instruct': 'Llama 3.2 1B',
@@ -95,24 +101,24 @@ def create_custom_three_scenario_figure(data_file):
     single_original_asr = df['single_original_asr'].values
     multi_asr = df['multi_asr'].values
     
-    # Calculate the additional amounts for stacking
-    # single_only = single_original - single_refusal_handled (the additional from ignoring refusals)
-    single_additional = single_original_asr - single_refusal_handled_asr
+    # Create overlapping horizontal bars (stacked on same y-position)
+    # Each bar shows the actual ASR value for that scenario
     
-    # Create stacked horizontal bars with professional styling
-    # Order: "single (no refusals)", "single", then "multi"
-    bars1 = ax.barh(y_pos, single_refusal_handled_asr, 
-                   color='lightblue', alpha=0.7, label='single (no refusals)')
-    bars2 = ax.barh(y_pos, single_additional, left=single_refusal_handled_asr,
-                   color='#1f77b4', alpha=0.7, label='single')
-    bars3 = ax.barh(y_pos, multi_asr, left=single_original_asr,
+    # Create overlapping horizontal bars with professional styling
+    # Order: largest first (multi), then medium (single), then smallest (single no refusals)
+    # This ensures all bars are visible
+    bars3 = ax.barh(y_pos, multi_asr, 
                    color='orange', alpha=0.7, label='multi')
+    bars2 = ax.barh(y_pos, single_original_asr,
+                   color='#1f77b4', alpha=0.7, label='single')
+    bars1 = ax.barh(y_pos, single_refusal_handled_asr,
+                   color='lightblue', alpha=0.7, label='single (no refusals)')
     
     # Customize the plot (following LOGBOOK specifications)
     ax.set_xlabel('StrongREJECT score')
     ax.set_yticks(y_pos)
     ax.set_yticklabels(models)
-    ax.set_xlim(0, max(1.0, (single_original_asr + multi_asr).max() * 1.1))
+    ax.set_xlim(0, max(1.0, max(single_original_asr.max(), multi_asr.max()) * 1.1))
     
     # Add professional grid and legend
     ax.grid(True, alpha=0.3)
@@ -124,16 +130,16 @@ def create_custom_three_scenario_figure(data_file):
     plt.tight_layout()
     
     # Save both PNG and PDF formats
-    plt.savefig('custom_asr_figure.png', dpi=300, bbox_inches='tight')
-    plt.savefig('custom_asr_figure.pdf', bbox_inches='tight')
+    plt.savefig('custom_asr_figure_batch7.png', dpi=300, bbox_inches='tight')
+    plt.savefig('custom_asr_figure_batch7.pdf', bbox_inches='tight')
     
     print("Custom ASR figure saved as:")
-    print("- custom_asr_figure.png (300 DPI)")
-    print("- custom_asr_figure.pdf (vector format)")
+    print("- custom_asr_figure_batch7.png (300 DPI)")
+    print("- custom_asr_figure_batch7.pdf (vector format)")
     
     plt.close()
 
-def load_and_process_jsonl_data(data_dir="clean_results/final_runs/batch3A"):
+def load_and_process_jsonl_data(data_dir="clean_results/final_runs/batch7"):
     """Load and process JSONL files with refusal handling"""
     import json
     from pathlib import Path
@@ -403,13 +409,13 @@ def analyze_csv_data_with_refusal_handling(df, tactic_filter='direct_request'):
     return pd.DataFrame(results)
 
 def main():
-    """Main function to create the modified custom ASR figure with three scenarios."""
+    """Main function to create the modified custom ASR figure with three scenarios for batch7."""
     
-    print("Creating custom ASR figure with three scenarios...")
+    print("Creating custom ASR figure with three scenarios for batch7...")
     print("=" * 60)
     
-    # Process JSONL data from batch3A with three scenarios
-    jsonl_data = load_and_process_jsonl_data("clean_results/final_runs/batch3A")
+    # Process JSONL data from batch7 with three scenarios
+    jsonl_data = load_and_process_jsonl_data("clean_results/final_runs/batch7")
     
     if not jsonl_data:
         print("No JSONL data found!")
@@ -428,7 +434,7 @@ def main():
         return
     
     # Save the processed data
-    output_data_file = 'asr_three_scenarios_batch3A_data.csv'
+    output_data_file = 'asr_three_scenarios_batch7_data.csv'
     results_df.to_csv(output_data_file, index=False)
     print(f"Processed data saved to: {output_data_file}")
     
