@@ -18,7 +18,7 @@ import matplotlib
 # Enable LaTeX rendering
 matplotlib.rcParams['text.usetex'] = True
 matplotlib.rcParams['font.family'] = 'serif'
-matplotlib.rcParams['font.size'] = 24
+matplotlib.rcParams['font.size'] = 30
 
 def clean_model_name(raw_model_name):
     """Clean up model names for display"""
@@ -228,35 +228,30 @@ def create_stacked_bar_plot(single_df, multi_df):
         single_values = single_pivot[model].values if model in single_pivot.columns else np.zeros(len(bin_order))
         multi_values = multi_pivot[model].values if model in multi_pivot.columns else np.zeros(len(bin_order))
         
-        # Create stacked bars
+        # Create overlapping bars
         ax.bar(x_pos, single_values, bar_width, 
                label=f'{model} (single)' if i == 0 else None, 
                color=color, alpha=0.8)
         ax.bar(x_pos, multi_values, bar_width, 
-               bottom=single_values,
                label=f'{model} (multi)' if i == 0 else None,
-               color=color, alpha=0.5)
+               color=color, alpha=0.3)
     
     # Customize the plot
     ax.set_xlabel('Reasoning Tokens')
     ax.set_ylabel('StrongREJECT score')
-    ax.set_ylim(0, 2)  # Increased to accommodate stacking
+    ax.set_ylim(0, 1)  # Back to normal range since bars overlap
     ax.set_xticks(x)
     ax.set_xticklabels(bin_order)
     ax.grid(True, alpha=0.3, axis='y')
     
-    # Create custom legend
+    # Create custom legend (models only)
     legend_handles = []
     
-    # Add model color entries
+    # Add model color entries only
     for model, color in zip(models, colors):
         legend_handles.append(plt.Rectangle((0,0),1,1, color=color, alpha=0.8, label=model))
     
-    # Add turn type entries
-    legend_handles.append(plt.Rectangle((0,0),1,1, color='gray', alpha=0.8, label='single'))
-    legend_handles.append(plt.Rectangle((0,0),1,1, color='gray', alpha=0.5, label='multi'))
-    
-    ax.legend(handles=legend_handles, loc='upper left')
+    ax.legend(handles=legend_handles, loc='upper left', fontsize=20)
     
     plt.tight_layout()
     plt.savefig('strongreject_vs_reasoning_tokens_stacked_bars.pdf', dpi=300, bbox_inches='tight')

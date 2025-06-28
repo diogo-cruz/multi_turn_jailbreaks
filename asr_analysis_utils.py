@@ -1028,7 +1028,7 @@ def plot_combined_analysis(single_turn_results: pd.DataFrame, multi_turn_results
         axes[i].set_visible(False)
     
     # Global customization for shared axes
-    fig.supxlabel(r'Number of Samples/Turns', fontsize=24, y=0.02)
+    fig.supxlabel(r"$n_{\rm attacks}'$ (single) or $n_{\rm turns}'$ (multi)", fontsize=24, y=0.02)
     fig.supylabel(r'Score', fontsize=24, x=0.02)
     
     # Set shared axis properties
@@ -1071,11 +1071,11 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
     plt.rcParams.update({
         'text.usetex': True,
         'font.family': 'serif',
-        'font.size': 24,
-        'axes.labelsize': 24,
-        'xtick.labelsize': 20,
-        'ytick.labelsize': 20,
-        'legend.fontsize': 18
+        'font.size': 30,
+        'axes.labelsize': 30,
+        'xtick.labelsize': 30,
+        'ytick.labelsize': 30,
+        'legend.fontsize': 20
     })
     fig, ax = plt.subplots(figsize=figsize)
     
@@ -1220,9 +1220,9 @@ def plot_averaged_analysis(single_turn_results: pd.DataFrame, multi_turn_results
                         print(f"Multi-turn {label}: A={params[0]:.3f}, B={params[1]:.3f}, c={params[2]:.3f}")
     
     # Customize the plot (no title)
-    ax.set_xlabel(r'Number of Samples/Turns', fontsize=24)
-    ax.set_ylabel(r'Average Score', fontsize=24)
-    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.set_xlabel(r"$n_{\rm attacks}'$ (single) or $n_{\rm turns}'$ (multi)", fontsize=30)
+    ax.set_ylabel(r'StrongREJECT Score', fontsize=30)
+    ax.tick_params(axis='both', which='major', labelsize=30)
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1)  # StrongREJECT scores between 0 and 1
     

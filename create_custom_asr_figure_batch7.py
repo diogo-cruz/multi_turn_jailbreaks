@@ -16,7 +16,7 @@ import os
 # Enable LaTeX rendering
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.family'] = 'serif'
-plt.rcParams['font.size'] = 24
+plt.rcParams['font.size'] = 30
 
 def safe_eval_scores(scores_str):
     """Safely evaluate scores string to list."""
@@ -122,7 +122,7 @@ def create_custom_three_scenario_figure(data_file):
     
     # Add professional grid and legend
     ax.grid(True, alpha=0.3)
-    ax.legend()
+    legend = ax.legend(fontsize=20, handlelength=1.4, handletextpad=0.4, columnspacing=1.4)
     
     # Remove title and y-axis label as specified in LOGBOOK
     # (Clean appearance for publication)
